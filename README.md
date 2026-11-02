@@ -3,8 +3,8 @@
 Microsoft Phone Link, rebuilt from scratch — Android phone + Windows PC, **local network only, no
 cloud account, no relay server**.
 
-> **Status: v0.4.** Built-in updates, phone photo albums, live battery status, QR pairing, SMS, notifications,
-> two-way file transfer and clipboard sync are implemented end to end. Calls, screen mirroring and
+> **Status: v0.4.5.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
+> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. Screen mirroring and
 > Android app streaming are **not** — see
 > [Roadmap](#roadmap). Everything is built by GitHub Actions; there are no local build steps.
 
@@ -32,10 +32,11 @@ docs/         PROTOCOL.md — the wire format, crypto and threat model
 | Photo albums | ✅ | thumbnails, paged albums, large preview, original download |
 | Battery status | ✅ | live percentage and charging state beside the connected phone |
 | Built-in updates | ✅ | Windows download/restart flow; Android verified APK + system confirmation |
+| Phone calls | ✅ control | dial, receive, answer, decline, hang up and phone-speaker toggle |
+| Call audio on PC | ⛔ | audio deliberately stays on the phone; no capture or streaming |
 | File transfer both ways | ✅ | 64 KiB chunks, 512 KiB window, Documents/Downloads |
 | Clipboard sync | ✅ (text) | PC ⇄ phone, phone side only while the app is open |
 | Auto-reconnect | ✅ | 2.5 s backoff, survives Wi-Fi hiccups |
-| Phone calls | ⛔ | planned — needs Bluetooth HFP, see below |
 | Screen mirror + control | ⛔ | planned — `MediaProjection` + WebRTC |
 | App streaming, camera | ⛔ | planned |
 
@@ -47,8 +48,8 @@ docs/         PROTOCOL.md — the wire format, crypto and threat model
 │                          │                                      │                            │
 │  NsdManager discovery    │         ws://192.168.x.x:8765        │  bonjour-service advert    │
 │  OkHttp WebSocket ───────┼──────────────────────────────────────┼─► ws server                │
-│  Notifications + SMS     │   AES-256-GCM frames (seq + AAD)     │  system notifications      │
-│  QR + photos + battery   │                                      │  gallery / files / status  │
+│  Calls + notif + SMS     │   AES-256-GCM frames (seq + AAD)     │  call controls / status    │
+│  QR + photos + battery   │                                      │  gallery / files           │
 │  Clipboard poller        │                                      │  tray + React UI           │
 └──────────────────────────┘                                      └───────────────────────────┘
 ```
@@ -62,13 +63,15 @@ handshake and the threat model.
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
    If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
    v0.2 established the permanent key, so v0.2 and later update in place normally.
-3. Run `LinkPhone.Setup.0.4.0.exe` on Windows. The installer is unsigned, so SmartScreen requires
+3. Run `LinkPhone.Setup.0.4.5.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
    flow remains available as a fallback.
 6. On the phone, open notification settings, then tap **Allow SMS access** and
    **Allow photo access**. Android 14+ can expose all photos or only a selected set.
+7. For call controls, tap **Set as default phone app**, accept Android's role prompt, then allow
+   phone permissions.
 
 Both devices must be on the same Wi-Fi, and the network must allow mDNS and client-to-client
 traffic. Guest/AP-isolated Wi-Fi will not work.
@@ -84,6 +87,17 @@ v0.4 must be installed manually once because older versions do not contain updat
   LinkPhone; a normal sideloaded app cannot bypass that screen.
 * Android downloads are checked against GitHub's SHA-256 digest and the certificate that signed the
   installed LinkPhone app before the installer is opened.
+
+### Phone calls
+
+Android requires LinkPhone to be the **default phone/dialer app** for reliable incoming and active
+call control. v0.4.5 includes a minimal phone-side dial/incoming/in-call screen and call notification,
+so calls remain usable if Windows is offline. You can restore your previous default dialer at any
+time in Android Settings → Apps → Default apps → Phone app.
+
+Windows can dial, show incoming calls, answer, decline, hang up, and toggle the **phone's** speaker.
+Microphone and call audio never cross the network. Do not depend on LinkPhone for emergency calling;
+use the phone's emergency interface directly.
 
 ### If discovery finds nothing
 
@@ -110,6 +124,8 @@ Android needs Android Studio or the SDK plus a JDK 17; `gradle :app:installDebug
   when **Download original** is clicked.
 * Updater checks contact only this repository's public GitHub Releases API. They send no phone data,
   account information or telemetry.
+* Phone numbers, call state and control commands use the encrypted LAN channel. No call audio is
+  captured, transmitted or stored.
 * The PC stores the per-device key in `config.json` under `%APPDATA%\LinkPhone`; the phone stores it
   in `EncryptedSharedPreferences`.
 * **Not yet hardened:** no TLS/pinning (a malicious LAN host could impersonate the PC), 6-digit codes
@@ -120,11 +136,9 @@ Android needs Android Studio or the SDK plus a JDK 17; `gradle :app:installDebug
 1. **MMS + new conversations** — LinkPhone intentionally replies inside existing SMS threads only. It
    does not become the default SMS app, so messages sent from the PC are not inserted into Android's
    provider history by LinkPhone itself.
-2. **Calls** — call control via `TelecomManager`/`InCallService`; audio over Bluetooth HFP, handled by
-   the OS, exactly like Phone Link. In-call audio cannot be captured by a normal Android app.
-3. **Screen mirroring** — `MediaProjection` → hardware H.264 encoder → WebRTC; touch injection via an
+2. **Screen mirroring** — `MediaProjection` → hardware H.264 encoder → WebRTC; touch injection via an
    `AccessibilityService`.
-4. **TLS + pinning**, manual IP entry, contact-name lookup, multi-device.
+3. **TLS + pinning**, manual IP entry, contact-name lookup, multi-device.
 
 ### Why iOS is out of scope
 

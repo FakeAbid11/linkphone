@@ -97,7 +97,26 @@ With the phone connected, inspect its card in the desktop sidebar.
 * ✅ Plugging/unplugging power updates the card without reconnecting.
 * ❌ No percentage → update both apps to v0.3 and reconnect once.
 
-## 9. Files
+## 9. Calls
+
+On the phone tap **Set as default phone app**, accept Android's role prompt and grant Phone access.
+On Windows open **Calls**.
+
+* ✅ Enter a non-emergency test number and press **Call**; the phone places the call and Windows shows
+  dialing/active state.
+* ✅ Call the phone from another number; both phone and Windows show the incoming call.
+* ✅ **Answer**, **Decline**, and **Hang up** work from Windows.
+* ✅ **Phone speaker** switches audio from the phone earpiece to its loudspeaker; switching it off
+  returns to the earpiece.
+* ✅ No microphone or call audio is heard on or sent to the PC.
+* ✅ Disconnect/close Windows and make an incoming call; the phone's own call notification and screen
+  still allow answering or declining.
+* ❌ “Set LinkPhone as the default phone app” → complete the role card in the Android app first.
+
+Do not use LinkPhone call control to test emergency numbers. Restore the previous dialer under
+Android Settings → Apps → Default apps → Phone app if you no longer want LinkPhone handling calls.
+
+## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.
 
@@ -111,30 +130,23 @@ With the phone connected, inspect its card in the desktop sidebar.
 A 100 MB file should take a few seconds on 5 GHz and must not stall: the sender keeps 512 KiB in
 flight, the receiver acks every 512 KiB.
 
-## 10. Clipboard
+## 11. Clipboard
 
 * Copy text on the PC → after ~1 s it should be on the phone's clipboard (paste somewhere to check).
 * Copy text on the phone **while the LinkPhone screen is open** → appears on the PC clipboard.
 * Phone → PC only works in the foreground; that is an Android 10+ restriction, not a bug.
 
-## 11. Built-in updates
+## 12. Built-in updates
 
-Because v0.4 is the first updater-enabled build, install it manually. With v0.4 currently latest:
+v0.4 is the first updater-enabled build. Use it to test the v0.4.5 update:
 
-* ✅ Windows → **Settings** → **Check for updates** reports that v0.4 is current.
-* ✅ Android's **App update** card reports that v0.4 is current.
-* ✅ The v0.4 GitHub release contains the installer, `.blockmap`, and `latest.yml`; Windows needs all
-  three for future differential updates.
-
-For the first v0.5 test:
-
-* ✅ Windows detects it, downloads with progress, and **Restart & install** relaunches the new version.
-* ✅ Android detects it, downloads the APK, verifies SHA-256 + signing certificate, then opens the
+* ✅ Windows v0.4 detects v0.4.5, downloads with progress, and **Restart & install** relaunches it.
+* ✅ Android v0.4 detects v0.4.5, downloads the APK, verifies SHA-256 + signing certificate, then opens the
   Android installer confirmation.
 * ❌ Android opens “Install unknown apps” first → allow LinkPhone and tap **Install** again. This is
   required once by Android and cannot be skipped by the app.
 
-## 12. Resilience
+## 13. Resilience
 
 * Lock the phone for 5 minutes → the foreground service should keep the socket alive.
 * Toggle Wi-Fi off/on → within ~3 s the phone should reconnect and the status returns to Connected.

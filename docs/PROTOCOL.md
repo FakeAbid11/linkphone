@@ -132,6 +132,13 @@ The key used here is the one stored at pairing time, not a fresh PBKDF2 derivati
 | `gallery.preview` | phone → PC | `photoId`, `mime`, `data` |
 | `gallery.download` | PC → phone | `photoId` |
 | `gallery.error` | phone → PC | `op`, `error` |
+| `call.state` | phone → PC | `calls[]`, `dialerReady`, `speaker`, `muted` |
+| `call.place` | PC → phone | `number` |
+| `call.answer` | PC → phone | `callId` |
+| `call.reject` | PC → phone | `callId` |
+| `call.disconnect` | PC → phone | `callId` |
+| `call.speaker` | PC → phone | `enabled` |
+| `call.error` | phone → PC | `error` |
 | `ping` / `pong` | both | `ts` |
 
 ### SMS
@@ -158,6 +165,18 @@ LinkPhone never modifies or deletes the phone's MediaStore rows.
 The Android foreground service watches the sticky `ACTION_BATTERY_CHANGED` broadcast. It sends an
 initial `device.status` after authentication and another only when percentage or charging state
 changes. No Android permission is required.
+
+### Call control
+
+The Android app must hold `RoleManager.ROLE_DIALER` and phone permissions. Its `InCallService`
+publishes call IDs, number/display label, direction, state and timestamps. Windows sends commands by
+opaque call ID. Outgoing PSTN calls use `TelecomManager.placeCall`; speaker routing uses the
+InCallService call-audio route.
+
+Only signaling/control data uses this protocol. LinkPhone does not access, encode or transport the
+microphone or call audio; audio remains on the phone earpiece/speaker (or another route selected by
+Android). The phone includes its own minimal call UI and high-priority notification for PC-offline
+operation.
 
 ### File transfer
 

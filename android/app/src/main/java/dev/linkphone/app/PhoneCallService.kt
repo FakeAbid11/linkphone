@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.telecom.Call
 import android.telecom.CallAudioState
+import android.telecom.DisconnectCause
 import android.telecom.InCallService
 import android.telecom.TelecomManager
 import android.telecom.VideoProfile
@@ -120,7 +121,9 @@ class PhoneCallService : InCallService() {
         calls[id] = call
         started[id] = System.currentTimeMillis()
         val callback = object : Call.Callback() {
-            override fun onStateChanged(call: Call, state: Int) = publish()
+            override fun onStateChanged(call: Call, state: Int) {
+                publish()
+            }
             override fun onDetailsChanged(call: Call, details: Call.Details) = publish()
         }
         callbacks[id] = callback
@@ -142,10 +145,13 @@ class PhoneCallService : InCallService() {
 
     override fun onCallRemoved(call: Call) {
         val id = callId(call)
+        val finalInfo = call.toInfo(id, started[id] ?: System.currentTimeMillis())
+        val wasMissed = call.details.disconnectCause.code == DisconnectCause.MISSED
         callbacks.remove(id)?.let { call.unregisterCallback(it) }
         calls.remove(id)
         started.remove(id)
         publish()
+        if (finalInfo.incoming && wasMissed) notifier.showMissed(finalInfo)
         super.onCallRemoved(call)
     }
 
@@ -266,6 +272,14 @@ private class CallNotifier(private val context: Context) {
             setSound(null, null)
         }
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val missed = NotificationChannel(
+            MISSED_CHANNEL_ID,
+            "Missed calls",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Missed calls handled by LinkPhone"
+        }
+        context.getSystemService(NotificationManager::class.java).createNotificationChannel(missed)
     }
 
     fun update(snapshot: PhoneCallSnapshot) {
@@ -331,6 +345,28 @@ private class CallNotifier(private val context: Context) {
         manager.cancel(NOTIFICATION_ID)
     }
 
+    fun showMissed(call: PhoneCallInfo) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        val intent = Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", call.number, null), context, CallActivity::class.java)
+        val pending = PendingIntent.getActivity(
+            context,
+            95 + call.id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, MISSED_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setContentTitle("Missed call")
+            .setContentText(call.displayName.ifBlank { call.number })
+            .setContentIntent(pending)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
+            .build()
+        manager.notify(MISSED_NOTIFICATION_BASE + call.id.hashCode(), notification)
+    }
+
     private fun action(
         action: String,
         callId: String,
@@ -362,6 +398,8 @@ private class CallNotifier(private val context: Context) {
 
     companion object {
         private const val CHANNEL_ID = "linkphone_calls"
+        private const val MISSED_CHANNEL_ID = "linkphone_missed_calls"
         private const val NOTIFICATION_ID = 42
+        private const val MISSED_NOTIFICATION_BASE = 4300
     }
 }

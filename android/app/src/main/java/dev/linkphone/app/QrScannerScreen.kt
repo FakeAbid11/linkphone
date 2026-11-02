@@ -153,8 +153,10 @@ fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
                     DisposableEffect(previewView, lifecycleOwner) {
                         val future = ProcessCameraProvider.getInstance(context)
                         var provider: ProcessCameraProvider? = null
+                        var active = true
 
                         future.addListener({
+                            if (!active) return@addListener
                             try {
                                 val bound = future.get()
                                 provider = bound
@@ -200,6 +202,7 @@ fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
                         }, ContextCompat.getMainExecutor(context))
 
                         onDispose {
+                            active = false
                             runCatching { provider?.unbindAll() }
                         }
                     }

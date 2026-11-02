@@ -15,12 +15,8 @@ export function newPairCode(): string {
 }
 
 export function normalizeCode(code: string): string {
-  return code
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .replace(/O/g, '0')
-    .replace(/I/g, '1')
-    .replace(/L/g, '1')
+  // Must match Crypto.normalize() on Android byte for byte.
+  return code.toUpperCase().replace(/[^A-Z0-9]/g, '')
 }
 
 /** A 6-digit numeric code is also accepted for convenience. */

@@ -16,7 +16,8 @@ object Crypto {
     private const val TAG_BITS = 128
     private val random = SecureRandom()
 
-    fun normalize(code: String): String = code.uppercase().filter { it.isLetterOrDigit() }
+    fun normalize(code: String): String =
+        code.uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }
 
     fun deriveKey(code: String, salt: ByteArray): ByteArray {
         val spec = PBEKeySpec(normalize(code).toCharArray(), salt, ITERATIONS, 256)

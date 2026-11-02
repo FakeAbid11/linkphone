@@ -129,9 +129,8 @@ class PhoneCallService : InCallService() {
         callbacks[id] = callback
         call.registerCallback(callback)
         publish()
-        if (call.state == Call.STATE_RINGING &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
+        if (call.state == Call.STATE_RINGING ||
+            !NotificationManagerCompat.from(this).areNotificationsEnabled()
         ) {
             runCatching {
                 startActivity(

@@ -130,6 +130,7 @@ export class LinkServer extends EventEmitter {
   private wss: WebSocketServer | null = null
   private peers = new Set<Peer>()
   private outbound = new Map<string, Outbound>()
+  private ringingCallIds = new Set<string>()
   private readonly receiver: FileReceiver
   private heartbeat: NodeJS.Timeout | null = null
   port = 0
@@ -235,6 +236,7 @@ export class LinkServer extends EventEmitter {
     })
     ws.on('close', () => {
       this.peers.delete(peer)
+      this.ringingCallIds.clear()
       if (peer.deviceId) {
         this.store.markDisconnected(peer.deviceId)
         this.receiver.cancelAllForDevice(peer.deviceId)
@@ -604,8 +606,16 @@ export class LinkServer extends EventEmitter {
 
       case 'call.state': {
         const list = Array.isArray(msg.calls) ? (msg.calls as unknown[]) : []
+        const calls = list.filter(isRawMsg).map(parsePhoneCall).slice(0, 8)
+        const ringing = new Set(calls.filter((call) => call.phase === 'ringing').map((call) => call.id))
+        for (const call of calls) {
+          if (call.phase === 'ringing' && !this.ringingCallIds.has(call.id)) {
+            this.emit('incomingCall', call)
+          }
+        }
+        this.ringingCallIds = ringing
         this.store.setCallState({
-          calls: list.filter(isRawMsg).map(parsePhoneCall).slice(0, 8),
+          calls,
           dialerReady: bool(msg.dialerReady),
           speaker: bool(msg.speaker),
           muted: bool(msg.muted)

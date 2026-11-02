@@ -11,7 +11,7 @@ import {
   shell,
   Tray
 } from 'electron'
-import type { AppState } from '../shared/protocol'
+import type { AppState, PhoneCallInfo } from '../shared/protocol'
 import { ClipboardWatcher } from './clipboard'
 import { newPairCode } from './crypto'
 import { advertise, localAddresses, type Advertisement } from './discovery'
@@ -282,6 +282,21 @@ async function bootstrap(): Promise<void> {
         store.dismissNotification(item.key)
       })
       n.show()
+    } catch {
+      /* notifications unavailable */
+    }
+  })
+
+  server.on('incomingCall', (call: PhoneCallInfo) => {
+    if (!Notification.isSupported()) return
+    try {
+      const toast = new Notification({
+        title: 'Incoming phone call',
+        body: call.displayName || call.number || 'Unknown caller',
+        silent: false
+      })
+      toast.on('click', () => showWindow())
+      toast.show()
     } catch {
       /* notifications unavailable */
     }

@@ -3,7 +3,7 @@
 Microsoft Phone Link, rebuilt from scratch — Android phone + Windows PC, **local network only, no
 cloud account, no relay server**.
 
-> **Status: v0.3.** Phone photo albums, live battery status, QR pairing, SMS, notifications,
+> **Status: v0.4.** Built-in updates, phone photo albums, live battery status, QR pairing, SMS, notifications,
 > two-way file transfer and clipboard sync are implemented end to end. Calls, screen mirroring and
 > Android app streaming are **not** — see
 > [Roadmap](#roadmap). Everything is built by GitHub Actions; there are no local build steps.
@@ -31,6 +31,7 @@ docs/         PROTOCOL.md — the wire format, crypto and threat model
 | MMS / new conversation | ⛔ | existing SMS threads only |
 | Photo albums | ✅ | thumbnails, paged albums, large preview, original download |
 | Battery status | ✅ | live percentage and charging state beside the connected phone |
+| Built-in updates | ✅ | Windows download/restart flow; Android verified APK + system confirmation |
 | File transfer both ways | ✅ | 64 KiB chunks, 512 KiB window, Documents/Downloads |
 | Clipboard sync | ✅ (text) | PC ⇄ phone, phone side only while the app is open |
 | Auto-reconnect | ✅ | 2.5 s backoff, survives Wi-Fi hiccups |
@@ -61,7 +62,7 @@ handshake and the threat model.
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
    If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
    v0.2 established the permanent key, so v0.2 and later update in place normally.
-3. Run `LinkPhone.Setup.0.3.0.exe` on Windows. The installer is unsigned, so SmartScreen requires
+3. Run `LinkPhone.Setup.0.4.0.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
@@ -71,6 +72,18 @@ handshake and the threat model.
 
 Both devices must be on the same Wi-Fi, and the network must allow mDNS and client-to-client
 traffic. Guest/AP-isolated Wi-Fi will not work.
+
+### Built-in updates
+
+v0.4 must be installed manually once because older versions do not contain updater code. After that:
+
+* **Windows:** Settings checks automatically every six hours. Choose **Download**, then
+  **Restart & install**.
+* **Android:** the App update card checks when LinkPhone opens. Choose **Download**, then **Install**.
+  Android always shows its system installer confirmation and may first ask to allow installs from
+  LinkPhone; a normal sideloaded app cannot bypass that screen.
+* Android downloads are checked against GitHub's SHA-256 digest and the certificate that signed the
+  installed LinkPhone app before the installer is opened.
 
 ### If discovery finds nothing
 
@@ -95,6 +108,8 @@ Android needs Android Studio or the SDK plus a JDK 17; `gradle :app:installDebug
 * SMS and photo previews use the same encrypted channel and are never uploaded. Both permissions
   are optional; gallery thumbnails/previews are held only in PC memory. Originals are saved only
   when **Download original** is clicked.
+* Updater checks contact only this repository's public GitHub Releases API. They send no phone data,
+  account information or telemetry.
 * The PC stores the per-device key in `config.json` under `%APPDATA%\LinkPhone`; the phone stores it
   in `EncryptedSharedPreferences`.
 * **Not yet hardened:** no TLS/pinning (a malicious LAN host could impersonate the PC), 6-digit codes

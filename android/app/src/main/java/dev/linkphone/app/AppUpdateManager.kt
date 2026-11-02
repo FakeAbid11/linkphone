@@ -167,11 +167,13 @@ class AppUpdateManager(context: Context) {
             for (index in 0 until assets.length()) {
                 val asset = assets.optJSONObject(index) ?: continue
                 if (asset.optString("name") != APK_NAME) continue
+                val url = asset.optString("browser_download_url")
+                if (!url.startsWith("https://github.com/")) {
+                    error("Release APK has an invalid download URL")
+                }
                 return Release(
                     version = version,
-                    url = asset.optString("browser_download_url").ifBlank {
-                        error("Release APK has no download URL")
-                    },
+                    url = url,
                     digest = asset.optString("digest").takeIf { it.isNotBlank() },
                     size = asset.optLong("size", -1L)
                 )
@@ -184,6 +186,9 @@ class AppUpdateManager(context: Context) {
         val directory = File(appContext.cacheDir, "updates").apply { mkdirs() }
         val partial = File(directory, "linkphone-${release.version}.apk.part")
         val final = File(directory, "linkphone-${release.version}.apk")
+        directory.listFiles()?.forEach { file ->
+            if (file != partial && file != final) file.delete()
+        }
         partial.delete()
         final.delete()
 
@@ -196,6 +201,7 @@ class AppUpdateManager(context: Context) {
             if (!response.isSuccessful) error("APK download failed (${response.code})")
             val body = response.body ?: error("APK download was empty")
             val total = body.contentLength().takeIf { it > 0 } ?: release.size
+            if (total > MAX_APK_BYTES) error("Release APK is unexpectedly large")
             body.byteStream().use { input ->
                 FileOutputStream(partial).use { output ->
                     val buffer = ByteArray(64 * 1024)
@@ -207,6 +213,7 @@ class AppUpdateManager(context: Context) {
                         output.write(buffer, 0, count)
                         digest.update(buffer, 0, count)
                         received += count
+                        if (received > MAX_APK_BYTES) error("Release APK is unexpectedly large")
                         if (total > 0) {
                             val progress = ((received * 100) / total).toInt().coerceIn(0, 99)
                             if (progress != lastProgress) {
@@ -293,5 +300,6 @@ class AppUpdateManager(context: Context) {
         private const val APK_NAME = "linkphone-android.apk"
         private const val USER_AGENT = "LinkPhone-Android-Updater"
         private const val AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
+        private const val MAX_APK_BYTES = 200L * 1024 * 1024
     }
 }

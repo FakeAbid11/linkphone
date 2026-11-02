@@ -85,7 +85,7 @@ jobs:
                apps" when asked).
                **If v0.1 is installed, uninstall it first and pair again.** v0.1 used a temporary
                CI signing key; v0.2 started the permanent signing key. v0.2+ update in place.
-            2. **PC** — download and run `LinkPhone.Setup.0.3.0.exe`. SmartScreen will warn because
+            2. **PC** — download and run `LinkPhone.Setup.0.4.0.exe`. SmartScreen will warn because
                the installer is unsigned: *More info → Run anyway*. Allow it on **private**
                networks when Windows Firewall asks.
             3. Make sure both devices are on the same Wi-Fi (not a guest network).
@@ -104,6 +104,8 @@ jobs:
             * Existing SMS conversations, live incoming texts and replies from the PC
             * Phone photo albums with thumbnails, large preview and original download
             * Live phone battery percentage and charging state
+            * Built-in Windows updater with download progress and restart-to-install
+            * Built-in Android updater with SHA-256 and signing-certificate verification
             * Two-way file transfer
             * Clipboard sync (phone → PC only while the app is open, an Android restriction)
             * Auto-reconnect
@@ -115,6 +117,9 @@ jobs:
 
             Windows only for the desktop app. Android 10+ for the phone. iOS is out of scope (no SMS
             or notification APIs).
+
+            v0.4 must be installed manually once. Future releases can be initiated inside both apps;
+            Android will always require its system installation confirmation.
           files: |
             artifacts/android-release/linkphone-android.apk
             artifacts/windows-installer/*.exe

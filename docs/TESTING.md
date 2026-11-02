@@ -117,7 +117,24 @@ flight, the receiver acks every 512 KiB.
 * Copy text on the phone **while the LinkPhone screen is open** → appears on the PC clipboard.
 * Phone → PC only works in the foreground; that is an Android 10+ restriction, not a bug.
 
-## 11. Resilience
+## 11. Built-in updates
+
+Because v0.4 is the first updater-enabled build, install it manually. With v0.4 currently latest:
+
+* ✅ Windows → **Settings** → **Check for updates** reports that v0.4 is current.
+* ✅ Android's **App update** card reports that v0.4 is current.
+* ✅ The v0.4 GitHub release contains the installer, `.blockmap`, and `latest.yml`; Windows needs all
+  three for future differential updates.
+
+For the first v0.5 test:
+
+* ✅ Windows detects it, downloads with progress, and **Restart & install** relaunches the new version.
+* ✅ Android detects it, downloads the APK, verifies SHA-256 + signing certificate, then opens the
+  Android installer confirmation.
+* ❌ Android opens “Install unknown apps” first → allow LinkPhone and tap **Install** again. This is
+  required once by Android and cannot be skipped by the app.
+
+## 12. Resilience
 
 * Lock the phone for 5 minutes → the foreground service should keep the socket alive.
 * Toggle Wi-Fi off/on → within ~3 s the phone should reconnect and the status returns to Connected.

@@ -11,7 +11,7 @@ import {
   shell,
   Tray
 } from 'electron'
-import type { AppState } from '../shared/protocol'
+import type { AppState, SmsMessage } from '../shared/protocol'
 import { ClipboardWatcher } from './clipboard'
 import { newPairCode } from './crypto'
 import { advertise, localAddresses, type Advertisement } from './discovery'
@@ -159,6 +159,22 @@ function registerIpc(): void {
 
   ipcMain.handle('files:open-downloads', () => shell.openPath(store.downloadsDir))
 
+  ipcMain.handle('sms:threads', () => server.requestSmsThreads())
+
+  ipcMain.handle('sms:thread', (_event, threadId: unknown, address: unknown) => {
+    if (typeof threadId !== 'string') return
+    server.requestSmsThread(threadId, typeof address === 'string' ? address : '')
+  })
+
+  ipcMain.handle('sms:close', () => store.openSmsThread(null))
+
+  ipcMain.handle('sms:send', (_event, threadId: unknown, address: unknown, body: unknown) => {
+    if (typeof threadId !== 'string' || typeof address !== 'string' || typeof body !== 'string') {
+      return
+    }
+    server.sendSms(threadId, address, body)
+  })
+
   ipcMain.handle('shell:open', (_event, url: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) return shell.openExternal(url)
     return undefined
@@ -213,6 +229,20 @@ async function bootstrap(): Promise<void> {
         store.dismissNotification(item.key)
       })
       n.show()
+    } catch {
+      /* notifications unavailable */
+    }
+  })
+
+  server.on('sms', (message: SmsMessage) => {
+    if (!Notification.isSupported() || !message.body) return
+    try {
+      new Notification({
+        title: message.address || 'New message',
+        body: message.body
+      })
+        .on('click', () => showWindow())
+        .show()
     } catch {
       /* notifications unavailable */
     }

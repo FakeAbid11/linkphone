@@ -1,7 +1,7 @@
 # First-run test plan
 
-Nothing here has been run on a real device yet — CI proves it compiles, not that it works. Work
-through this in order; each step tells you what success looks like and what to check when it fails.
+v0.1 was verified on a real phone. The QR and SMS additions in v0.2 still need the same end-to-end
+check after CI proves they compile. Work through this in order; each failure identifies a layer.
 
 ## 0. Before you start
 
@@ -20,7 +20,15 @@ Run `LinkPhone.exe` (or `npm run dev`).
 * ❌ Address shows `—` → no active IPv4 adapter; the phone can still connect by IP if you add one
   manually (roadmap).
 
-## 2. Discovery
+## 2. QR pairing
+
+PC sidebar → **Scan QR code instead**. Phone → **Scan QR** and point it at the PC.
+
+* ✅ Camera opens, detects the code, and status goes Connecting → Pairing → Connected.
+* ❌ Camera does not open → grant Camera in Android Settings → Apps → LinkPhone → Permissions.
+* ❌ Connects forever → Windows Firewall or none of the PC's advertised addresses is reachable.
+
+## 3. Discovery fallback
 
 Phone → **Scan**.
 
@@ -29,7 +37,7 @@ Phone → **Scan**.
   reach the PC at all, then check that the desktop's port is listening:
   `Get-NetTCPConnection -LocalPort 8765 -State Listen`.
 
-## 3. Pairing
+## 4. Typed-code pairing fallback
 
 Tap the PC, type the code from the sidebar (case-insensitive, no spaces).
 
@@ -40,7 +48,7 @@ Tap the PC, type the code from the sidebar (case-insensitive, no spaces).
   it on demand), or one side rebuilt without the other. Regenerate once and retry.
 * ❌ Works once, fails on reconnect → the stored key is bad. **Forget** on the phone and re-pair.
 
-## 4. Notifications
+## 5. Notifications
 
 Phone → **Open settings** → allow notification access for LinkPhone. Trigger a notification (send
 yourself a message from another app).
@@ -53,7 +61,21 @@ yourself a message from another app).
 * ❌ Nothing arrives: notification access not granted, or only "ongoing" notifications were posted
   (those are filtered out on purpose — media players, downloads).
 
-## 5. Files
+## 6. SMS
+
+Phone → **Allow SMS access**. On the PC open **Messages**.
+
+* ✅ Existing SMS threads load newest-first; opening one shows up to the latest 300 messages.
+* ✅ Replying from the PC creates an optimistic outgoing bubble and changes from `sending` to sent.
+* ✅ Send an SMS to the phone from another number: it appears live and triggers a Windows toast.
+* ❌ Empty list → all three SMS permissions (read, send, receive) must be enabled on the phone.
+* ❌ Send fails → check that the phone has an active SIM and a default SMS subscription.
+
+v0.2 supports SMS replies in existing threads only. It does not support MMS or a new-recipient
+composer. Because LinkPhone is not the default SMS app, its outgoing message is not written into the
+system SMS database by LinkPhone; the PC keeps the optimistic bubble for the current session.
+
+## 7. Files
 
 **PC → phone:** Files tab → Send file → pick something.
 
@@ -67,13 +89,13 @@ yourself a message from another app).
 A 100 MB file should take a few seconds on 5 GHz and must not stall: the sender keeps 512 KiB in
 flight, the receiver acks every 512 KiB.
 
-## 6. Clipboard
+## 8. Clipboard
 
 * Copy text on the PC → after ~1 s it should be on the phone's clipboard (paste somewhere to check).
 * Copy text on the phone **while the LinkPhone screen is open** → appears on the PC clipboard.
 * Phone → PC only works in the foreground; that is an Android 10+ restriction, not a bug.
 
-## 7. Resilience
+## 9. Resilience
 
 * Lock the phone for 5 minutes → the foreground service should keep the socket alive.
 * Toggle Wi-Fi off/on → within ~3 s the phone should reconnect and the status returns to Connected.

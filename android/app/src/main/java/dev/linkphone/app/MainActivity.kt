@@ -1,7 +1,6 @@
 package dev.linkphone.app
 
 import android.Manifest
-import android.app.NotificationManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -53,7 +52,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -153,9 +151,12 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
 
     val devices = remember { mutableStateListOf<Discovery.Target>() }
     var scanning by remember { mutableStateOf(false) }
+    var scanningQr by remember { mutableStateOf(false) }
     var pendingDevice by remember { mutableStateOf<Discovery.Target?>(null) }
     var code by remember { mutableStateOf("") }
     var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
+    var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
+    var notice by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(Unit) {
         onDispose { discovery.stop() }
@@ -165,6 +166,16 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         while (true) {
             delay(1500)
             notifAccess = hasNotificationAccess(context)
+            smsAccess = hasSmsAccess(context)
+        }
+    }
+
+    val smsPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        smsAccess = hasSmsAccess(context)
+        if (!smsAccess) {
+            notice = "SMS permission was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
         }
     }
 
@@ -210,8 +221,18 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     fun connect(target: Discovery.Target, pairingCode: String?) {
         scanning = false
         discovery.stop()
-        LinkCore.startService(context)
         client.connect(target.host, target.port, pairingCode)
+        LinkCore.startService(context)
+    }
+
+    fun connectScanned(payload: PairPayload) {
+        scanning = false
+        discovery.stop()
+        val addresses = preferredAddress(payload.addresses)?.let { first ->
+            listOf(first) + payload.addresses.filter { it != first }
+        } ?: payload.addresses
+        client.connect(addresses, payload.port, payload.code)
+        LinkCore.startService(context)
     }
 
     Column(
@@ -267,17 +288,21 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Find your PC", fontWeight = FontWeight.SemiBold)
-                    Button(onClick = { scan() }, enabled = !scanning) {
-                        Text(if (scanning) "Scanning…" else "Scan")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { scanningQr = true }) {
+                            Text("Scan QR")
+                        }
+                        Button(onClick = { scan() }, enabled = !scanning) {
+                            Text(if (scanning) "Scanning…" else "Scan")
+                        }
                     }
                 }
-                if (devices.isEmpty()) {
-                    Text(
-                        "Make sure LinkPhone is open on your PC and both devices are on the same Wi-Fi.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
-                    )
-                } else {
+                Text(
+                    "Scan the QR code on your PC for one-tap pairing, or look for it on your network.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+                if (devices.isNotEmpty()) {
                     devices.forEach { target ->
                         OutlinedButton(
                             modifier = Modifier.fillMaxWidth(),
@@ -312,6 +337,41 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                     OutlinedButton(onClick = {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }) { Text("Open settings") }
+                }
+            }
+        }
+
+        if (!smsAccess) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Messages", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Allow LinkPhone to read and send SMS so your texts show up on the PC. " +
+                            "It stays a normal app — it never becomes your default SMS app.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    OutlinedButton(onClick = {
+                        smsPermission.launch(
+                            arrayOf(
+                                Manifest.permission.READ_SMS,
+                                Manifest.permission.SEND_SMS,
+                                Manifest.permission.RECEIVE_SMS
+                            )
+                        )
+                    }) { Text("Allow SMS access") }
+                }
+            }
+        }
+
+        notice?.let { text ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Row(
+                    Modifier.padding(start = 16.dp, top = 10.dp, end = 6.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { notice = null }) { Text("Dismiss") }
                 }
             }
         }
@@ -408,14 +468,39 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             }
         )
     }
+
+    if (scanningQr) {
+        QrScannerScreen(
+            onResult = { raw ->
+                scanningQr = false
+                val payload = parsePairPayload(raw)
+                when {
+                    payload == null ->
+                        notice = "That QR code is not a LinkPhone pairing code."
+                    payload.addresses.isEmpty() ->
+                        notice = "The QR code had no network address. Use Scan instead."
+                    else -> connectScanned(payload)
+                }
+            },
+            onClose = { scanningQr = false }
+        )
+    }
 }
+
+private fun hasSmsAccess(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
+        PackageManager.PERMISSION_GRANTED &&
+    ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) ==
+        PackageManager.PERMISSION_GRANTED &&
+    ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) ==
+        PackageManager.PERMISSION_GRANTED
 
 @Composable
 private fun StatusCard(status: LinkStatus, notifAccess: Boolean, paired: Boolean) {
     val (label, detail, color) = when (status.state) {
         LinkState.CONNECTED -> Triple(
             "Connected to ${status.serverName.ifBlank { "PC" }}",
-            "Notifications mirror here",
+            if (notifAccess) "Notifications and messages mirror here" else "Messages mirror here",
             Teal
         )
         LinkState.PAIRING -> Triple("Pairing…", status.detail, Color(0xFFFBBF24))
@@ -450,4 +535,3 @@ private fun StatusCard(status: LinkStatus, notifAccess: Boolean, paired: Boolean
         }
     }
 }
-

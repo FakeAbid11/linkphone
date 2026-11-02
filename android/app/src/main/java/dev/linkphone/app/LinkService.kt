@@ -36,8 +36,9 @@ class LinkService : Service() {
         startForeground(NOTIFICATION_ID, notification)
 
         val store = LinkCore.requireStore()
-        if (store.hasPairing()) {
-            LinkCore.requireClient().connectSaved()
+        val client = LinkCore.requireClient()
+        if (store.hasPairing() && client.status.value.state == LinkState.IDLE) {
+            client.connectSaved()
         }
     }
 

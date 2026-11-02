@@ -28,9 +28,22 @@ salt = 16 random bytes (sent by the desktop in hello.result)
 psk  = PBKDF2-HMAC-SHA256(normalize(code), salt, 600_000, 32)
 ```
 
-`normalize` uppercases and strips non-alphanumerics. The alphabet is `A-Z` minus `I/O/L` plus
+`normalize` uppercases and strips non-alphanumerics. The alphabet is `A-Z` minus `I/O` plus
 `2-9` (32 symbols), so 8 characters = 40 bits. A 6-digit numeric code is accepted by the desktop as
 well, for convenience.
+
+### QR payload
+
+The desktop can encode the same pairing data as a QR code (error correction level M):
+
+```
+linkphone://pair?c=<code>&p=<port>&a=<comma-separated IPv4s>&n=<PC name>&i=<server UUID>&v=1
+```
+
+All values are URL-encoded. The Android app prefers RFC 1918 addresses, then tries every remaining
+address in order. The QR is only a transport for the pairing code and address; the cryptographic
+handshake below is unchanged. Camera scanning uses CameraX + ZXing and has no Google Play Services
+dependency.
 
 ## 3. Frames
 
@@ -100,7 +113,23 @@ The key used here is the one stored at pairing time, not a fresh PBKDF2 derivati
 | `file.ack` | receiver → sender | `id`, `offset` |
 | `file.done` | sender → receiver | `id` |
 | `file.cancel` | both | `id`, `reason?` |
+| `sms.threads.request` | PC → phone | — |
+| `sms.threads` | phone → PC | `threads[{threadId,address,snippet,date,count}]` |
+| `sms.thread.request` | PC → phone | `threadId` |
+| `sms.thread` | phone → PC | `threadId`, `address`, `messages[]` |
+| `sms.send` | PC → phone | `tempId`, `address`, `body` |
+| `sms.sent` | phone → PC | `tempId`, `ok`, `error?` |
+| `sms.new` | phone → PC | `message{id,threadId,address,body,date,outgoing}` |
+| `sms.error` | phone → PC | `op`, `error` |
 | `ping` / `pong` | both | `ts` |
+
+### SMS
+
+The phone reads the `Telephony.Sms` provider after runtime `READ_SMS` permission and sends through
+`SmsManager` after `SEND_SMS`. `RECEIVE_SMS` drives live `sms.new` events. LinkPhone does not claim
+the default-SMS-app role and does not write provider rows. Consequently v0.2 supports existing SMS
+threads and replies, not MMS or composing a new conversation. A successful `sms.sent` means Android
+accepted the send request; it is not a carrier delivery receipt.
 
 ### File transfer
 

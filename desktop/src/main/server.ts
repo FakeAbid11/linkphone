@@ -20,6 +20,8 @@ import {
   type NotificationItem,
   type Platform,
   type RawMsg,
+  type SmsMessage,
+  type SmsThread,
   type TransferItem
 } from '../shared/protocol'
 import {
@@ -513,6 +515,40 @@ export class LinkServer extends EventEmitter {
         return
       }
 
+      case 'sms.threads': {
+        const list = Array.isArray(msg.threads) ? (msg.threads as unknown[]) : []
+        this.store.setSmsThreads(list.filter(isRawMsg).map(parseSmsThread).slice(0, 80))
+        return
+      }
+
+      case 'sms.thread': {
+        const list = Array.isArray(msg.messages) ? (msg.messages as unknown[]) : []
+        this.store.openSmsThread({
+          threadId: str(msg.threadId),
+          address: str(msg.address),
+          messages: list.filter(isRawMsg).map(parseSmsMessage).sort((a, b) => a.date - b.date)
+        })
+        return
+      }
+
+      case 'sms.new': {
+        const raw = msg.message
+        if (!isRawMsg(raw)) return
+        const message = parseSmsMessage(raw)
+        this.store.appendSmsMessage(message)
+        this.emit('sms', message)
+        return
+      }
+
+      case 'sms.sent':
+        this.store.markSmsResult(str(msg.tempId), bool(msg.ok))
+        return
+
+      case 'sms.error':
+        console.warn('[server] phone reported sms error:', str(msg.error))
+        this.store.setSmsLoading(false)
+        return
+
       case 'pong':
         return
 
@@ -635,6 +671,61 @@ export class LinkServer extends EventEmitter {
   /** Forward a notification action (e.g. inline reply) back to the phone. */
   sendNotificationAction(key: string, actionId: string, replyText?: string): void {
     this.broadcast({ t: 'notif.action', key, actionId, replyText })
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* SMS                                                               */
+  /* ---------------------------------------------------------------- */
+
+  requestSmsThreads(): void {
+    if (!this.hasConnectedPeer()) return
+    this.store.setSmsLoading(true)
+    this.broadcast({ t: 'sms.threads.request' })
+  }
+
+  requestSmsThread(threadId: string, address: string): void {
+    if (!this.hasConnectedPeer()) return
+    this.store.openSmsThread({ threadId, address, messages: [] })
+    this.broadcast({ t: 'sms.thread.request', threadId })
+  }
+
+  sendSms(threadId: string, address: string, body: string): void {
+    const peer = [...this.peers].find((p) => p.phase === 'ready')
+    if (!peer) return
+    const tempId = `tmp-${crypto.randomUUID()}`
+    this.store.appendSmsMessage({
+      id: tempId,
+      threadId,
+      address,
+      body,
+      date: Date.now(),
+      outgoing: true,
+      pending: true
+    })
+    this.send(peer, { t: 'sms.send', tempId, address, body })
+  }
+}
+
+function parseSmsMessage(raw: RawMsg): SmsMessage {
+  return {
+    id: str(raw.id).slice(0, 256) || crypto.randomUUID(),
+    threadId: str(raw.threadId).slice(0, 256),
+    address: str(raw.address).slice(0, 256),
+    body: str(raw.body).slice(0, 20_000),
+    date: num(raw.date, Date.now()),
+    outgoing: bool(raw.outgoing),
+    pending: bool(raw.pending),
+    failed: bool(raw.failed)
+  }
+}
+
+function parseSmsThread(raw: RawMsg): SmsThread {
+  return {
+    threadId: str(raw.threadId).slice(0, 256),
+    address: str(raw.address).slice(0, 256),
+    snippet: str(raw.snippet).slice(0, 500),
+    date: num(raw.date),
+    count: num(raw.count, 1)
   }
 }
 

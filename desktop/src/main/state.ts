@@ -8,6 +8,9 @@ import type {
   DeviceInfo,
   NotificationItem,
   Platform,
+  SmsActiveThread,
+  SmsMessage,
+  SmsThread,
   TransferItem
 } from '../shared/protocol'
 
@@ -36,6 +39,9 @@ export class AppStore extends EventEmitter {
   readonly downloadsDir: string
   private notifications: NotificationItem[] = []
   private transfers: TransferItem[] = []
+  private smsThreads: SmsThread[] = []
+  private smsActive: SmsActiveThread | null = null
+  private smsLoading = false
   private live = new Map<string, DeviceInfo>()
   private addresses: string[] = []
   port = 0
@@ -179,6 +185,72 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  /* ---------------- SMS ---------------- */
+
+  setSmsLoading(loading: boolean): void {
+    this.smsLoading = loading
+    this.changed()
+  }
+
+  setSmsThreads(threads: SmsThread[]): void {
+    this.smsThreads = threads
+    this.smsLoading = false
+    this.changed()
+  }
+
+  openSmsThread(active: SmsActiveThread | null): void {
+    this.smsActive = active
+    if (!active) this.smsLoading = false
+    this.changed()
+  }
+
+  appendSmsMessage(message: SmsMessage): void {
+    if (this.smsActive && this.smsActive.threadId === message.threadId) {
+      const exists = this.smsActive.messages.some((m) => m.id === message.id)
+      if (!exists) {
+        this.smsActive = {
+          ...this.smsActive,
+          messages: [...this.smsActive.messages, message].sort((a, b) => a.date - b.date)
+        }
+      }
+    }
+
+    const thread = this.smsThreads.find((t) => t.threadId === message.threadId)
+    if (thread) {
+      const next: SmsThread = {
+        ...thread,
+        snippet: message.body.slice(0, 160),
+        date: Math.max(thread.date, message.date),
+        count: thread.count,
+        address: thread.address || message.address
+      }
+      this.smsThreads = [next, ...this.smsThreads.filter((t) => t.threadId !== thread.threadId)]
+    } else if (!message.outgoing) {
+      this.smsThreads = [
+        {
+          threadId: message.threadId,
+          address: message.address,
+          snippet: message.body.slice(0, 160),
+          date: message.date,
+          count: 1
+        },
+        ...this.smsThreads
+      ]
+    }
+    this.changed()
+  }
+
+  markSmsResult(tempId: string, ok: boolean): void {
+    if (!this.smsActive) return
+    this.smsActive = {
+      ...this.smsActive,
+      messages: this.smsActive.messages.map((m) =>
+        m.id === tempId ? { ...m, pending: false, failed: !ok } : m
+      )
+    }
+    this.changed()
+  }
+
   snapshot(): AppState {
     const devices: DeviceInfo[] = this.persisted.paired.map((d) => {
       const live = this.live.get(d.deviceId)
@@ -206,6 +278,9 @@ export class AppStore extends EventEmitter {
       devices,
       notifications: this.notifications,
       transfers: this.transfers,
+      smsThreads: this.smsThreads,
+      smsActive: this.smsActive,
+      smsLoading: this.smsLoading,
       clipboardEnabled: this.persisted.clipboardEnabled,
       downloadsDir: this.downloadsDir,
       clippingInFlight: false

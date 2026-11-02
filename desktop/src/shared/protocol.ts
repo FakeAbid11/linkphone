@@ -36,6 +36,31 @@ export interface NotificationItem {
 
 export type TransferStatus = 'pending' | 'active' | 'done' | 'failed' | 'declined' | 'canceled'
 
+export interface SmsThread {
+  threadId: string
+  address: string
+  snippet: string
+  date: number
+  count: number
+}
+
+export interface SmsMessage {
+  id: string
+  threadId: string
+  address: string
+  body: string
+  date: number
+  outgoing: boolean
+  pending?: boolean
+  failed?: boolean
+}
+
+export interface SmsActiveThread {
+  threadId: string
+  address: string
+  messages: SmsMessage[]
+}
+
 export interface TransferItem {
   id: string
   name: string
@@ -68,6 +93,9 @@ export interface AppState {
   devices: DeviceInfo[]
   notifications: NotificationItem[]
   transfers: TransferItem[]
+  smsThreads: SmsThread[]
+  smsActive: SmsActiveThread | null
+  smsLoading: boolean
   clipboardEnabled: boolean
   downloadsDir: string
   clippingInFlight: boolean
@@ -202,6 +230,62 @@ export interface PongMsg {
   ts: number
 }
 
+/* SMS ------------------------------------------------------------------ */
+
+/** desktop -> phone */
+export interface SmsThreadsRequestMsg {
+  t: 'sms.threads.request'
+}
+
+/** phone -> desktop */
+export interface SmsThreadsMsg {
+  t: 'sms.threads'
+  threads: SmsThread[]
+}
+
+/** desktop -> phone */
+export interface SmsThreadRequestMsg {
+  t: 'sms.thread.request'
+  threadId: string
+}
+
+/** phone -> desktop */
+export interface SmsThreadMsg {
+  t: 'sms.thread'
+  threadId: string
+  address: string
+  messages: SmsMessage[]
+}
+
+/** desktop -> phone */
+export interface SmsSendMsg {
+  t: 'sms.send'
+  tempId: string
+  address: string
+  body: string
+}
+
+/** phone -> desktop */
+export interface SmsSentMsg {
+  t: 'sms.sent'
+  tempId: string
+  ok: boolean
+  error?: string
+}
+
+/** phone -> desktop: a message arrived while connected */
+export interface SmsNewMsg {
+  t: 'sms.new'
+  message: SmsMessage
+}
+
+/** phone -> desktop: an SMS operation failed (permissions, SIM, ...) */
+export interface SmsErrorMsg {
+  t: 'sms.error'
+  op: string
+  error: string
+}
+
 export type ControlMsg =
   | HelloMsg
   | HelloResultMsg
@@ -223,6 +307,14 @@ export type ControlMsg =
   | FileCancelMsg
   | PingMsg
   | PongMsg
+  | SmsThreadsRequestMsg
+  | SmsThreadsMsg
+  | SmsThreadRequestMsg
+  | SmsThreadMsg
+  | SmsSendMsg
+  | SmsSentMsg
+  | SmsNewMsg
+  | SmsErrorMsg
 
 /** Loose view used when reading untrusted input off the wire. */
 export type RawMsg = { t?: unknown; [key: string]: unknown }

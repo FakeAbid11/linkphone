@@ -71,6 +71,7 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     private val appContext = context.applicationContext
     private val resolver = appContext.contentResolver
+    private val sms = SmsRepository(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val http = OkHttpClient.Builder()
@@ -101,6 +102,9 @@ class LinkClient(context: Context, private val store: PairStore) {
     private var port = 8765
     private var reconnectJob: Job? = null
 
+    /** Extra addresses from a QR payload, tried in order when the first one fails. */
+    private val hostQueue = java.util.concurrent.ConcurrentLinkedQueue<String>()
+
     private val incoming = ConcurrentHashMap<String, Incoming>()
     private val pendingSends = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
 
@@ -116,8 +120,23 @@ class LinkClient(context: Context, private val store: PairStore) {
     /* connection                                                    */
     /* ------------------------------------------------------------ */
 
-    fun connect(address: String, portNumber: Int, code: String?) {
-        host = address
+    fun connect(address: String, portNumber: Int, code: String?) =
+        connect(listOf(address), portNumber, code)
+
+    /**
+     * Connects using every address from a QR payload until one answers. A PC with
+     * a VPN, Docker or Hyper-V adapter advertises several IPv4 addresses and only
+     * one of them is reachable from the phone.
+     */
+    fun connect(addresses: List<String>, portNumber: Int, code: String?) {
+        val candidates = addresses.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        if (candidates.isEmpty()) {
+            _status.value = LinkStatus(LinkState.ERROR, serverName, "No address in that QR code")
+            return
+        }
+        hostQueue.clear()
+        candidates.drop(1).forEach { hostQueue.add(it) }
+        host = candidates.first()
         port = portNumber
         pendingCode = code
         wantConnection = true
@@ -126,6 +145,7 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     fun connectSaved() {
         val savedHost = store.host ?: return
+        hostQueue.clear()
         host = savedHost
         port = store.port
         pendingCode = null
@@ -197,6 +217,13 @@ class LinkClient(context: Context, private val store: PairStore) {
     private fun fail(detail: String) {
         ready = false
         key = null
+        val next = hostQueue.poll()
+        if (wantConnection && next != null) {
+            Log.d("LinkPhone", "first address failed, trying $next")
+            host = next
+            open()
+            return
+        }
         _status.value = LinkStatus(LinkState.ERROR, serverName, detail)
         scheduleReconnect()
     }
@@ -293,6 +320,7 @@ class LinkClient(context: Context, private val store: PairStore) {
     private fun markConnected() {
         ready = true
         wantConnection = true
+        hostQueue.clear()
         _status.value = LinkStatus(LinkState.CONNECTED, serverName)
     }
 
@@ -365,6 +393,12 @@ class LinkClient(context: Context, private val store: PairStore) {
                 msg.optString("actionId"),
                 msg.optString("replyText")
             )
+            "sms.threads.request" -> scope.launch { sendSmsThreads() }
+            "sms.thread.request" -> {
+                val threadId = msg.optString("threadId")
+                if (threadId.isNotEmpty()) scope.launch { sendSmsThread(threadId) }
+            }
+            "sms.send" -> scope.launch { handleSmsSend(msg) }
         }
     }
 
@@ -613,6 +647,115 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("ts", System.currentTimeMillis())
             }
         )
+    }
+
+    /* ------------------------------------------------------------ */
+    /* SMS                                                           */
+    /* ------------------------------------------------------------ */
+
+    fun sendSmsIncoming(message: SmsRepository.Message) {
+        if (!ready) return
+        send(
+            JSONObject().apply {
+                put("t", "sms.new")
+                put("message", message.toJson())
+            }
+        )
+    }
+
+    private fun sendSmsThreads() {
+        if (!sms.hasPermission()) {
+            sendSmsError("threads", "SMS permission not granted on the phone")
+            return
+        }
+        val threads = sms.threads().map { thread ->
+            JSONObject().apply {
+                put("threadId", thread.threadId)
+                put("address", thread.address)
+                put("snippet", thread.snippet)
+                put("date", thread.date)
+                put("count", thread.count)
+            }
+        }
+        send(
+            JSONObject().apply {
+                put("t", "sms.threads")
+                put("threads", JSONArray(threads))
+            }
+        )
+    }
+
+    private fun sendSmsThread(threadId: String) {
+        if (!sms.hasPermission()) {
+            sendSmsError("thread", "SMS permission not granted on the phone")
+            return
+        }
+        val messages = sms.messages(threadId)
+        val address = messages.lastOrNull()?.address
+            ?: if (threadId.startsWith(SmsRepository.ADDRESS_PREFIX)) {
+                threadId.removePrefix(SmsRepository.ADDRESS_PREFIX)
+            } else {
+                ""
+            }
+        send(
+            JSONObject().apply {
+                put("t", "sms.thread")
+                put("threadId", threadId)
+                put("address", address)
+                put(
+                    "messages",
+                    JSONArray(messages.map { it.toJson() })
+                )
+            }
+        )
+    }
+
+    private fun handleSmsSend(msg: JSONObject) {
+        val tempId = msg.optString("tempId")
+        val address = msg.optString("address")
+        val body = msg.optString("body")
+        if (address.isEmpty() || body.isEmpty()) {
+            sendSmsResult(tempId, false, "Nothing to send")
+            return
+        }
+        if (!sms.hasPermission()) {
+            sendSmsResult(tempId, false, "SMS permission not granted on the phone")
+            return
+        }
+        val result = sms.send(address, body)
+        if (result.isFailure) Log.w("LinkPhone", "sms send failed", result.exceptionOrNull())
+        sendSmsResult(tempId, result.isSuccess, result.exceptionOrNull()?.message)
+    }
+
+    private fun sendSmsResult(tempId: String, ok: Boolean, error: String?) {
+        send(
+            JSONObject().apply {
+                put("t", "sms.sent")
+                put("tempId", tempId)
+                put("ok", ok)
+                error?.let { put("error", it) }
+            }
+        )
+    }
+
+    private fun sendSmsError(op: String, detail: String) {
+        send(
+            JSONObject().apply {
+                put("t", "sms.error")
+                put("op", op)
+                put("error", detail)
+            }
+        )
+    }
+
+    private fun SmsRepository.Message.toJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("threadId", threadId)
+        put("address", address)
+        put("body", body)
+        put("date", date)
+        put("outgoing", outgoing)
+        put("failed", failed)
     }
 
     private fun b64(bytes: ByteArray): String = Base64.encodeToString(bytes, Base64.NO_WRAP)

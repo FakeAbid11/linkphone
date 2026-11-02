@@ -3,13 +3,15 @@ import type { AppState } from '@shared/protocol'
 import { ClipboardPanel } from './components/ClipboardPanel'
 import { DevicePanel } from './components/DevicePanel'
 import { FilesPanel } from './components/FilesPanel'
+import { MessagesPanel } from './components/MessagesPanel'
 import { NotificationsPanel } from './components/NotificationsPanel'
 import { PairingCard } from './components/PairingCard'
 
-type Tab = 'notifications' | 'files' | 'clipboard'
+type Tab = 'notifications' | 'messages' | 'files' | 'clipboard'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'notifications', label: 'Notifications' },
+  { id: 'messages', label: 'Messages' },
   { id: 'files', label: 'Files' },
   { id: 'clipboard', label: 'Clipboard' }
 ]
@@ -49,7 +51,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark" />
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.1</div>
+            <div className="brand-sub">Local network · v0.2</div>
           </div>
         </div>
 
@@ -60,7 +62,10 @@ export default function App(): JSX.Element {
             <button
               key={t.id}
               className={`tab ${tab === t.id ? 'tab-active' : ''}`}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id)
+                if (t.id === 'messages') void window.linkphone.requestSmsThreads()
+              }}
             >
               <span>{t.label}</span>
               {t.id === 'notifications' && unread > 0 && <span className="badge">{unread}</span>}
@@ -71,6 +76,7 @@ export default function App(): JSX.Element {
         <div className="sidebar-foot">
           <PairingCard
             code={state.pairingCode}
+            serverId={state.serverId}
             serverName={state.serverName}
             port={state.port}
             addresses={state.addresses}
@@ -122,6 +128,23 @@ export default function App(): JSX.Element {
               downloadsDir={state.downloadsDir}
               onSend={() => void window.linkphone.sendFiles()}
               onOpenFolder={() => void window.linkphone.openDownloads()}
+            />
+          )}
+          {tab === 'messages' && (
+            <MessagesPanel
+              threads={state.smsThreads}
+              active={state.smsActive}
+              loading={state.smsLoading}
+              onRefresh={() => void window.linkphone.requestSmsThreads()}
+              onOpen={(threadId, address) =>
+                void window.linkphone.openSmsThread(threadId, address)
+              }
+              onClose={() => {
+                void window.linkphone.closeSmsThread()
+              }}
+              onSend={(threadId, address, body) =>
+                void window.linkphone.sendSms(threadId, address, body)
+              }
             />
           )}
           {tab === 'clipboard' && (

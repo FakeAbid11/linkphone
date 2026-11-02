@@ -10,6 +10,10 @@ export interface LinkPhoneApi {
   clearNotifications: () => Promise<void>
   dismissNotification: (key: string) => Promise<void>
   sendNotificationReply: (key: string, actionId: string, text: string) => Promise<void>
+  requestSmsThreads: () => Promise<void>
+  openSmsThread: (threadId: string, address: string) => Promise<void>
+  closeSmsThread: () => Promise<void>
+  sendSms: (threadId: string, address: string, body: string) => Promise<void>
   setClipboardEnabled: (enabled: boolean) => Promise<void>
   openDownloads: () => Promise<void>
   copyToClipboard: (text: string) => Promise<void>

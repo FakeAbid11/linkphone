@@ -70,27 +70,30 @@ jobs:
 
             1. **Phone** — download `linkphone-android.apk` and install it (allow "install unknown
                apps" when asked).
-            2. **PC** — download and run `LinkPhone Setup 0.1.0.exe`. SmartScreen will warn because
+            2. **PC** — download and run `LinkPhone.Setup.0.2.0.exe`. SmartScreen will warn because
                the installer is unsigned: *More info → Run anyway*. Allow it on **private**
                networks when Windows Firewall asks.
             3. Make sure both devices are on the same Wi-Fi (not a guest network).
-            4. On the PC, read the pairing code in the sidebar.
-            5. On the phone: **Scan** → tap your PC → type the code.
-            6. On the phone: **Open settings** → allow notification access for LinkPhone.
+            4. On the PC, click **Scan QR code instead** in the sidebar.
+            5. On the phone: **Scan QR** and point the camera at the PC. Network scan + typed code is
+               still available as a fallback.
+            6. On the phone, allow notification and SMS access.
 
             ## In this build
 
-            * Pairing with a one-time code (PBKDF2 + AES-256-GCM, no account)
+            * One-tap QR pairing, fully offline with CameraX + ZXing (no Google Play Services)
+            * Pairing code fallback (PBKDF2 + AES-256-GCM, no account)
             * mDNS discovery — no IP addresses to type
             * Notification mirroring with inline reply from the PC
+            * Existing SMS conversations, live incoming texts and replies from the PC
             * Two-way file transfer
             * Clipboard sync (phone → PC only while the app is open, an Android restriction)
             * Auto-reconnect
 
             ## Not in this build
 
-            SMS, phone calls, screen mirroring and app streaming. See the README roadmap: SMS needs
-            the default-SMS-app role, and call audio can only work over Bluetooth HFP.
+            MMS, new SMS conversations, phone calls, screen mirroring and app streaming. Calls need
+            Bluetooth HFP for audio.
 
             Windows only for the desktop app. Android 10+ for the phone. iOS is out of scope (no SMS
             or notification APIs).

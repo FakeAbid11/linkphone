@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import QRCode from 'qrcode'
 
 interface Props {
   code: string
+  serverId: string
   serverName: string
   port: number
   addresses: string[]
@@ -13,8 +15,64 @@ function grouped(code: string): string {
   return `${code.slice(0, 4)} ${code.slice(4)}`
 }
 
-export function PairingCard({ code, serverName, port, addresses, onNewCode }: Props): JSX.Element {
+export function pairPayload(input: {
+  code: string
+  port: number
+  addresses: string[]
+  serverName: string
+  serverId: string
+}): string {
+  const query = [
+    `c=${encodeURIComponent(input.code)}`,
+    `p=${input.port}`,
+    `a=${encodeURIComponent(input.addresses.join(','))}`,
+    `n=${encodeURIComponent(input.serverName)}`,
+    `i=${encodeURIComponent(input.serverId)}`,
+    `v=1`
+  ].join('&')
+  return `linkphone://pair?${query}`
+}
+
+export function PairingCard({
+  code,
+  serverId,
+  serverName,
+  port,
+  addresses,
+  onNewCode
+}: Props): JSX.Element {
   const [copied, setCopied] = useState(false)
+  const [showQr, setShowQr] = useState(false)
+  const [qr, setQr] = useState('')
+
+  const addressKey = addresses.join(',')
+
+  useEffect(() => {
+    if (!showQr) return
+    let alive = true
+    const text = pairPayload({
+      code,
+      port,
+      addresses: addressKey ? addressKey.split(',') : [],
+      serverName,
+      serverId
+    })
+    QRCode.toDataURL(text, {
+      margin: 1,
+      width: 240,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#0b1220', light: '#ffffff' }
+    })
+      .then((url) => {
+        if (alive) setQr(url)
+      })
+      .catch(() => {
+        if (alive) setQr('')
+      })
+    return () => {
+      alive = false
+    }
+  }, [showQr, code, port, addressKey, serverName, serverId])
 
   const copy = (): void => {
     void window.linkphone.copyToClipboard(code)
@@ -29,6 +87,21 @@ export function PairingCard({ code, serverName, port, addresses, onNewCode }: Pr
         {grouped(code)}
       </button>
       <div className="pairing-hint">{copied ? 'Copied' : 'Type this on your phone'}</div>
+
+      <button className="link-btn qr-toggle" onClick={() => setShowQr((v) => !v)}>
+        {showQr ? 'Hide QR code' : 'Scan QR code instead'}
+      </button>
+
+      {showQr && (
+        <div className="qr-wrap">
+          {qr ? (
+            <img src={qr} alt="Pairing QR code" width={168} height={168} />
+          ) : (
+            <div className="qr-loading">Generating…</div>
+          )}
+          <div className="pairing-hint">LinkPhone app → Scan QR</div>
+        </div>
+      )}
 
       <div className="pairing-net">
         <div className="net-row">

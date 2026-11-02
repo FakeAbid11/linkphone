@@ -6,6 +6,11 @@ export interface Advertisement {
   stop: () => void
 }
 
+interface BonjourService {
+  on: (event: string, cb: (err: Error) => void) => void
+  stop: (cb?: () => void) => void
+}
+
 export function localAddresses(): string[] {
   const out: string[] = []
   for (const list of Object.values(os.networkInterfaces())) {
@@ -27,10 +32,10 @@ export function advertise(input: {
   onError?: (err: Error) => void
 }): Advertisement {
   const bonjour = new Bonjour()
-  let service: { stop: (cb?: () => void) => void; on: (event: string, cb: (err: Error) => void) => void } | null = null
+  let service: BonjourService | null = null
 
   try {
-    service = bonjour.publish({
+    const published = bonjour.publish({
       name: `LinkPhone-${input.serverId.slice(0, 8)}`,
       type: SERVICE_TYPE,
       port: input.port,
@@ -39,8 +44,10 @@ export function advertise(input: {
         name: input.serverName,
         ver: String(PROTO_VERSION)
       }
-    }) as unknown as typeof service
-    service?.on('error', (err: Error) => input.onError?.(err))
+    }) as unknown as BonjourService
+
+    published.on('error', (err: Error) => input.onError?.(err))
+    service = published
   } catch (err) {
     input.onError?.(err as Error)
   }

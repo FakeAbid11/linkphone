@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.app.role.RoleManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -159,6 +160,8 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
+    var dialerRoleHeld by remember { mutableStateOf(CallHub.isDefaultDialer(context)) }
+    var callPermissionsGranted by remember { mutableStateOf(hasCallPermissions(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(Unit) {
@@ -175,6 +178,12 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             notifAccess = hasNotificationAccess(context)
             smsAccess = hasSmsAccess(context)
             photoAccess = hasPhotoAccess(context)
+            val nextDialer = CallHub.isDefaultDialer(context)
+            if (nextDialer != dialerRoleHeld) {
+                dialerRoleHeld = nextDialer
+                CallHub.refreshDialerRole(context)
+            }
+            callPermissionsGranted = hasCallPermissions(context)
         }
     }
 
@@ -193,6 +202,30 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         photoAccess = hasPhotoAccess(context)
         if (!photoAccess) {
             notice = "Photo access was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
+        }
+    }
+
+    val callPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        callPermissionsGranted = hasCallPermissions(context)
+        CallHub.refreshDialerRole(context)
+        if (!callPermissionsGranted) {
+            notice = "Call permission was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
+        }
+    }
+
+    val dialerRole = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        dialerRoleHeld = CallHub.isDefaultDialer(context)
+        CallHub.refreshDialerRole(context)
+        if (dialerRoleHeld && !hasCallPermissions(context)) {
+            callPermission.launch(
+                arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+            )
+        } else if (!dialerRoleHeld) {
+            notice = "LinkPhone needs to be the default phone app for reliable call control."
         }
     }
 
@@ -405,6 +438,41 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             }
         }
 
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Calls from your PC", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Answer, decline, dial and switch the phone speaker from Windows. Call audio " +
+                        "always stays on this phone.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+                when {
+                    !dialerRoleHeld -> OutlinedButton(onClick = {
+                        val roles = context.getSystemService(RoleManager::class.java)
+                        if (roles?.isRoleAvailable(RoleManager.ROLE_DIALER) == true) {
+                            dialerRole.launch(roles.createRequestRoleIntent(RoleManager.ROLE_DIALER))
+                        } else {
+                            notice = "Default phone-app control is unavailable on this device."
+                        }
+                    }) { Text("Set as default phone app") }
+
+                    !callPermissionsGranted -> OutlinedButton(onClick = {
+                        callPermission.launch(
+                            arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+                        )
+                    }) { Text("Allow call access") }
+
+                    else -> Text(
+                        "Call control is ready",
+                        color = Teal,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
         notice?.let { text ->
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Row(
@@ -560,6 +628,12 @@ private fun photoPermissions(): Array<String> = when {
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
     else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
 }
+
+private fun hasCallPermissions(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) ==
+        PackageManager.PERMISSION_GRANTED &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
+        PackageManager.PERMISSION_GRANTED
 
 @Composable
 private fun UpdateCard(

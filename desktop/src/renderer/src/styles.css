@@ -254,6 +254,22 @@ button {
   box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.14);
 }
 
+.call-tab-ring {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.13);
+  animation: call-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes call-pulse {
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+
 .sidebar-foot {
   margin-top: auto;
 }
@@ -1196,4 +1212,198 @@ button {
 
 .settings-note strong {
   font-size: 12.5px;
+}
+
+/* ---------------- calls ---------------- */
+
+.calls-panel {
+  width: min(520px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.call-audio-note,
+.call-warning,
+.call-error {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg-elev);
+  font-size: 12px;
+}
+
+.call-audio-note span {
+  color: var(--muted);
+}
+
+.call-warning {
+  border-color: rgba(251, 191, 36, 0.4);
+  color: var(--warn);
+}
+
+.call-error {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: var(--danger);
+}
+
+.dialer-card,
+.active-call {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-elev);
+}
+
+.dialer-card label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.dial-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.dial-input-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  font: 18px 'Cascadia Mono', Consolas, monospace;
+  letter-spacing: 0.04em;
+}
+
+.dial-input-row input:focus {
+  border-color: var(--accent-dim);
+}
+
+.dial-backspace {
+  font-size: 18px;
+}
+
+.dial-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0 auto 16px;
+  max-width: 300px;
+}
+
+.dial-pad button {
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-soft);
+  font-size: 18px;
+}
+
+.dial-pad button:hover {
+  background: #1d304c;
+  border-color: #385170;
+}
+
+.call-primary,
+.call-answer,
+.call-decline,
+.call-speaker {
+  min-width: 112px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  font-weight: 650;
+}
+
+.call-primary {
+  display: block;
+  margin: 0 auto;
+  background: #22c55e;
+  color: #04190c;
+}
+
+.call-primary:disabled,
+.call-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.call-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.active-call {
+  text-align: center;
+}
+
+.incoming-call {
+  border-color: rgba(74, 222, 128, 0.45);
+}
+
+.caller-avatar {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin: 4px auto 12px;
+  border-radius: 50%;
+  background: rgba(45, 212, 191, 0.14);
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.caller-name {
+  font-size: 20px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.caller-detail {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.call-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.call-answer {
+  background: #22c55e;
+  color: #04190c;
+}
+
+.call-decline {
+  background: #ef4444;
+  color: #fff;
+}
+
+.call-speaker {
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.call-speaker-on {
+  border-color: rgba(45, 212, 191, 0.6);
+  background: rgba(45, 212, 191, 0.16);
+  color: var(--accent);
 }

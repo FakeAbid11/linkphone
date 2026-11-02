@@ -25,6 +25,11 @@ export interface LinkPhoneApi {
   checkDesktopUpdate: () => Promise<void>
   downloadDesktopUpdate: () => Promise<void>
   installDesktopUpdate: () => void
+  placeCall: (number: string) => Promise<void>
+  answerCall: (callId: string) => Promise<void>
+  rejectCall: (callId: string) => Promise<void>
+  disconnectCall: (callId: string) => Promise<void>
+  setCallSpeaker: (enabled: boolean) => Promise<void>
   setClipboardEnabled: (enabled: boolean) => Promise<void>
   openDownloads: () => Promise<void>
   copyToClipboard: (text: string) => Promise<void>

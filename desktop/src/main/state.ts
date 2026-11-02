@@ -10,6 +10,7 @@ import type {
   GalleryAlbum,
   GalleryPhoto,
   NotificationItem,
+  PhoneCallInfo,
   Platform,
   SmsActiveThread,
   SmsMessage,
@@ -56,6 +57,11 @@ export class AppStore extends EventEmitter {
   private galleryPreview: AppState['galleryPreview'] = null
   private galleryError = ''
   private desktopUpdate: DesktopUpdateState
+  private phoneCalls: PhoneCallInfo[] = []
+  private callDialerReady = false
+  private callSpeaker = false
+  private callMuted = false
+  private callError = ''
   private live = new Map<string, DeviceInfo>()
   private addresses: string[] = []
   port = 0
@@ -393,6 +399,25 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  setCallState(input: {
+    calls: PhoneCallInfo[]
+    dialerReady: boolean
+    speaker: boolean
+    muted: boolean
+  }): void {
+    this.phoneCalls = input.calls
+    this.callDialerReady = input.dialerReady
+    this.callSpeaker = input.speaker
+    this.callMuted = input.muted
+    this.callError = ''
+    this.changed()
+  }
+
+  setCallError(error: string): void {
+    this.callError = error
+    this.changed()
+  }
+
   snapshot(): AppState {
     const devices: DeviceInfo[] = this.persisted.paired.map((d) => {
       const live = this.live.get(d.deviceId)
@@ -436,6 +461,11 @@ export class AppStore extends EventEmitter {
       galleryPreview: this.galleryPreview,
       galleryError: this.galleryError,
       desktopUpdate: this.desktopUpdate,
+      phoneCalls: this.phoneCalls,
+      callDialerReady: this.callDialerReady,
+      callSpeaker: this.callSpeaker,
+      callMuted: this.callMuted,
+      callError: this.callError,
       clipboardEnabled: this.persisted.clipboardEnabled,
       downloadsDir: this.downloadsDir,
       clippingInFlight: false

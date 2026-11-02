@@ -335,6 +335,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         BatteryMonitor.current(appContext)?.let { battery ->
             sendBatteryStatus(battery.level, battery.charging)
         }
+        CallHub.refreshDialerRole(appContext)
     }
 
     /* ------------------------------------------------------------ */
@@ -417,6 +418,14 @@ class LinkClient(context: Context, private val store: PairStore) {
             "gallery.thumbnails.request" -> scope.launch { sendGalleryThumbnails(msg) }
             "gallery.preview.request" -> scope.launch { sendGalleryPreview(msg.optString("photoId")) }
             "gallery.download" -> scope.launch { downloadGalleryPhoto(msg.optString("photoId")) }
+            "call.place" -> {
+                CallHub.placeCall(appContext, msg.optString("number"))
+                    .onFailure { sendCallError(it.message ?: "Could not place call") }
+            }
+            "call.answer" -> CallHub.answer(msg.optString("callId"))
+            "call.reject" -> CallHub.reject(msg.optString("callId"))
+            "call.disconnect" -> CallHub.disconnect(msg.optString("callId"))
+            "call.speaker" -> CallHub.setSpeaker(msg.optBoolean("enabled"))
         }
     }
 
@@ -676,6 +685,33 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("charging", charging)
             }
         )
+    }
+
+    fun sendCallState(snapshot: PhoneCallSnapshot) {
+        if (!ready) return
+        val calls = JSONArray(snapshot.calls.map { call ->
+            JSONObject().apply {
+                put("id", call.id)
+                put("number", call.number)
+                put("displayName", call.displayName)
+                put("phase", call.phase.name.lowercase())
+                put("incoming", call.incoming)
+                put("startedAt", call.startedAt)
+            }
+        })
+        send(
+            JSONObject().apply {
+                put("t", "call.state")
+                put("calls", calls)
+                put("dialerReady", snapshot.dialerReady)
+                put("speaker", snapshot.speaker)
+                put("muted", snapshot.muted)
+            }
+        )
+    }
+
+    private fun sendCallError(detail: String) {
+        send(JSONObject().apply { put("t", "call.error"); put("error", detail) })
     }
 
     /* ------------------------------------------------------------ */

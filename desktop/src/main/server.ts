@@ -21,6 +21,7 @@ import {
   type NotificationAction,
   type NotificationItem,
   type Platform,
+  type PhoneCallInfo,
   type RawMsg,
   type SmsMessage,
   type SmsThread,
@@ -601,6 +602,21 @@ export class LinkServer extends EventEmitter {
         this.store.setGalleryError(str(msg.error, 'Gallery request failed').slice(0, 500))
         return
 
+      case 'call.state': {
+        const list = Array.isArray(msg.calls) ? (msg.calls as unknown[]) : []
+        this.store.setCallState({
+          calls: list.filter(isRawMsg).map(parsePhoneCall).slice(0, 8),
+          dialerReady: bool(msg.dialerReady),
+          speaker: bool(msg.speaker),
+          muted: bool(msg.muted)
+        })
+        return
+      }
+
+      case 'call.error':
+        this.store.setCallError(str(msg.error, 'Call operation failed').slice(0, 500))
+        return
+
       case 'pong':
         return
 
@@ -816,6 +832,36 @@ export class LinkServer extends EventEmitter {
     if (!this.hasConnectedPeer()) return
     this.broadcast({ t: 'gallery.download', photoId: photoId.slice(0, 64) })
   }
+
+  /* ---------------------------------------------------------------- */
+  /* Calls                                                             */
+  /* ---------------------------------------------------------------- */
+
+  placeCall(number: string): void {
+    if (!this.hasConnectedPeer()) return
+    this.store.setCallError('')
+    this.broadcast({ t: 'call.place', number: number.slice(0, 64) })
+  }
+
+  answerCall(callId: string): void {
+    this.store.setCallError('')
+    this.broadcast({ t: 'call.answer', callId: callId.slice(0, 64) })
+  }
+
+  rejectCall(callId: string): void {
+    this.store.setCallError('')
+    this.broadcast({ t: 'call.reject', callId: callId.slice(0, 64) })
+  }
+
+  disconnectCall(callId: string): void {
+    this.store.setCallError('')
+    this.broadcast({ t: 'call.disconnect', callId: callId.slice(0, 64) })
+  }
+
+  setCallSpeaker(enabled: boolean): void {
+    this.store.setCallError('')
+    this.broadcast({ t: 'call.speaker', enabled })
+  }
 }
 
 function parseSmsMessage(raw: RawMsg): SmsMessage {
@@ -873,6 +919,31 @@ function imageData(
   if (!photoId || !/^image\/(?:jpeg|png|webp)$/i.test(mime)) return null
   if (!data || data.length > maxBase64Length || !/^[A-Za-z0-9+/=]+$/.test(data)) return null
   return { photoId, dataUrl: `data:${mime.toLowerCase()};base64,${data}` }
+}
+
+function parsePhoneCall(raw: RawMsg): PhoneCallInfo {
+  const phase = str(raw.phase)
+  const allowed: PhoneCallInfo['phase'][] = [
+    'new',
+    'connecting',
+    'dialing',
+    'ringing',
+    'active',
+    'held',
+    'disconnecting',
+    'disconnected',
+    'unknown'
+  ]
+  return {
+    id: str(raw.id).slice(0, 64),
+    number: str(raw.number, 'Unknown').slice(0, 128),
+    displayName: str(raw.displayName).slice(0, 200),
+    phase: allowed.includes(phase as PhoneCallInfo['phase'])
+      ? (phase as PhoneCallInfo['phase'])
+      : 'unknown',
+    incoming: bool(raw.incoming),
+    startedAt: Math.max(0, num(raw.startedAt, Date.now()))
+  }
 }
 
 function toBuffer(data: RawData): Buffer {

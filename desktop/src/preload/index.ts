@@ -39,6 +39,11 @@ const api: LinkPhoneApi = {
   checkDesktopUpdate: () => ipcRenderer.invoke('update:check') as Promise<void>,
   downloadDesktopUpdate: () => ipcRenderer.invoke('update:download') as Promise<void>,
   installDesktopUpdate: () => ipcRenderer.send('update:install'),
+  placeCall: (number) => ipcRenderer.invoke('call:place', number) as Promise<void>,
+  answerCall: (callId) => ipcRenderer.invoke('call:answer', callId) as Promise<void>,
+  rejectCall: (callId) => ipcRenderer.invoke('call:reject', callId) as Promise<void>,
+  disconnectCall: (callId) => ipcRenderer.invoke('call:disconnect', callId) as Promise<void>,
+  setCallSpeaker: (enabled) => ipcRenderer.invoke('call:speaker', enabled) as Promise<void>,
   setClipboardEnabled: (enabled) =>
     ipcRenderer.invoke('clipboard:enable', enabled) as Promise<void>,
   openDownloads: () => ipcRenderer.invoke('files:open-downloads') as Promise<void>,

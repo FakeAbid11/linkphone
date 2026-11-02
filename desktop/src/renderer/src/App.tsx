@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AppState } from '@shared/protocol'
 import { ClipboardPanel } from './components/ClipboardPanel'
+import { CallsPanel } from './components/CallsPanel'
 import { DevicePanel } from './components/DevicePanel'
 import { FilesPanel } from './components/FilesPanel'
 import { MessagesPanel } from './components/MessagesPanel'
@@ -9,11 +10,12 @@ import { PairingCard } from './components/PairingCard'
 import { PhotosPanel } from './components/PhotosPanel'
 import { UpdatePanel } from './components/UpdatePanel'
 
-type Tab = 'notifications' | 'messages' | 'photos' | 'files' | 'clipboard' | 'settings'
+type Tab = 'notifications' | 'messages' | 'calls' | 'photos' | 'files' | 'clipboard' | 'settings'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'notifications', label: 'Notifications' },
   { id: 'messages', label: 'Messages' },
+  { id: 'calls', label: 'Calls' },
   { id: 'photos', label: 'Photos' },
   { id: 'files', label: 'Files' },
   { id: 'clipboard', label: 'Clipboard' },
@@ -55,7 +57,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark" />
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.4</div>
+            <div className="brand-sub">Local network · v0.4.5</div>
           </div>
         </div>
 
@@ -74,6 +76,9 @@ export default function App(): JSX.Element {
             >
               <span>{t.label}</span>
               {t.id === 'notifications' && unread > 0 && <span className="badge">{unread}</span>}
+              {t.id === 'calls' && state.phoneCalls.some((call) => call.phase === 'ringing') && (
+                <span className="call-tab-ring" title="Incoming call" />
+              )}
               {t.id === 'settings' &&
                 (state.desktopUpdate.status === 'available' ||
                   state.desktopUpdate.status === 'ready') && (
@@ -155,6 +160,19 @@ export default function App(): JSX.Element {
               onSend={(threadId, address, body) =>
                 void window.linkphone.sendSms(threadId, address, body)
               }
+            />
+          )}
+          {tab === 'calls' && (
+            <CallsPanel
+              calls={state.phoneCalls}
+              dialerReady={state.callDialerReady}
+              speaker={state.callSpeaker}
+              error={state.callError}
+              onPlace={(number) => void window.linkphone.placeCall(number)}
+              onAnswer={(callId) => void window.linkphone.answerCall(callId)}
+              onReject={(callId) => void window.linkphone.rejectCall(callId)}
+              onDisconnect={(callId) => void window.linkphone.disconnectCall(callId)}
+              onSpeaker={(enabled) => void window.linkphone.setCallSpeaker(enabled)}
             />
           )}
           {tab === 'photos' && (

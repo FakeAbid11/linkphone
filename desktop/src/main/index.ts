@@ -211,6 +211,22 @@ function registerIpc(): void {
   ipcMain.handle('update:download', () => updater.download())
   ipcMain.on('update:install', () => updater.install())
 
+  ipcMain.handle('call:place', (_event, number: unknown) => {
+    if (typeof number === 'string') server.placeCall(number)
+  })
+  ipcMain.handle('call:answer', (_event, callId: unknown) => {
+    if (typeof callId === 'string') server.answerCall(callId)
+  })
+  ipcMain.handle('call:reject', (_event, callId: unknown) => {
+    if (typeof callId === 'string') server.rejectCall(callId)
+  })
+  ipcMain.handle('call:disconnect', (_event, callId: unknown) => {
+    if (typeof callId === 'string') server.disconnectCall(callId)
+  })
+  ipcMain.handle('call:speaker', (_event, enabled: unknown) => {
+    server.setCallSpeaker(Boolean(enabled))
+  })
+
   ipcMain.handle('shell:open', (_event, url: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) return shell.openExternal(url)
     return undefined

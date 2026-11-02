@@ -105,6 +105,26 @@ export interface DesktopUpdateState {
   checkedAt?: number
 }
 
+export type PhoneCallPhase =
+  | 'new'
+  | 'connecting'
+  | 'dialing'
+  | 'ringing'
+  | 'active'
+  | 'held'
+  | 'disconnecting'
+  | 'disconnected'
+  | 'unknown'
+
+export interface PhoneCallInfo {
+  id: string
+  number: string
+  displayName: string
+  phase: PhoneCallPhase
+  incoming: boolean
+  startedAt: number
+}
+
 export interface TransferItem {
   id: string
   name: string
@@ -153,6 +173,11 @@ export interface AppState {
   galleryPreview: GalleryPreview | null
   galleryError: string
   desktopUpdate: DesktopUpdateState
+  phoneCalls: PhoneCallInfo[]
+  callDialerReady: boolean
+  callSpeaker: boolean
+  callMuted: boolean
+  callError: string
   clipboardEnabled: boolean
   downloadsDir: string
   clippingInFlight: boolean
@@ -416,6 +441,46 @@ export interface GalleryErrorMsg {
   error: string
 }
 
+/* Calls ----------------------------------------------------------------- */
+
+export interface CallStateMsg {
+  t: 'call.state'
+  calls: PhoneCallInfo[]
+  dialerReady: boolean
+  speaker: boolean
+  muted: boolean
+}
+
+export interface CallPlaceMsg {
+  t: 'call.place'
+  number: string
+}
+
+export interface CallAnswerMsg {
+  t: 'call.answer'
+  callId: string
+}
+
+export interface CallRejectMsg {
+  t: 'call.reject'
+  callId: string
+}
+
+export interface CallDisconnectMsg {
+  t: 'call.disconnect'
+  callId: string
+}
+
+export interface CallSpeakerMsg {
+  t: 'call.speaker'
+  enabled: boolean
+}
+
+export interface CallErrorMsg {
+  t: 'call.error'
+  error: string
+}
+
 export type ControlMsg =
   | HelloMsg
   | HelloResultMsg
@@ -456,6 +521,13 @@ export type ControlMsg =
   | GalleryPreviewMsg
   | GalleryDownloadMsg
   | GalleryErrorMsg
+  | CallStateMsg
+  | CallPlaceMsg
+  | CallAnswerMsg
+  | CallRejectMsg
+  | CallDisconnectMsg
+  | CallSpeakerMsg
+  | CallErrorMsg
 
 /** Loose view used when reading untrusted input off the wire. */
 export type RawMsg = { t?: unknown; [key: string]: unknown }

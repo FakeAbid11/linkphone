@@ -300,10 +300,17 @@ class LinkClient(context: Context, private val store: PairStore) {
     /* frame codec                                                   */
     /* ------------------------------------------------------------ */
 
+    /**
+     * Frame emission is serialised: the clipboard poller, the notification listener
+     * and the file pump all call in from different threads, and an out-of-order
+     * sequence number would make the desktop drop the connection.
+     */
+    @Synchronized
     private fun sendPlain(msg: JSONObject) {
         ws?.send(msg.toString())
     }
 
+    @Synchronized
     private fun send(msg: JSONObject) {
         val socket = ws ?: return
         val currentKey = key
@@ -510,6 +517,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         }
     }
 
+    @Synchronized
     private fun sendChunk(id: String, offset: Long, buffer: ByteArray, length: Int) {
         val currentKey = key ?: return
         val socket = ws ?: return

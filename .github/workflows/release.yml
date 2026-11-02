@@ -25,7 +25,7 @@ jobs:
         run: gradle assembleDebug --no-daemon
       - name: Rename
         run: cp android/app/build/outputs/apk/debug/app-debug.apk linkphone-android.apk
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: android-release
           path: linkphone-android.apk
@@ -47,7 +47,7 @@ jobs:
         run: npm run dist:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: windows-installer
           path: desktop/release/*.exe
@@ -56,7 +56,7 @@ jobs:
     needs: [android, windows]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: artifacts
       - name: Create release

@@ -1,0 +1,32 @@
+name: Package
+
+# Manual build of the Windows installer (no release is created).
+on:
+  workflow_dispatch:
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Build installer
+        working-directory: desktop
+        run: npm run dist:win
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v5
+        with:
+          name: linkphone-windows-installer
+          path: desktop/release/*.exe
+          if-no-files-found: error

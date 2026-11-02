@@ -46,7 +46,9 @@ Tap the PC, type the code from the sidebar (case-insensitive, no spaces).
 * ❌ Stuck on Connecting → wrong IP/port or firewall.
 * ❌ "Wrong pairing code" → the code was regenerated between reading and typing (the desktop rotates
   it on demand), or one side rebuilt without the other. Regenerate once and retry.
-* ❌ Works once, fails on reconnect → the stored key is bad. **Forget** on the phone and re-pair.
+* ❌ Works once, fails on reconnect → the stored key is bad. **Forget** on the phone, then scan a
+  fresh QR. v0.4.8 re-pairs even while the PC still has the old pairing; if it still fails, click
+  **×** on the PC device card and pair again.
 
 ## 5. Notifications
 

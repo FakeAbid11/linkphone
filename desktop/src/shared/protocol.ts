@@ -193,6 +193,8 @@ export interface HelloMsg {
   deviceId: string
   deviceName: string
   platform: Platform
+  /** Set when the user explicitly initiated pairing (QR or typed code). */
+  pair?: boolean
 }
 
 export interface HelloResultMsg {

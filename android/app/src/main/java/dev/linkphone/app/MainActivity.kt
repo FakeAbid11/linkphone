@@ -275,8 +275,8 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     fun connect(target: Discovery.Target, pairingCode: String?) {
         scanning = false
         discovery.stop()
-        client.connect(target.host, target.port, pairingCode)
         LinkCore.startService(context)
+        client.connect(target.host, target.port, pairingCode)
     }
 
     fun connectScanned(payload: PairPayload) {
@@ -285,8 +285,8 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         val addresses = preferredAddress(payload.addresses)?.let { first ->
             listOf(first) + payload.addresses.filter { it != first }
         } ?: payload.addresses
-        client.connect(addresses, payload.port, payload.code)
         LinkCore.startService(context)
+        client.connect(addresses, payload.port, payload.code)
     }
 
     Column(

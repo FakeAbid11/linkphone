@@ -131,25 +131,29 @@ class AppUpdateManager(context: Context) {
             _state.value = _state.value.copy(
                 message = "Allow installs from LinkPhone, then tap Install again"
             )
-            appContext.startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:${appContext.packageName}")
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
+            runCatching {
+                appContext.startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${appContext.packageName}")
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }.onFailure { fail(it) }
             return
         }
 
-        val uri = FileProvider.getUriForFile(
-            appContext,
-            "${appContext.packageName}.files",
-            apk
-        )
-        appContext.startActivity(
-            Intent(Intent.ACTION_VIEW)
-                .setDataAndType(uri, "application/vnd.android.package-archive")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        )
+        runCatching {
+            val uri = FileProvider.getUriForFile(
+                appContext,
+                "${appContext.packageName}.files",
+                apk
+            )
+            appContext.startActivity(
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            )
+        }.onFailure { fail(it) }
     }
 
     private fun fetchLatest(): Release {

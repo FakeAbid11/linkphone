@@ -38,6 +38,7 @@
   "build": {
     "appId": "dev.linkphone.desktop",
     "productName": "LinkPhone",
+    "artifactName": "${productName}.Setup.${version}.${ext}",
     "directories": {
       "output": "release"
     },

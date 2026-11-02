@@ -50,8 +50,11 @@ dependency.
 Before authentication, control messages are plaintext JSON **text frames**:
 
 ```json
-{ "t": "hello", "proto": 1, "deviceId": "…", "deviceName": "Pixel 8", "platform": "android" }
+{ "t": "hello", "proto": 1, "deviceId": "…", "deviceName": "Pixel 8", "platform": "android", "pair": true }
 ```
+
+`pair` is optional. A client sets it when the user explicitly started pairing (QR scan or typed
+code), which lets the desktop re-pair a device it already knows.
 
 After authentication every frame is a **binary frame**:
 
@@ -74,7 +77,7 @@ Plaintext payloads start with a kind byte:
 ## 4. Handshake
 
 ```
-client → hello                     { deviceId, deviceName, platform }
+client → hello                     { deviceId, deviceName, platform, pair? }
 server → hello.result              { needPair, needAuth, salt?, serverId, serverName }
 ```
 
@@ -89,6 +92,12 @@ On a proof mismatch the server answers with a plaintext `{ "t": "pair.reject" }`
 code 4001 — a text frame at that point is unambiguous, because an authenticated peer only ever
 sends binary.
 
+**Re-pairing a known device.** If `hello` carries `pair: true`, the server always replies with a
+fresh salt and `needPair: true`, even when it already stores a key for that `deviceId`. The proof
+must still match the current pairing code; on success the new key replaces the old one. This is how
+a phone that lost or forgot its key recovers without the user having to forget the device on the PC.
+An old client that omits `pair` keeps the original behaviour.
+
 **Reconnecting** (device already paired)
 
 ```
@@ -96,6 +105,10 @@ server → auth.challenge  { nonce = 32 random bytes, base64 }
 client → auth.response   { proof = HMAC(psk, "auth:" + nonce) }      (plaintext)
 server → auth.ok                                                     (encrypted, seq 1)
 ```
+
+If the device is no longer paired on the server, or the proof does not match, the server sends a
+plaintext `{ "t": "auth.reject", "reason": "not-paired" | "bad-proof" }` before closing with 4003
+or 4001. The phone clears its stale local pairing and asks the user to scan a fresh QR.
 
 The key used here is the one stored at pairing time, not a fresh PBKDF2 derivation.
 

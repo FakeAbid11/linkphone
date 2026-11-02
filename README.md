@@ -3,10 +3,11 @@
 Microsoft Phone Link, rebuilt from scratch — Android phone + Windows PC, **local network only, no
 cloud account, no relay server**.
 
-> **Status: v0.4.7.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
-> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. Screen mirroring and
-> Android app streaming are **not** — see
-> [Roadmap](#roadmap). Everything is built by GitHub Actions; there are no local build steps.
+> **Status: v0.4.8.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
+> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.8 also
+> lets a phone re-pair with a fresh QR even when the PC still remembers an older pairing. Screen mirroring
+> and Android app streaming are **not** — see [Roadmap](#roadmap). Everything is built by GitHub Actions;
+> there are no local build steps.
 
 ---
 
@@ -63,7 +64,7 @@ handshake and the threat model.
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
    If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
    v0.2 established the permanent key, so v0.2 and later update in place normally.
-3. Run `LinkPhone.Setup.0.4.7.exe` on Windows. The installer is unsigned, so SmartScreen requires
+3. Run `LinkPhone.Setup.0.4.8.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
@@ -103,6 +104,14 @@ use the phone's emergency interface directly.
 
 QR pairing embeds every IPv4 address reported by the PC and tries them in private-network order, so
 it also works when mDNS is blocked. Client-to-client traffic and TCP port 8765 must still be allowed.
+
+### If pairing no longer works after a reinstall or forget
+
+Starting with v0.4.8, scanning a fresh QR sends an explicit pairing intent. The PC then runs the
+pairing handshake even for a phone it already knows, and replaces the old key once the new code
+proves valid — so forgetting on the phone no longer requires forgetting on the PC first. If a
+connection still fails, click the **×** on the phone card in the PC sidebar and tap **Forget** on
+the phone, then pair again with the current code.
 
 ## Running from source (optional, needs a dev machine)
 

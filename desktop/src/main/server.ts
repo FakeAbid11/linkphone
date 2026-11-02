@@ -290,7 +290,12 @@ export class LinkServer extends EventEmitter {
       return
     }
 
-    const paired = this.store.findPaired(peer.deviceId)
+    // A code-initiated hello may re-pair a device the PC already knows. The
+    // proof still has to match the current pairing code, and a valid proof
+    // replaces the old key, so a phone that lost its key can recover without
+    // anyone having to forget the device on the PC first.
+    const wantsPair = bool(msg.pair)
+    const paired = wantsPair ? undefined : this.store.findPaired(peer.deviceId)
     if (paired) {
       peer.phase = 'awaitAuth'
       peer.nonceB64 = crypto.randomBytes(32).toString('base64')
@@ -368,6 +373,9 @@ export class LinkServer extends EventEmitter {
     }
     const paired = this.store.findPaired(peer.deviceId)
     if (!paired) {
+      // Plaintext, like pair.reject: the peer is not authenticated yet, so a
+      // text frame is unambiguous and lets the phone clear its stale pairing.
+      this.send(peer, { t: 'auth.reject', reason: 'not-paired' })
       peer.ws.close(4003, 'not paired')
       return
     }
@@ -375,6 +383,7 @@ export class LinkServer extends EventEmitter {
     const expected = hmac(key, `auth:${peer.nonceB64}`)
     const proof = Buffer.from(str(msg.proof), 'base64')
     if (!safeEqual(proof, expected)) {
+      this.send(peer, { t: 'auth.reject', reason: 'bad-proof' })
       peer.ws.close(4001, 'bad auth proof')
       return
     }

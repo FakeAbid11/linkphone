@@ -165,6 +165,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         sendSeq = 0
         recvSeq = 0
         _status.value = LinkStatus(LinkState.CONNECTING)
+        Log.d("LinkPhone", "connecting ws://$host:$port pair=${!pendingCode.isNullOrBlank()}")
         val request = Request.Builder().url("ws://$host:$port/").build()
         ws = http.newWebSocket(request, listener)
     }
@@ -188,6 +189,7 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     private val listener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
+            val wantsPair = !pendingCode.isNullOrBlank()
             sendPlain(
                 JSONObject().apply {
                     put("t", "hello")
@@ -195,6 +197,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                     put("deviceId", store.deviceId)
                     put("deviceName", deviceName)
                     put("platform", "android")
+                    if (wantsPair) put("pair", true)
                 }
             )
         }
@@ -215,7 +218,9 @@ class LinkClient(context: Context, private val store: PairStore) {
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            if (ready) fail(reason.ifBlank { "Disconnected" })
+            // A close during the handshake used to be ignored, leaving the UI on
+            // "Connecting…" forever. Only suppress it when we initiated it.
+            if (wantConnection) fail(reason.ifBlank { "Disconnected ($code)" })
         }
     }
 
@@ -261,6 +266,7 @@ class LinkClient(context: Context, private val store: PairStore) {
             "auth.challenge" -> onAuthChallenge(msg)
             "pair.ok" -> onPaired()
             "auth.ok" -> markConnected()
+            "auth.reject" -> onAuthRejected(msg)
             "pair.reject" -> {
                 wantConnection = false
                 store.clearPair()
@@ -285,7 +291,11 @@ class LinkClient(context: Context, private val store: PairStore) {
         val code = pendingCode
         if (code.isNullOrBlank()) {
             wantConnection = false
-            _status.value = LinkStatus(LinkState.ERROR, serverName, "Pairing code required")
+            _status.value = LinkStatus(
+                LinkState.ERROR,
+                serverName,
+                "This PC no longer knows this phone. Scan the QR to pair again."
+            )
             return
         }
 
@@ -310,7 +320,11 @@ class LinkClient(context: Context, private val store: PairStore) {
         val stored = store.key()
         if (stored == null) {
             wantConnection = false
-            _status.value = LinkStatus(LinkState.ERROR, serverName, "Not paired")
+            _status.value = LinkStatus(
+                LinkState.ERROR,
+                serverName,
+                "Pairing is required. Scan the QR to pair again."
+            )
             return
         }
         key = stored
@@ -324,9 +338,27 @@ class LinkClient(context: Context, private val store: PairStore) {
         )
     }
 
+    private fun onAuthRejected(msg: JSONObject) {
+        val reason = msg.optString("reason")
+        Log.w("LinkPhone", "auth rejected: ${reason.ifBlank { "unknown" }}")
+        wantConnection = false
+        pendingCode = null
+        store.clearPair()
+        _status.value = LinkStatus(
+            LinkState.ERROR,
+            serverName,
+            if (reason == "bad-proof") {
+                "The saved pairing is out of date. Scan the QR to pair again."
+            } else {
+                "This PC no longer knows this phone. Scan the QR to pair again."
+            }
+        )
+    }
+
     private fun onPaired() {
         val current = key ?: return
         store.savePair(pendingServerId, serverName, host, port, b64(current))
+        pendingCode = null
         markConnected()
     }
 

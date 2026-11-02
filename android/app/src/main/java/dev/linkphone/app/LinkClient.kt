@@ -156,9 +156,10 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     @Synchronized
     private fun open() {
-        val previous = ws
-        ws = null
-        runCatching { previous?.cancel() }
+        // Keep the v0.1 socket lifecycle: OkHttp may dispatch callbacks as the
+        // newWebSocket call returns, so clearing ws and identity-filtering those
+        // callbacks can discard the real connection attempt.
+        runCatching { ws?.cancel() }
         key = null
         ready = false
         sendSeq = 0
@@ -173,9 +174,8 @@ class LinkClient(context: Context, private val store: PairStore) {
         wantConnection = false
         reconnectJob?.cancel()
         hostQueue.clear()
-        val current = ws
+        runCatching { ws?.close(1000, "user") }
         ws = null
-        runCatching { current?.close(1000, "user") }
         key = null
         ready = false
         _status.value = LinkStatus(LinkState.IDLE)
@@ -188,7 +188,6 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     private val listener = object : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            if (webSocket !== ws) return
             sendPlain(
                 JSONObject().apply {
                     put("t", "hello")
@@ -201,26 +200,22 @@ class LinkClient(context: Context, private val store: PairStore) {
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
-            if (webSocket !== ws) return
             runCatching { handleText(text) }
                 .onFailure { Log.w("LinkPhone", "text frame", it) }
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) {
-            if (webSocket !== ws) return
             runCatching { handleBinary(bytes.toByteArray()) }
                 .onFailure { Log.w("LinkPhone", "binary frame", it) }
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            if (webSocket !== ws) return
             Log.w("LinkPhone", "socket failure: ${t.message}")
             fail(t.message ?: "Connection lost")
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            if (webSocket !== ws) return
-            if (wantConnection) fail(reason.ifBlank { "Disconnected" })
+            if (ready) fail(reason.ifBlank { "Disconnected" })
         }
     }
 

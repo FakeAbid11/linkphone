@@ -12,6 +12,8 @@ import androidx.core.app.NotificationCompat
 
 class LinkService : Service() {
 
+    private var batteryMonitor: BatteryMonitor? = null
+
     override fun onCreate() {
         super.onCreate()
         LinkCore.init(this)
@@ -37,6 +39,9 @@ class LinkService : Service() {
 
         val store = LinkCore.requireStore()
         val client = LinkCore.requireClient()
+        batteryMonitor = BatteryMonitor(this) { battery ->
+            client.sendBatteryStatus(battery.level, battery.charging)
+        }.also { it.start() }
         if (store.hasPairing() && client.status.value.state == LinkState.IDLE) {
             client.connectSaved()
         }
@@ -45,6 +50,12 @@ class LinkService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        batteryMonitor?.stop()
+        batteryMonitor = null
+        super.onDestroy()
+    }
 
     private fun createChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return

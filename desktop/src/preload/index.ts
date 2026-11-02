@@ -23,6 +23,19 @@ const api: LinkPhoneApi = {
   closeSmsThread: () => ipcRenderer.invoke('sms:close') as Promise<void>,
   sendSms: (threadId, address, body) =>
     ipcRenderer.invoke('sms:send', threadId, address, body) as Promise<void>,
+  requestGalleryAlbums: () => ipcRenderer.invoke('gallery:albums') as Promise<void>,
+  openGalleryAlbum: (albumId, name) =>
+    ipcRenderer.invoke('gallery:album', albumId, name) as Promise<void>,
+  closeGalleryAlbum: () => ipcRenderer.invoke('gallery:close-album') as Promise<void>,
+  loadMoreGallery: (albumId, offset) =>
+    ipcRenderer.invoke('gallery:more', albumId, offset) as Promise<void>,
+  requestGalleryThumbnails: (photoIds) =>
+    ipcRenderer.invoke('gallery:thumbnails', photoIds) as Promise<void>,
+  requestGalleryPreview: (photoId, name) =>
+    ipcRenderer.invoke('gallery:preview', photoId, name) as Promise<void>,
+  closeGalleryPreview: () => ipcRenderer.invoke('gallery:close-preview') as Promise<void>,
+  downloadGalleryPhoto: (photoId) =>
+    ipcRenderer.invoke('gallery:download', photoId) as Promise<void>,
   setClipboardEnabled: (enabled) =>
     ipcRenderer.invoke('clipboard:enable', enabled) as Promise<void>,
   openDownloads: () => ipcRenderer.invoke('files:open-downloads') as Promise<void>,

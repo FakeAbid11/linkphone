@@ -143,6 +143,52 @@ button {
   white-space: nowrap;
 }
 
+.device-battery {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.battery-shell {
+  position: relative;
+  display: inline-block;
+  width: 22px;
+  height: 10px;
+  padding: 1px;
+  border: 1px solid #60738e;
+  border-radius: 3px;
+}
+
+.battery-shell::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 2px;
+  width: 2px;
+  height: 4px;
+  border-radius: 0 2px 2px 0;
+  background: #60738e;
+}
+
+.battery-fill {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  border-radius: 1px;
+  background: #8ba0bf;
+}
+
+.device-battery-charging {
+  color: var(--accent);
+}
+
+.device-battery-charging .battery-fill {
+  background: var(--accent);
+}
+
 .dot {
   width: 7px;
   height: 7px;
@@ -874,4 +920,214 @@ button {
 .btn:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* ---------------- phone photos ---------------- */
+
+.photos {
+  min-height: 100%;
+}
+
+.gallery-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.gallery-head h2 {
+  margin: 4px 0 0;
+  font-size: 16px;
+}
+
+.gallery-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.album-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.album-card {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--bg-elev);
+  text-align: left;
+}
+
+.album-card:hover {
+  border-color: #385170;
+  transform: translateY(-1px);
+}
+
+.album-cover {
+  height: 128px;
+  background: var(--bg-soft);
+  overflow: hidden;
+}
+
+.album-cover img,
+.photo-tile img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.album-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+}
+
+.album-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.album-info span {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.photo-tile {
+  position: relative;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+
+.photo-tile:hover {
+  border-color: var(--accent-dim);
+}
+
+.photo-tile:hover img {
+  transform: scale(1.025);
+}
+
+.photo-tile img {
+  transition: transform 0.15s ease;
+}
+
+.photo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #60738e;
+  background: linear-gradient(145deg, #17253b, #0d1728);
+  font-size: 11px;
+}
+
+.photo-caption {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgba(4, 12, 22, 0.72);
+  color: #d9e4f5;
+  font-size: 9.5px;
+}
+
+.gallery-loading,
+.gallery-error {
+  padding: 20px;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.gallery-error {
+  color: var(--danger);
+}
+
+.gallery-more {
+  display: flex;
+  justify-content: center;
+  padding: 18px 0 2px;
+}
+
+.photo-lightbox {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(2, 7, 14, 0.82);
+  backdrop-filter: blur(7px);
+}
+
+.photo-lightbox-card {
+  width: min(900px, 94vw);
+  height: min(760px, 90vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #2a3d59;
+  border-radius: 15px;
+  background: var(--bg-elev);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.photo-lightbox-head,
+.photo-lightbox-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.photo-lightbox-head {
+  border-bottom: 1px solid var(--line);
+}
+
+.photo-lightbox-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.photo-preview-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 10px;
+  background: #050b14;
+}
+
+.photo-preview-body img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.photo-lightbox-actions {
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
 }

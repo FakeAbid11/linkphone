@@ -61,6 +61,32 @@ export interface SmsActiveThread {
   messages: SmsMessage[]
 }
 
+export interface GalleryAlbum {
+  id: string
+  name: string
+  count: number
+  coverPhotoId: string
+}
+
+export interface GalleryPhoto {
+  id: string
+  albumId: string
+  name: string
+  mime: string
+  size: number
+  dateTaken: number
+  width: number
+  height: number
+}
+
+export interface GalleryPreview {
+  photoId: string
+  name: string
+  dataUrl: string
+  loading: boolean
+  error?: string
+}
+
 export interface TransferItem {
   id: string
   name: string
@@ -82,6 +108,8 @@ export interface DeviceInfo {
   connected: boolean
   address?: string
   lastSeen?: number
+  batteryLevel?: number
+  charging?: boolean
 }
 
 export interface AppState {
@@ -96,6 +124,16 @@ export interface AppState {
   smsThreads: SmsThread[]
   smsActive: SmsActiveThread | null
   smsLoading: boolean
+  galleryAlbums: GalleryAlbum[]
+  galleryPhotos: GalleryPhoto[]
+  galleryAlbumId: string | null
+  galleryAlbumName: string
+  galleryNextOffset: number
+  galleryHasMore: boolean
+  galleryLoading: boolean
+  galleryThumbs: Record<string, string>
+  galleryPreview: GalleryPreview | null
+  galleryError: string
   clipboardEnabled: boolean
   downloadsDir: string
   clippingInFlight: boolean
@@ -286,6 +324,79 @@ export interface SmsErrorMsg {
   error: string
 }
 
+/* Device state ---------------------------------------------------------- */
+
+export interface DeviceStatusMsg {
+  t: 'device.status'
+  batteryLevel: number
+  charging: boolean
+}
+
+/* Gallery --------------------------------------------------------------- */
+
+export interface GalleryAlbumsRequestMsg {
+  t: 'gallery.albums.request'
+}
+
+export interface GalleryAlbumsMsg {
+  t: 'gallery.albums'
+  albums: GalleryAlbum[]
+}
+
+export interface GalleryPhotosRequestMsg {
+  t: 'gallery.photos.request'
+  albumId: string
+  offset: number
+  limit: number
+}
+
+export interface GalleryPhotosMsg {
+  t: 'gallery.photos'
+  albumId: string
+  offset: number
+  photos: GalleryPhoto[]
+  hasMore: boolean
+}
+
+export interface GalleryThumbsRequestMsg {
+  t: 'gallery.thumbnails.request'
+  photoIds: string[]
+}
+
+export interface GalleryThumbData {
+  photoId: string
+  mime: string
+  data: string
+}
+
+export interface GalleryThumbsMsg {
+  t: 'gallery.thumbnails'
+  items: GalleryThumbData[]
+}
+
+export interface GalleryPreviewRequestMsg {
+  t: 'gallery.preview.request'
+  photoId: string
+}
+
+export interface GalleryPreviewMsg {
+  t: 'gallery.preview'
+  photoId: string
+  mime: string
+  data: string
+}
+
+export interface GalleryDownloadMsg {
+  t: 'gallery.download'
+  photoId: string
+}
+
+export interface GalleryErrorMsg {
+  t: 'gallery.error'
+  op: string
+  error: string
+}
+
 export type ControlMsg =
   | HelloMsg
   | HelloResultMsg
@@ -315,6 +426,17 @@ export type ControlMsg =
   | SmsSentMsg
   | SmsNewMsg
   | SmsErrorMsg
+  | DeviceStatusMsg
+  | GalleryAlbumsRequestMsg
+  | GalleryAlbumsMsg
+  | GalleryPhotosRequestMsg
+  | GalleryPhotosMsg
+  | GalleryThumbsRequestMsg
+  | GalleryThumbsMsg
+  | GalleryPreviewRequestMsg
+  | GalleryPreviewMsg
+  | GalleryDownloadMsg
+  | GalleryErrorMsg
 
 /** Loose view used when reading untrusted input off the wire. */
 export type RawMsg = { t?: unknown; [key: string]: unknown }

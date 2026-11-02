@@ -31,6 +31,19 @@ export function DevicePanel({ devices }: Props): JSX.Element {
               {device.connected ? 'Connected' : 'Offline'}
               {device.address ? ` · ${device.address}` : ''}
             </div>
+            {device.connected && device.batteryLevel !== undefined && (
+              <div className={`device-battery ${device.charging ? 'device-battery-charging' : ''}`}>
+                <span className="battery-shell" aria-hidden="true">
+                  <span
+                    className="battery-fill"
+                    style={{ width: `${Math.max(3, device.batteryLevel)}%` }}
+                  />
+                </span>
+                <span>
+                  {device.batteryLevel}%{device.charging ? ' · Charging' : ''}
+                </span>
+              </div>
+            )}
           </div>
           {device.paired && (
             <button

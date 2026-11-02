@@ -156,6 +156,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     var code by remember { mutableStateOf("") }
     var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
+    var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(Unit) {
@@ -167,6 +168,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             delay(1500)
             notifAccess = hasNotificationAccess(context)
             smsAccess = hasSmsAccess(context)
+            photoAccess = hasPhotoAccess(context)
         }
     }
 
@@ -176,6 +178,15 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         smsAccess = hasSmsAccess(context)
         if (!smsAccess) {
             notice = "SMS permission was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
+        }
+    }
+
+    val photoPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        photoAccess = hasPhotoAccess(context)
+        if (!photoAccess) {
+            notice = "Photo access was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
         }
     }
 
@@ -364,6 +375,23 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             }
         }
 
+        if (!photoAccess) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Photos", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Allow LinkPhone to show photo albums on your PC. You can grant all photos " +
+                            "or a selected set on newer Android versions.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    OutlinedButton(onClick = {
+                        photoPermission.launch(photoPermissions())
+                    }) { Text("Allow photo access") }
+                }
+            }
+        }
+
         notice?.let { text ->
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                 Row(
@@ -494,6 +522,31 @@ private fun hasSmsAccess(context: Context): Boolean =
         PackageManager.PERMISSION_GRANTED &&
     ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) ==
         PackageManager.PERMISSION_GRANTED
+
+private fun hasPhotoAccess(context: Context): Boolean = when {
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+            ) == PackageManager.PERMISSION_GRANTED
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES) ==
+            PackageManager.PERMISSION_GRANTED
+    else -> ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) ==
+        PackageManager.PERMISSION_GRANTED
+}
+
+private fun photoPermissions(): Array<String> = when {
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> arrayOf(
+        Manifest.permission.READ_MEDIA_IMAGES,
+        Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+    )
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+        arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+    else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+}
 
 @Composable
 private fun StatusCard(status: LinkStatus, notifAccess: Boolean, paired: Boolean) {

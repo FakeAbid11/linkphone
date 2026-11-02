@@ -72,6 +72,7 @@ class LinkClient(context: Context, private val store: PairStore) {
     private val appContext = context.applicationContext
     private val resolver = appContext.contentResolver
     private val sms = SmsRepository(appContext)
+    private val media = MediaRepository(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val http = OkHttpClient.Builder()
@@ -331,6 +332,9 @@ class LinkClient(context: Context, private val store: PairStore) {
         wantConnection = true
         hostQueue.clear()
         _status.value = LinkStatus(LinkState.CONNECTED, serverName)
+        BatteryMonitor.current(appContext)?.let { battery ->
+            sendBatteryStatus(battery.level, battery.charging)
+        }
     }
 
     /* ------------------------------------------------------------ */
@@ -408,6 +412,11 @@ class LinkClient(context: Context, private val store: PairStore) {
                 if (threadId.isNotEmpty()) scope.launch { sendSmsThread(threadId) }
             }
             "sms.send" -> scope.launch { handleSmsSend(msg) }
+            "gallery.albums.request" -> scope.launch { sendGalleryAlbums() }
+            "gallery.photos.request" -> scope.launch { sendGalleryPhotos(msg) }
+            "gallery.thumbnails.request" -> scope.launch { sendGalleryThumbnails(msg) }
+            "gallery.preview.request" -> scope.launch { sendGalleryPreview(msg.optString("photoId")) }
+            "gallery.download" -> scope.launch { downloadGalleryPhoto(msg.optString("photoId")) }
         }
     }
 
@@ -658,6 +667,17 @@ class LinkClient(context: Context, private val store: PairStore) {
         )
     }
 
+    fun sendBatteryStatus(level: Int, charging: Boolean) {
+        if (!ready) return
+        send(
+            JSONObject().apply {
+                put("t", "device.status")
+                put("batteryLevel", level.coerceIn(0, 100))
+                put("charging", charging)
+            }
+        )
+    }
+
     /* ------------------------------------------------------------ */
     /* SMS                                                           */
     /* ------------------------------------------------------------ */
@@ -766,6 +786,139 @@ class LinkClient(context: Context, private val store: PairStore) {
         put("outgoing", outgoing)
         put("failed", failed)
     }
+
+    /* ------------------------------------------------------------ */
+    /* Gallery                                                       */
+    /* ------------------------------------------------------------ */
+
+    private fun sendGalleryAlbums() {
+        if (!media.hasPermission()) {
+            sendGalleryError("albums", "Photo permission not granted on the phone")
+            return
+        }
+        runCatching {
+            JSONArray(media.albums().map { album ->
+                JSONObject().apply {
+                    put("id", album.id)
+                    put("name", album.name)
+                    put("count", album.count)
+                    put("coverPhotoId", album.coverPhotoId)
+                }
+            })
+        }.onSuccess { albums ->
+            send(JSONObject().apply { put("t", "gallery.albums"); put("albums", albums) })
+        }.onFailure { error ->
+            Log.w("LinkPhone", "gallery albums", error)
+            sendGalleryError("albums", error.message ?: "Could not read photo albums")
+        }
+    }
+
+    private fun sendGalleryPhotos(msg: JSONObject) {
+        if (!media.hasPermission()) {
+            sendGalleryError("photos", "Photo permission not granted on the phone")
+            return
+        }
+        val albumId = msg.optString("albumId")
+        val offset = msg.optInt("offset", 0).coerceAtLeast(0)
+        val limit = msg.optInt("limit", 48).coerceIn(1, 60)
+        runCatching { media.photos(albumId, offset, limit) }
+            .onSuccess { page ->
+                val photos = JSONArray(page.photos.map { it.toJson() })
+                send(
+                    JSONObject().apply {
+                        put("t", "gallery.photos")
+                        put("albumId", albumId)
+                        put("offset", offset)
+                        put("photos", photos)
+                        put("hasMore", page.hasMore)
+                    }
+                )
+            }
+            .onFailure { error ->
+                Log.w("LinkPhone", "gallery photos", error)
+                sendGalleryError("photos", error.message ?: "Could not read photos")
+            }
+    }
+
+    private fun sendGalleryThumbnails(msg: JSONObject) {
+        if (!media.hasPermission()) {
+            sendGalleryError("thumbnails", "Photo permission not granted on the phone")
+            return
+        }
+        val ids = msg.optJSONArray("photoIds") ?: JSONArray()
+        val items = JSONArray()
+        for (index in 0 until minOf(ids.length(), 24)) {
+            val photoId = ids.optString(index)
+            if (photoId.isEmpty()) continue
+            runCatching { media.thumbnail(photoId) }.getOrNull()?.let { image ->
+                items.put(image.toJson(photoId))
+            }
+        }
+        send(JSONObject().apply { put("t", "gallery.thumbnails"); put("items", items) })
+    }
+
+    private fun sendGalleryPreview(photoId: String) {
+        if (!media.hasPermission()) {
+            sendGalleryError("preview", "Photo permission not granted on the phone")
+            return
+        }
+        val image = runCatching { media.preview(photoId) }
+            .onFailure { Log.w("LinkPhone", "gallery preview", it) }
+            .getOrNull()
+        if (image == null) {
+            sendGalleryError("preview", "Could not load that photo")
+            return
+        }
+        send(
+            JSONObject().apply {
+                put("t", "gallery.preview")
+                put("photoId", photoId)
+                put("mime", image.mime)
+                put("data", b64(image.bytes))
+            }
+        )
+    }
+
+    private fun downloadGalleryPhoto(photoId: String) {
+        if (!media.hasPermission()) {
+            sendGalleryError("download", "Photo permission not granted on the phone")
+            return
+        }
+        val uri = media.uri(photoId)
+        if (uri == null) {
+            sendGalleryError("download", "That photo no longer exists")
+            return
+        }
+        sendFile(uri)
+    }
+
+    private fun sendGalleryError(op: String, detail: String) {
+        send(
+            JSONObject().apply {
+                put("t", "gallery.error")
+                put("op", op)
+                put("error", detail)
+            }
+        )
+    }
+
+    private fun MediaRepository.Photo.toJson(): JSONObject = JSONObject().apply {
+        put("id", id)
+        put("albumId", albumId)
+        put("name", name)
+        put("mime", mime)
+        put("size", size)
+        put("dateTaken", dateTaken)
+        put("width", width)
+        put("height", height)
+    }
+
+    private fun MediaRepository.EncodedImage.toJson(photoId: String): JSONObject =
+        JSONObject().apply {
+            put("photoId", photoId)
+            put("mime", mime)
+            put("data", b64(bytes))
+        }
 
     private fun b64(bytes: ByteArray): String = Base64.encodeToString(bytes, Base64.NO_WRAP)
 }

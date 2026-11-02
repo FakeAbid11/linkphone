@@ -6,12 +6,14 @@ import { FilesPanel } from './components/FilesPanel'
 import { MessagesPanel } from './components/MessagesPanel'
 import { NotificationsPanel } from './components/NotificationsPanel'
 import { PairingCard } from './components/PairingCard'
+import { PhotosPanel } from './components/PhotosPanel'
 
-type Tab = 'notifications' | 'messages' | 'files' | 'clipboard'
+type Tab = 'notifications' | 'messages' | 'photos' | 'files' | 'clipboard'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'notifications', label: 'Notifications' },
   { id: 'messages', label: 'Messages' },
+  { id: 'photos', label: 'Photos' },
   { id: 'files', label: 'Files' },
   { id: 'clipboard', label: 'Clipboard' }
 ]
@@ -51,7 +53,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark" />
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.2</div>
+            <div className="brand-sub">Local network · v0.3</div>
           </div>
         </div>
 
@@ -65,6 +67,7 @@ export default function App(): JSX.Element {
               onClick={() => {
                 setTab(t.id)
                 if (t.id === 'messages') void window.linkphone.requestSmsThreads()
+                if (t.id === 'photos') void window.linkphone.requestGalleryAlbums()
               }}
             >
               <span>{t.label}</span>
@@ -145,6 +148,36 @@ export default function App(): JSX.Element {
               onSend={(threadId, address, body) =>
                 void window.linkphone.sendSms(threadId, address, body)
               }
+            />
+          )}
+          {tab === 'photos' && (
+            <PhotosPanel
+              albums={state.galleryAlbums}
+              photos={state.galleryPhotos}
+              albumId={state.galleryAlbumId}
+              albumName={state.galleryAlbumName}
+              nextOffset={state.galleryNextOffset}
+              hasMore={state.galleryHasMore}
+              loading={state.galleryLoading}
+              thumbs={state.galleryThumbs}
+              preview={state.galleryPreview}
+              error={state.galleryError}
+              onRefresh={() => void window.linkphone.requestGalleryAlbums()}
+              onOpenAlbum={(albumId, name) =>
+                void window.linkphone.openGalleryAlbum(albumId, name)
+              }
+              onCloseAlbum={() => void window.linkphone.closeGalleryAlbum()}
+              onLoadMore={(albumId, offset) =>
+                void window.linkphone.loadMoreGallery(albumId, offset)
+              }
+              onRequestThumbs={(photoIds) =>
+                void window.linkphone.requestGalleryThumbnails(photoIds)
+              }
+              onPreview={(photoId, name) =>
+                void window.linkphone.requestGalleryPreview(photoId, name)
+              }
+              onClosePreview={() => void window.linkphone.closeGalleryPreview()}
+              onDownload={(photoId) => void window.linkphone.downloadGalleryPhoto(photoId)}
             />
           )}
           {tab === 'clipboard' && (

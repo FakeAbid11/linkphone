@@ -175,6 +175,36 @@ function registerIpc(): void {
     server.sendSms(threadId, address, body)
   })
 
+  ipcMain.handle('gallery:albums', () => server.requestGalleryAlbums())
+
+  ipcMain.handle('gallery:album', (_event, albumId: unknown, name: unknown) => {
+    if (typeof albumId !== 'string' || typeof name !== 'string') return
+    server.openGalleryAlbum(albumId, name)
+  })
+
+  ipcMain.handle('gallery:close-album', () => server.closeGalleryAlbum())
+
+  ipcMain.handle('gallery:more', (_event, albumId: unknown, offset: unknown) => {
+    if (typeof albumId !== 'string' || typeof offset !== 'number') return
+    server.loadMoreGallery(albumId, offset)
+  })
+
+  ipcMain.handle('gallery:thumbnails', (_event, photoIds: unknown) => {
+    if (!Array.isArray(photoIds)) return
+    server.requestGalleryThumbnails(photoIds.filter((id): id is string => typeof id === 'string'))
+  })
+
+  ipcMain.handle('gallery:preview', (_event, photoId: unknown, name: unknown) => {
+    if (typeof photoId !== 'string' || typeof name !== 'string') return
+    server.requestGalleryPreview(photoId, name)
+  })
+
+  ipcMain.handle('gallery:close-preview', () => server.closeGalleryPreview())
+
+  ipcMain.handle('gallery:download', (_event, photoId: unknown) => {
+    if (typeof photoId === 'string') server.downloadGalleryPhoto(photoId)
+  })
+
   ipcMain.handle('shell:open', (_event, url: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) return shell.openExternal(url)
     return undefined

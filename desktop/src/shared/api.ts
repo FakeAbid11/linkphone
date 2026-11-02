@@ -14,6 +14,14 @@ export interface LinkPhoneApi {
   openSmsThread: (threadId: string, address: string) => Promise<void>
   closeSmsThread: () => Promise<void>
   sendSms: (threadId: string, address: string, body: string) => Promise<void>
+  requestGalleryAlbums: () => Promise<void>
+  openGalleryAlbum: (albumId: string, name: string) => Promise<void>
+  closeGalleryAlbum: () => Promise<void>
+  loadMoreGallery: (albumId: string, offset: number) => Promise<void>
+  requestGalleryThumbnails: (photoIds: string[]) => Promise<void>
+  requestGalleryPreview: (photoId: string, name: string) => Promise<void>
+  closeGalleryPreview: () => Promise<void>
+  downloadGalleryPhoto: (photoId: string) => Promise<void>
   setClipboardEnabled: (enabled: boolean) => Promise<void>
   openDownloads: () => Promise<void>
   copyToClipboard: (text: string) => Promise<void>

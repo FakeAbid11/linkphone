@@ -6,6 +6,8 @@ import crypto from 'node:crypto'
 import type {
   AppState,
   DeviceInfo,
+  GalleryAlbum,
+  GalleryPhoto,
   NotificationItem,
   Platform,
   SmsActiveThread,
@@ -42,6 +44,16 @@ export class AppStore extends EventEmitter {
   private smsThreads: SmsThread[] = []
   private smsActive: SmsActiveThread | null = null
   private smsLoading = false
+  private galleryAlbums: GalleryAlbum[] = []
+  private galleryPhotos: GalleryPhoto[] = []
+  private galleryAlbumId: string | null = null
+  private galleryAlbumName = ''
+  private galleryNextOffset = 0
+  private galleryHasMore = false
+  private galleryLoading = false
+  private galleryThumbs: Record<string, string> = {}
+  private galleryPreview: AppState['galleryPreview'] = null
+  private galleryError = ''
   private live = new Map<string, DeviceInfo>()
   private addresses: string[] = []
   port = 0
@@ -143,7 +155,24 @@ export class AppStore extends EventEmitter {
   }
 
   markConnected(device: DeviceInfo): void {
-    this.live.set(device.deviceId, { ...device, connected: true, lastSeen: Date.now() })
+    const current = this.live.get(device.deviceId)
+    this.live.set(device.deviceId, {
+      ...current,
+      ...device,
+      connected: true,
+      lastSeen: Date.now()
+    })
+    this.changed()
+  }
+
+  updateDeviceStatus(deviceId: string, batteryLevel: number, charging: boolean): void {
+    const current = this.live.get(deviceId)
+    if (!current) return
+    this.live.set(deviceId, {
+      ...current,
+      batteryLevel: Math.max(0, Math.min(100, Math.round(batteryLevel))),
+      charging
+    })
     this.changed()
   }
 
@@ -251,6 +280,111 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  /* ---------------- Gallery ---------------- */
+
+  requestGalleryAlbums(): void {
+    this.galleryLoading = true
+    this.galleryError = ''
+    this.galleryPreview = null
+    this.changed()
+  }
+
+  setGalleryAlbums(albums: GalleryAlbum[]): void {
+    this.galleryAlbums = albums
+    this.galleryPhotos = []
+    this.galleryAlbumId = null
+    this.galleryAlbumName = ''
+    this.galleryNextOffset = 0
+    this.galleryHasMore = false
+    this.galleryLoading = false
+    this.galleryError = ''
+    this.galleryPreview = null
+    this.changed()
+  }
+
+  openGalleryAlbum(albumId: string, name: string): void {
+    this.galleryAlbumId = albumId
+    this.galleryAlbumName = name
+    this.galleryPhotos = []
+    this.galleryNextOffset = 0
+    this.galleryHasMore = false
+    this.galleryLoading = true
+    this.galleryError = ''
+    this.galleryPreview = null
+    this.changed()
+  }
+
+  closeGalleryAlbum(): void {
+    this.galleryAlbumId = null
+    this.galleryAlbumName = ''
+    this.galleryPhotos = []
+    this.galleryNextOffset = 0
+    this.galleryHasMore = false
+    this.galleryLoading = false
+    this.galleryPreview = null
+    this.changed()
+  }
+
+  setGalleryLoading(loading: boolean): void {
+    this.galleryLoading = loading
+    this.changed()
+  }
+
+  appendGalleryPhotos(
+    albumId: string,
+    offset: number,
+    photos: GalleryPhoto[],
+    hasMore: boolean
+  ): void {
+    if (this.galleryAlbumId !== albumId) return
+    if (offset === 0) {
+      this.galleryPhotos = photos
+    } else {
+      const known = new Set(this.galleryPhotos.map((photo) => photo.id))
+      this.galleryPhotos = [...this.galleryPhotos, ...photos.filter((photo) => !known.has(photo.id))]
+    }
+    this.galleryNextOffset = offset + photos.length
+    this.galleryHasMore = hasMore
+    this.galleryLoading = false
+    this.galleryError = ''
+    this.changed()
+  }
+
+  addGalleryThumbs(items: Array<{ photoId: string; dataUrl: string }>): void {
+    for (const item of items) this.galleryThumbs[item.photoId] = item.dataUrl
+    const keys = Object.keys(this.galleryThumbs)
+    if (keys.length > 500) {
+      for (const key of keys.slice(0, keys.length - 500)) delete this.galleryThumbs[key]
+    }
+    this.changed()
+  }
+
+  openGalleryPreview(photoId: string, name: string): void {
+    this.galleryPreview = { photoId, name, dataUrl: '', loading: true }
+    this.galleryError = ''
+    this.changed()
+  }
+
+  setGalleryPreview(photoId: string, dataUrl: string): void {
+    if (!this.galleryPreview || this.galleryPreview.photoId !== photoId) return
+    this.galleryPreview = { ...this.galleryPreview, dataUrl, loading: false, error: undefined }
+    this.changed()
+  }
+
+  closeGalleryPreview(): void {
+    this.galleryPreview = null
+    this.changed()
+  }
+
+  setGalleryError(error: string): void {
+    this.galleryLoading = false
+    this.galleryError = error
+    if (this.galleryPreview?.loading) {
+      this.galleryPreview = { ...this.galleryPreview, loading: false, error }
+    }
+    this.changed()
+  }
+
   snapshot(): AppState {
     const devices: DeviceInfo[] = this.persisted.paired.map((d) => {
       const live = this.live.get(d.deviceId)
@@ -261,7 +395,9 @@ export class AppStore extends EventEmitter {
         paired: true,
         connected: live?.connected ?? false,
         address: live?.address,
-        lastSeen: live?.lastSeen
+        lastSeen: live?.lastSeen,
+        batteryLevel: live?.batteryLevel,
+        charging: live?.charging
       }
     })
     for (const [id, live] of this.live) {
@@ -281,6 +417,16 @@ export class AppStore extends EventEmitter {
       smsThreads: this.smsThreads,
       smsActive: this.smsActive,
       smsLoading: this.smsLoading,
+      galleryAlbums: this.galleryAlbums,
+      galleryPhotos: this.galleryPhotos,
+      galleryAlbumId: this.galleryAlbumId,
+      galleryAlbumName: this.galleryAlbumName,
+      galleryNextOffset: this.galleryNextOffset,
+      galleryHasMore: this.galleryHasMore,
+      galleryLoading: this.galleryLoading,
+      galleryThumbs: this.galleryThumbs,
+      galleryPreview: this.galleryPreview,
+      galleryError: this.galleryError,
       clipboardEnabled: this.persisted.clipboardEnabled,
       downloadsDir: this.downloadsDir,
       clippingInFlight: false

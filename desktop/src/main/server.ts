@@ -16,6 +16,8 @@ import {
   str,
   type ControlMsg,
   type FileOfferMsg,
+  type GalleryAlbum,
+  type GalleryPhoto,
   type NotificationAction,
   type NotificationItem,
   type Platform,
@@ -40,6 +42,7 @@ type Phase = 'fresh' | 'awaitPair' | 'awaitAuth' | 'ready'
 
 const WINDOW_BYTES = 8 * MAX_FILE_CHUNK
 const ACK_TIMEOUT_MS = 30_000
+const GALLERY_PAGE_SIZE = 48
 
 class Outbound {
   acked = 0
@@ -548,6 +551,56 @@ export class LinkServer extends EventEmitter {
         this.store.setSmsLoading(false)
         return
 
+      case 'device.status':
+        this.store.updateDeviceStatus(
+          peer.deviceId,
+          Math.max(0, Math.min(100, num(msg.batteryLevel))),
+          bool(msg.charging)
+        )
+        return
+
+      case 'gallery.albums': {
+        const list = Array.isArray(msg.albums) ? (msg.albums as unknown[]) : []
+        this.store.setGalleryAlbums(list.filter(isRawMsg).map(parseGalleryAlbum).slice(0, 200))
+        return
+      }
+
+      case 'gallery.photos': {
+        const albumId = str(msg.albumId).slice(0, 256)
+        const offset = Math.max(0, Math.floor(num(msg.offset)))
+        const list = Array.isArray(msg.photos) ? (msg.photos as unknown[]) : []
+        this.store.appendGalleryPhotos(
+          albumId,
+          offset,
+          list.filter(isRawMsg).map(parseGalleryPhoto).slice(0, GALLERY_PAGE_SIZE),
+          bool(msg.hasMore)
+        )
+        return
+      }
+
+      case 'gallery.thumbnails': {
+        const list = Array.isArray(msg.items) ? (msg.items as unknown[]) : []
+        const items = list
+          .filter(isRawMsg)
+          .slice(0, 24)
+          .map((item) => imageData(item, 750_000))
+          .filter((item): item is { photoId: string; dataUrl: string } => item !== null)
+        this.store.addGalleryThumbs(items)
+        return
+      }
+
+      case 'gallery.preview': {
+        const image = imageData(msg, 8_000_000)
+        if (image) this.store.setGalleryPreview(image.photoId, image.dataUrl)
+        else this.store.setGalleryError('Phone returned an invalid preview')
+        return
+      }
+
+      case 'gallery.error':
+        console.warn('[server] phone reported gallery error:', str(msg.error))
+        this.store.setGalleryError(str(msg.error, 'Gallery request failed').slice(0, 500))
+        return
+
       case 'pong':
         return
 
@@ -703,6 +756,66 @@ export class LinkServer extends EventEmitter {
     })
     this.send(peer, { t: 'sms.send', tempId, address, body })
   }
+
+  /* ---------------------------------------------------------------- */
+  /* Gallery                                                           */
+  /* ---------------------------------------------------------------- */
+
+  requestGalleryAlbums(): void {
+    if (!this.hasConnectedPeer()) return
+    this.store.requestGalleryAlbums()
+    this.broadcast({ t: 'gallery.albums.request' })
+  }
+
+  openGalleryAlbum(albumId: string, name: string): void {
+    if (!this.hasConnectedPeer()) return
+    const safeId = albumId.slice(0, 256)
+    this.store.openGalleryAlbum(safeId, name.slice(0, 200))
+    this.broadcast({
+      t: 'gallery.photos.request',
+      albumId: safeId,
+      offset: 0,
+      limit: GALLERY_PAGE_SIZE
+    })
+  }
+
+  closeGalleryAlbum(): void {
+    this.store.closeGalleryAlbum()
+  }
+
+  loadMoreGallery(albumId: string, offset: number): void {
+    if (!this.hasConnectedPeer()) return
+    this.store.setGalleryLoading(true)
+    this.broadcast({
+      t: 'gallery.photos.request',
+      albumId: albumId.slice(0, 256),
+      offset: Math.max(0, Math.floor(offset)),
+      limit: GALLERY_PAGE_SIZE
+    })
+  }
+
+  requestGalleryThumbnails(photoIds: string[]): void {
+    if (!this.hasConnectedPeer()) return
+    const ids = [...new Set(photoIds.map((id) => id.slice(0, 64)).filter(Boolean))].slice(0, 24)
+    if (ids.length === 0) return
+    this.broadcast({ t: 'gallery.thumbnails.request', photoIds: ids })
+  }
+
+  requestGalleryPreview(photoId: string, name: string): void {
+    if (!this.hasConnectedPeer()) return
+    const safeId = photoId.slice(0, 64)
+    this.store.openGalleryPreview(safeId, name.slice(0, 240))
+    this.broadcast({ t: 'gallery.preview.request', photoId: safeId })
+  }
+
+  closeGalleryPreview(): void {
+    this.store.closeGalleryPreview()
+  }
+
+  downloadGalleryPhoto(photoId: string): void {
+    if (!this.hasConnectedPeer()) return
+    this.broadcast({ t: 'gallery.download', photoId: photoId.slice(0, 64) })
+  }
 }
 
 function parseSmsMessage(raw: RawMsg): SmsMessage {
@@ -726,6 +839,40 @@ function parseSmsThread(raw: RawMsg): SmsThread {
     date: num(raw.date),
     count: num(raw.count, 1)
   }
+}
+
+function parseGalleryAlbum(raw: RawMsg): GalleryAlbum {
+  return {
+    id: str(raw.id).slice(0, 256),
+    name: str(raw.name, 'Album').slice(0, 200),
+    count: Math.max(0, Math.floor(num(raw.count))),
+    coverPhotoId: str(raw.coverPhotoId).slice(0, 64)
+  }
+}
+
+function parseGalleryPhoto(raw: RawMsg): GalleryPhoto {
+  return {
+    id: str(raw.id).slice(0, 64),
+    albumId: str(raw.albumId).slice(0, 256),
+    name: str(raw.name, 'Photo').slice(0, 240),
+    mime: str(raw.mime, 'image/jpeg').slice(0, 100),
+    size: Math.max(0, num(raw.size)),
+    dateTaken: Math.max(0, num(raw.dateTaken)),
+    width: Math.max(0, Math.floor(num(raw.width))),
+    height: Math.max(0, Math.floor(num(raw.height)))
+  }
+}
+
+function imageData(
+  raw: RawMsg,
+  maxBase64Length: number
+): { photoId: string; dataUrl: string } | null {
+  const photoId = str(raw.photoId).slice(0, 64)
+  const mime = str(raw.mime, 'image/jpeg')
+  const data = str(raw.data)
+  if (!photoId || !/^image\/(?:jpeg|png|webp)$/i.test(mime)) return null
+  if (!data || data.length > maxBase64Length || !/^[A-Za-z0-9+/=]+$/.test(data)) return null
+  return { photoId, dataUrl: `data:${mime.toLowerCase()};base64,${data}` }
 }
 
 function toBuffer(data: RawData): Buffer {

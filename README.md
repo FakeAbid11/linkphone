@@ -56,6 +56,8 @@ handshake and the threat model.
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
+   If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
+   v0.2 establishes the permanent key, so later releases update in place normally.
 3. Run `LinkPhone.Setup.0.2.0.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.

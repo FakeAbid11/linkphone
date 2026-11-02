@@ -8,6 +8,21 @@ android {
     namespace = "dev.linkphone.app"
     compileSdk = 35
 
+    // Release builds use a persistent key supplied by GitHub Actions. v0.1 was
+    // signed by an ephemeral runner debug key; from v0.2 onward APK updates keep
+    // the same signature.
+    val releaseKeystorePath = System.getenv("LINKPHONE_KEYSTORE_PATH")
+    val releaseSigning = if (!releaseKeystorePath.isNullOrBlank()) {
+        signingConfigs.create("release") {
+            storeFile = file(releaseKeystorePath)
+            storePassword = System.getenv("LINKPHONE_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("LINKPHONE_KEY_ALIAS")
+            keyPassword = System.getenv("LINKPHONE_KEY_PASSWORD")
+        }
+    } else {
+        null
+    }
+
     defaultConfig {
         applicationId = "dev.linkphone.app"
         minSdk = 29
@@ -32,6 +47,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseSigning != null) signingConfig = releaseSigning
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

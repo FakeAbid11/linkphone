@@ -20,11 +20,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build signed-with-debug-key APK
+      - name: Restore Android signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/linkphone-release.jks"
+      - name: Build signed APK
         working-directory: android
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleRelease --no-daemon
+        env:
+          LINKPHONE_KEYSTORE_PATH: ${{ runner.temp }}/linkphone-release.jks
+          LINKPHONE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          LINKPHONE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          LINKPHONE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       - name: Rename
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk linkphone-android.apk
+        run: cp android/app/build/outputs/apk/release/app-release.apk linkphone-android.apk
       - uses: actions/upload-artifact@v5
         with:
           name: android-release
@@ -70,6 +80,9 @@ jobs:
 
             1. **Phone** — download `linkphone-android.apk` and install it (allow "install unknown
                apps" when asked).
+               **If v0.1 is installed, uninstall it first and pair again.** v0.1 used a temporary
+               CI signing key; v0.2 starts the permanent signing key, so future versions update in
+               place normally.
             2. **PC** — download and run `LinkPhone.Setup.0.2.0.exe`. SmartScreen will warn because
                the installer is unsigned: *More info → Run anyway*. Allow it on **private**
                networks when Windows Firewall asks.

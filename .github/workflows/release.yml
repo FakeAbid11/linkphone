@@ -45,8 +45,6 @@ jobs:
       - name: Build installer
         working-directory: desktop
         run: npm run dist:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v5
         with:
           name: windows-installer

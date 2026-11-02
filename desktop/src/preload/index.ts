@@ -36,6 +36,9 @@ const api: LinkPhoneApi = {
   closeGalleryPreview: () => ipcRenderer.invoke('gallery:close-preview') as Promise<void>,
   downloadGalleryPhoto: (photoId) =>
     ipcRenderer.invoke('gallery:download', photoId) as Promise<void>,
+  checkDesktopUpdate: () => ipcRenderer.invoke('update:check') as Promise<void>,
+  downloadDesktopUpdate: () => ipcRenderer.invoke('update:download') as Promise<void>,
+  installDesktopUpdate: () => ipcRenderer.send('update:install'),
   setClipboardEnabled: (enabled) =>
     ipcRenderer.invoke('clipboard:enable', enabled) as Promise<void>,
   openDownloads: () => ipcRenderer.invoke('files:open-downloads') as Promise<void>,

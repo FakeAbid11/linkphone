@@ -58,7 +58,10 @@ jobs:
       - uses: actions/upload-artifact@v5
         with:
           name: windows-installer
-          path: desktop/release/*.exe
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.blockmap
+            desktop/release/latest.yml
 
   publish:
     needs: [android, windows]
@@ -115,3 +118,5 @@ jobs:
           files: |
             artifacts/android-release/linkphone-android.apk
             artifacts/windows-installer/*.exe
+            artifacts/windows-installer/*.blockmap
+            artifacts/windows-installer/latest.yml

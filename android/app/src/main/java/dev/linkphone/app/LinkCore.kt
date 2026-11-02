@@ -9,6 +9,7 @@ object LinkCore {
 
     @Volatile private var clientRef: LinkClient? = null
     @Volatile private var storeRef: PairStore? = null
+    @Volatile private var updaterRef: AppUpdateManager? = null
 
     fun init(context: Context) {
         if (clientRef != null) return
@@ -18,6 +19,7 @@ object LinkCore {
             val store = PairStore(app)
             storeRef = store
             clientRef = LinkClient(app, store)
+            updaterRef = AppUpdateManager(app)
         }
     }
 
@@ -26,6 +28,8 @@ object LinkCore {
     fun requireClient(): LinkClient = clientRef ?: error("LinkCore not initialised")
 
     fun requireStore(): PairStore = storeRef ?: error("LinkCore not initialised")
+
+    fun requireUpdater(): AppUpdateManager = updaterRef ?: error("LinkCore not initialised")
 
     fun startService(context: Context) {
         val intent = Intent(context, LinkService::class.java)

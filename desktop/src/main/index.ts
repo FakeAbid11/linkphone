@@ -17,6 +17,7 @@ import { newPairCode } from './crypto'
 import { advertise, localAddresses, type Advertisement } from './discovery'
 import { LinkServer } from './server'
 import { AppStore } from './state'
+import { DesktopUpdater } from './updater'
 
 /* 32x32 phone glyph, generated offline; keeps the repo free of binary assets. */
 const TRAY_ICON_B64 =
@@ -28,6 +29,7 @@ let store: AppStore
 let server: LinkServer
 let advertisement: Advertisement | null = null
 let watcher: ClipboardWatcher
+let updater: DesktopUpdater
 let quitting = false
 
 function sendState(state: AppState): void {
@@ -205,6 +207,10 @@ function registerIpc(): void {
     if (typeof photoId === 'string') server.downloadGalleryPhoto(photoId)
   })
 
+  ipcMain.handle('update:check', () => updater.check(true))
+  ipcMain.handle('update:download', () => updater.download())
+  ipcMain.on('update:install', () => updater.install())
+
   ipcMain.handle('shell:open', (_event, url: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) return shell.openExternal(url)
     return undefined
@@ -222,10 +228,11 @@ async function bootstrap(): Promise<void> {
   app.setAppUserModelId('dev.linkphone.desktop')
   app.setName('LinkPhone')
 
-  store = new AppStore(app.getPath('userData'))
+  store = new AppStore(app.getPath('userData'), app.getVersion())
   store.setPairingCode(newPairCode())
 
   server = new LinkServer(store)
+  updater = new DesktopUpdater(store, app.isPackaged)
   watcher = new ClipboardWatcher(
     (text) => server.sendClipboard(text),
     () => store.clipboardEnabled
@@ -270,6 +277,7 @@ async function bootstrap(): Promise<void> {
   createWindow()
   createTray()
   registerIpc()
+  updater.start()
 
   app.on('activate', () => showWindow())
 }
@@ -290,6 +298,7 @@ if (!gotLock) {
   app.on('before-quit', () => {
     quitting = true
     watcher?.stop()
+    updater?.stop()
     advertisement?.stop()
     server?.stop()
   })

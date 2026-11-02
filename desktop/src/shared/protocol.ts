@@ -87,6 +87,24 @@ export interface GalleryPreview {
   error?: string
 }
 
+export type DesktopUpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'up-to-date'
+  | 'error'
+
+export interface DesktopUpdateState {
+  status: DesktopUpdateStatus
+  currentVersion: string
+  availableVersion?: string
+  progress?: number
+  message?: string
+  checkedAt?: number
+}
+
 export interface TransferItem {
   id: string
   name: string
@@ -134,6 +152,7 @@ export interface AppState {
   galleryThumbs: Record<string, string>
   galleryPreview: GalleryPreview | null
   galleryError: string
+  desktopUpdate: DesktopUpdateState
   clipboardEnabled: boolean
   downloadsDir: string
   clippingInFlight: boolean

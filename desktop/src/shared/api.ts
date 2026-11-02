@@ -22,6 +22,9 @@ export interface LinkPhoneApi {
   requestGalleryPreview: (photoId: string, name: string) => Promise<void>
   closeGalleryPreview: () => Promise<void>
   downloadGalleryPhoto: (photoId: string) => Promise<void>
+  checkDesktopUpdate: () => Promise<void>
+  downloadDesktopUpdate: () => Promise<void>
+  installDesktopUpdate: () => void
   setClipboardEnabled: (enabled: boolean) => Promise<void>
   openDownloads: () => Promise<void>
   copyToClipboard: (text: string) => Promise<void>

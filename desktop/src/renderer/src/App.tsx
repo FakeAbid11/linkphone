@@ -7,15 +7,17 @@ import { MessagesPanel } from './components/MessagesPanel'
 import { NotificationsPanel } from './components/NotificationsPanel'
 import { PairingCard } from './components/PairingCard'
 import { PhotosPanel } from './components/PhotosPanel'
+import { UpdatePanel } from './components/UpdatePanel'
 
-type Tab = 'notifications' | 'messages' | 'photos' | 'files' | 'clipboard'
+type Tab = 'notifications' | 'messages' | 'photos' | 'files' | 'clipboard' | 'settings'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'notifications', label: 'Notifications' },
   { id: 'messages', label: 'Messages' },
   { id: 'photos', label: 'Photos' },
   { id: 'files', label: 'Files' },
-  { id: 'clipboard', label: 'Clipboard' }
+  { id: 'clipboard', label: 'Clipboard' },
+  { id: 'settings', label: 'Settings' }
 ]
 
 export default function App(): JSX.Element {
@@ -53,7 +55,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark" />
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.3</div>
+            <div className="brand-sub">Local network · v0.4</div>
           </div>
         </div>
 
@@ -72,6 +74,11 @@ export default function App(): JSX.Element {
             >
               <span>{t.label}</span>
               {t.id === 'notifications' && unread > 0 && <span className="badge">{unread}</span>}
+              {t.id === 'settings' &&
+                (state.desktopUpdate.status === 'available' ||
+                  state.desktopUpdate.status === 'ready') && (
+                <span className="update-dot" title="Update available" />
+              )}
             </button>
           ))}
         </nav>
@@ -185,6 +192,14 @@ export default function App(): JSX.Element {
               enabled={state.clipboardEnabled}
               onToggle={(enabled) => void window.linkphone.setClipboardEnabled(enabled)}
               onSend={(text) => void window.linkphone.sendClipboard(text)}
+            />
+          )}
+          {tab === 'settings' && (
+            <UpdatePanel
+              update={state.desktopUpdate}
+              onCheck={() => void window.linkphone.checkDesktopUpdate()}
+              onDownload={() => void window.linkphone.downloadDesktopUpdate()}
+              onInstall={() => window.linkphone.installDesktopUpdate()}
             />
           )}
         </section>

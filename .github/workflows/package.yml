@@ -62,5 +62,8 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: linkphone-windows-installer
-          path: desktop/release/*.exe
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.blockmap
+            desktop/release/latest.yml
           if-no-files-found: error

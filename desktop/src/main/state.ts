@@ -5,6 +5,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import type {
   AppState,
+  DesktopUpdateState,
   DeviceInfo,
   GalleryAlbum,
   GalleryPhoto,
@@ -54,17 +55,19 @@ export class AppStore extends EventEmitter {
   private galleryThumbs: Record<string, string> = {}
   private galleryPreview: AppState['galleryPreview'] = null
   private galleryError = ''
+  private desktopUpdate: DesktopUpdateState
   private live = new Map<string, DeviceInfo>()
   private addresses: string[] = []
   port = 0
   pairingCode = ''
 
-  constructor(dir: string) {
+  constructor(dir: string, currentVersion = '') {
     super()
     this.file = path.join(dir, 'config.json')
     this.downloadsDir = path.join(os.homedir(), 'Downloads', 'LinkPhone')
     fs.mkdirSync(this.downloadsDir, { recursive: true })
     this.persisted = this.load(dir)
+    this.desktopUpdate = { status: 'idle', currentVersion }
   }
 
   private load(dir: string): Persisted {
@@ -385,6 +388,11 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  setDesktopUpdate(patch: Partial<DesktopUpdateState>): void {
+    this.desktopUpdate = { ...this.desktopUpdate, ...patch }
+    this.changed()
+  }
+
   snapshot(): AppState {
     const devices: DeviceInfo[] = this.persisted.paired.map((d) => {
       const live = this.live.get(d.deviceId)
@@ -427,6 +435,7 @@ export class AppStore extends EventEmitter {
       galleryThumbs: this.galleryThumbs,
       galleryPreview: this.galleryPreview,
       galleryError: this.galleryError,
+      desktopUpdate: this.desktopUpdate,
       clipboardEnabled: this.persisted.clipboardEnabled,
       downloadsDir: this.downloadsDir,
       clippingInFlight: false

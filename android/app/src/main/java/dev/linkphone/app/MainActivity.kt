@@ -146,8 +146,10 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val client = LinkCore.requireClient()
     val store = LinkCore.requireStore()
+    val updater = LinkCore.requireUpdater()
     val status by client.status.collectAsStateWithLifecycle()
     val transfers by client.transfers.collectAsStateWithLifecycle()
+    val update by updater.state.collectAsStateWithLifecycle()
 
     val devices = remember { mutableStateListOf<Discovery.Target>() }
     var scanning by remember { mutableStateOf(false) }
@@ -161,6 +163,10 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
 
     DisposableEffect(Unit) {
         onDispose { discovery.stop() }
+    }
+
+    LaunchedEffect(Unit) {
+        updater.check(false)
     }
 
     LaunchedEffect(Unit) {
@@ -268,6 +274,13 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         }
 
         StatusCard(status, notifAccess, paired = store.hasPairing())
+
+        UpdateCard(
+            update = update,
+            onCheck = { updater.check(true) },
+            onDownload = { updater.download() },
+            onInstall = { updater.install() }
+        )
 
         if (store.hasPairing()) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -546,6 +559,64 @@ private fun photoPermissions(): Array<String> = when {
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
     else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+}
+
+@Composable
+private fun UpdateCard(
+    update: AppUpdateState,
+    onCheck: () -> Unit,
+    onDownload: () -> Unit,
+    onInstall: () -> Unit
+) {
+    val text = when (update.phase) {
+        AppUpdatePhase.IDLE -> "Updates are checked through GitHub Releases."
+        AppUpdatePhase.CHECKING -> "Checking GitHub Releases…"
+        AppUpdatePhase.AVAILABLE -> "LinkPhone ${update.availableVersion} is available."
+        AppUpdatePhase.DOWNLOADING -> "Downloading update… ${update.progress}%"
+        AppUpdatePhase.READY -> update.message.ifBlank { "Update is ready to install." }
+        AppUpdatePhase.UP_TO_DATE -> "LinkPhone is up to date."
+        AppUpdatePhase.ERROR -> update.message.ifBlank { "Update check failed." }
+    }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("App update", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Current version ${update.currentVersion}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                }
+                when (update.phase) {
+                    AppUpdatePhase.AVAILABLE ->
+                        Button(onClick = onDownload) { Text("Download") }
+                    AppUpdatePhase.READY ->
+                        Button(onClick = onInstall) { Text("Install") }
+                    AppUpdatePhase.CHECKING, AppUpdatePhase.DOWNLOADING ->
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else -> OutlinedButton(onClick = onCheck) { Text("Check") }
+                }
+            }
+            Text(
+                text,
+                color = if (update.phase == AppUpdatePhase.ERROR) Color(0xFFF87171)
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+            if (update.phase == AppUpdatePhase.DOWNLOADING) {
+                LinearProgressIndicator(
+                    progress = { (update.progress / 100f).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(4.dp)
+                )
+            }
+        }
+    }
 }
 
 @Composable

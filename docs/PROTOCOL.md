@@ -121,6 +121,17 @@ The key used here is the one stored at pairing time, not a fresh PBKDF2 derivati
 | `sms.sent` | phone → PC | `tempId`, `ok`, `error?` |
 | `sms.new` | phone → PC | `message{id,threadId,address,body,date,outgoing}` |
 | `sms.error` | phone → PC | `op`, `error` |
+| `device.status` | phone → PC | `batteryLevel`, `charging` |
+| `gallery.albums.request` | PC → phone | — |
+| `gallery.albums` | phone → PC | `albums[{id,name,count,coverPhotoId}]` |
+| `gallery.photos.request` | PC → phone | `albumId`, `offset`, `limit` |
+| `gallery.photos` | phone → PC | `albumId`, `offset`, `photos[]`, `hasMore` |
+| `gallery.thumbnails.request` | PC → phone | `photoIds[]` (maximum 24) |
+| `gallery.thumbnails` | phone → PC | `items[{photoId,mime,data}]` |
+| `gallery.preview.request` | PC → phone | `photoId` |
+| `gallery.preview` | phone → PC | `photoId`, `mime`, `data` |
+| `gallery.download` | PC → phone | `photoId` |
+| `gallery.error` | phone → PC | `op`, `error` |
 | `ping` / `pong` | both | `ts` |
 
 ### SMS
@@ -130,6 +141,23 @@ The phone reads the `Telephony.Sms` provider after runtime `READ_SMS` permission
 the default-SMS-app role and does not write provider rows. Consequently v0.2 supports existing SMS
 threads and replies, not MMS or composing a new conversation. A successful `sms.sent` means Android
 accepted the send request; it is not a carrier delivery receipt.
+
+### Photos and albums
+
+After runtime photo permission, the phone queries Android `MediaStore.Images` read-only. Albums are
+MediaStore buckets plus a synthetic `__all__` album. Photo lists are paged in groups of 48. The PC
+requests thumbnails in batches of at most 24 and a 1600 px JPEG preview only when the user opens an
+image. JPEG bytes are base64 inside the already encrypted control frame and are kept in PC memory.
+
+`gallery.download` does not put the original in a JSON message: it starts the existing chunked file
+transfer from the phone, preserving the original bytes and filename in `Downloads/LinkPhone`.
+LinkPhone never modifies or deletes the phone's MediaStore rows.
+
+### Battery state
+
+The Android foreground service watches the sticky `ACTION_BATTERY_CHANGED` broadcast. It sends an
+initial `device.status` after authentication and another only when percentage or charging state
+changes. No Android permission is required.
 
 ### File transfer
 

@@ -81,16 +81,16 @@ jobs:
             1. **Phone** — download `linkphone-android.apk` and install it (allow "install unknown
                apps" when asked).
                **If v0.1 is installed, uninstall it first and pair again.** v0.1 used a temporary
-               CI signing key; v0.2 starts the permanent signing key, so future versions update in
-               place normally.
-            2. **PC** — download and run `LinkPhone.Setup.0.2.0.exe`. SmartScreen will warn because
+               CI signing key; v0.2 started the permanent signing key. v0.2+ update in place.
+            2. **PC** — download and run `LinkPhone.Setup.0.3.0.exe`. SmartScreen will warn because
                the installer is unsigned: *More info → Run anyway*. Allow it on **private**
                networks when Windows Firewall asks.
             3. Make sure both devices are on the same Wi-Fi (not a guest network).
             4. On the PC, click **Scan QR code instead** in the sidebar.
             5. On the phone: **Scan QR** and point the camera at the PC. Network scan + typed code is
                still available as a fallback.
-            6. On the phone, open notification settings and tap **Allow SMS access**.
+            6. On the phone, open notification settings, then tap **Allow SMS access** and
+               **Allow photo access**.
 
             ## In this build
 
@@ -99,6 +99,8 @@ jobs:
             * mDNS discovery — no IP addresses to type
             * Notification mirroring with inline reply from the PC
             * Existing SMS conversations, live incoming texts and replies from the PC
+            * Phone photo albums with thumbnails, large preview and original download
+            * Live phone battery percentage and charging state
             * Two-way file transfer
             * Clipboard sync (phone → PC only while the app is open, an Android restriction)
             * Auto-reconnect

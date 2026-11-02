@@ -62,10 +62,12 @@ class BatteryMonitor(
             val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
             if (rawLevel < 0 || scale <= 0) return null
             val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
             return PhoneBatteryState(
                 level = ((rawLevel * 100f) / scale).toInt().coerceIn(0, 100),
-                charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                    status == BatteryManager.BATTERY_STATUS_FULL
+                charging = plugged != 0 &&
+                    (status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        status == BatteryManager.BATTERY_STATUS_FULL)
             )
         }
     }

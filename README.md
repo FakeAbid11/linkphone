@@ -3,8 +3,9 @@
 Microsoft Phone Link, rebuilt from scratch — Android phone + Windows PC, **local network only, no
 cloud account, no relay server**.
 
-> **Status: v0.2.** QR pairing, SMS, notifications, two-way file transfer and clipboard sync are
-> implemented end to end. Calls, screen mirroring and Android app streaming are **not** — see
+> **Status: v0.3.** Phone photo albums, live battery status, QR pairing, SMS, notifications,
+> two-way file transfer and clipboard sync are implemented end to end. Calls, screen mirroring and
+> Android app streaming are **not** — see
 > [Roadmap](#roadmap). Everything is built by GitHub Actions; there are no local build steps.
 
 ---
@@ -27,7 +28,9 @@ docs/         PROTOCOL.md — the wire format, crypto and threat model
 | Notification mirroring | ✅ | app, title, text, tap-to-open, dismiss sync |
 | Inline reply from PC | ✅ | via `RemoteInput` when the notification supports it |
 | SMS conversations | ✅ | read existing threads, receive live messages, reply from PC |
-| MMS / new conversation | ⛔ | existing SMS threads only in v0.2 |
+| MMS / new conversation | ⛔ | existing SMS threads only |
+| Photo albums | ✅ | thumbnails, paged albums, large preview, original download |
+| Battery status | ✅ | live percentage and charging state beside the connected phone |
 | File transfer both ways | ✅ | 64 KiB chunks, 512 KiB window, Documents/Downloads |
 | Clipboard sync | ✅ (text) | PC ⇄ phone, phone side only while the app is open |
 | Auto-reconnect | ✅ | 2.5 s backoff, survives Wi-Fi hiccups |
@@ -44,7 +47,7 @@ docs/         PROTOCOL.md — the wire format, crypto and threat model
 │  NsdManager discovery    │         ws://192.168.x.x:8765        │  bonjour-service advert    │
 │  OkHttp WebSocket ───────┼──────────────────────────────────────┼─► ws server                │
 │  Notifications + SMS     │   AES-256-GCM frames (seq + AAD)     │  system notifications      │
-│  CameraX QR + MediaStore │                                      │  SMS / files / clipboard  │
+│  QR + photos + battery   │                                      │  gallery / files / status  │
 │  Clipboard poller        │                                      │  tray + React UI           │
 └──────────────────────────┘                                      └───────────────────────────┘
 ```
@@ -57,13 +60,14 @@ handshake and the threat model.
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
    If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
-   v0.2 establishes the permanent key, so later releases update in place normally.
-3. Run `LinkPhone.Setup.0.2.0.exe` on Windows. The installer is unsigned, so SmartScreen requires
+   v0.2 established the permanent key, so v0.2 and later update in place normally.
+3. Run `LinkPhone.Setup.0.3.0.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
    flow remains available as a fallback.
-6. On the phone, open notification settings and tap **Allow SMS access**.
+6. On the phone, open notification settings, then tap **Allow SMS access** and
+   **Allow photo access**. Android 14+ can expose all photos or only a selected set.
 
 Both devices must be on the same Wi-Fi, and the network must allow mDNS and client-to-client
 traffic. Guest/AP-isolated Wi-Fi will not work.
@@ -88,7 +92,9 @@ Android needs Android Studio or the SDK plus a JDK 17; `gradle :app:installDebug
 * No account, no cloud, no telemetry. Traffic never leaves the LAN.
 * Handshake proves knowledge of the pairing code; every subsequent frame is AES-256-GCM with a
   monotonic sequence number and direction-bound AAD.
-* SMS contents use the same encrypted channel and are never uploaded. SMS access is optional.
+* SMS and photo previews use the same encrypted channel and are never uploaded. Both permissions
+  are optional; gallery thumbnails/previews are held only in PC memory. Originals are saved only
+  when **Download original** is clicked.
 * The PC stores the per-device key in `config.json` under `%APPDATA%\LinkPhone`; the phone stores it
   in `EncryptedSharedPreferences`.
 * **Not yet hardened:** no TLS/pinning (a malicious LAN host could impersonate the PC), 6-digit codes
@@ -96,7 +102,7 @@ Android needs Android Studio or the SDK plus a JDK 17; `gradle :app:installDebug
 
 ## Roadmap
 
-1. **MMS + new conversations** — v0.2 intentionally replies inside existing SMS threads only. It
+1. **MMS + new conversations** — LinkPhone intentionally replies inside existing SMS threads only. It
    does not become the default SMS app, so messages sent from the PC are not inserted into Android's
    provider history by LinkPhone itself.
 2. **Calls** — call control via `TelecomManager`/`InCallService`; audio over Bluetooth HFP, handled by

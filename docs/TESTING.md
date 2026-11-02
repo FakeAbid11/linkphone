@@ -1,7 +1,7 @@
 # First-run test plan
 
-v0.1 was verified on a real phone. The QR and SMS additions in v0.2 still need the same end-to-end
-check after CI proves they compile. Work through this in order; each failure identifies a layer.
+The core v0.1 flow was verified on a real phone. Work through this after each release; CI proves the
+code compiles and packages, while these checks cover phone/OEM behavior.
 
 ## 0. Before you start
 
@@ -75,7 +75,29 @@ v0.2 supports SMS replies in existing threads only. It does not support MMS or a
 composer. Because LinkPhone is not the default SMS app, its outgoing message is not written into the
 system SMS database by LinkPhone; the PC keeps the optimistic bubble for the current session.
 
-## 7. Files
+## 7. Photos and albums
+
+Phone → **Allow photo access**. On Android 14+, choose all photos or a selected set. On the PC open
+**Photos**.
+
+* ✅ Album cards show names, counts and cover thumbnails.
+* ✅ Opening an album loads 48 photos at a time; **Load more** appends the next page.
+* ✅ Clicking a photo opens a larger preview without saving it to disk.
+* ✅ **Download original** starts a normal incoming transfer and saves the original file under
+  `Downloads/LinkPhone`.
+* ❌ “Photo permission not granted” → grant Photos and videos permission on the phone, then Refresh.
+* ❌ A chosen photo is missing → Android 14 selected-photo access exposes only the items selected in
+  the system permission dialog.
+
+## 8. Battery
+
+With the phone connected, inspect its card in the desktop sidebar.
+
+* ✅ It shows a percentage and **Charging** while USB, wireless or AC charging is active.
+* ✅ Plugging/unplugging power updates the card without reconnecting.
+* ❌ No percentage → update both apps to v0.3 and reconnect once.
+
+## 9. Files
 
 **PC → phone:** Files tab → Send file → pick something.
 
@@ -89,13 +111,13 @@ system SMS database by LinkPhone; the PC keeps the optimistic bubble for the cur
 A 100 MB file should take a few seconds on 5 GHz and must not stall: the sender keeps 512 KiB in
 flight, the receiver acks every 512 KiB.
 
-## 8. Clipboard
+## 10. Clipboard
 
 * Copy text on the PC → after ~1 s it should be on the phone's clipboard (paste somewhere to check).
 * Copy text on the phone **while the LinkPhone screen is open** → appears on the PC clipboard.
 * Phone → PC only works in the foreground; that is an Android 10+ restriction, not a bug.
 
-## 9. Resilience
+## 11. Resilience
 
 * Lock the phone for 5 minutes → the foreground service should keep the socket alive.
 * Toggle Wi-Fi off/on → within ~3 s the phone should reconnect and the status returns to Connected.

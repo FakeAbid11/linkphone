@@ -244,7 +244,10 @@ class LinkClient(context: Context, private val store: PairStore) {
     }
 
     private fun scheduleReconnect() {
-        if (!wantConnection || store.keyB64 == null) return
+        // Keep retrying a QR/code pairing while its code is still in memory as
+        // well as normal saved-key reconnects. This lets a first connection
+        // recover automatically after the user fixes Windows Firewall/Wi-Fi.
+        if (!wantConnection || (store.keyB64 == null && pendingCode.isNullOrBlank())) return
         reconnectJob?.cancel()
         reconnectJob = scope.launch {
             delay(2500)

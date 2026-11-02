@@ -236,7 +236,10 @@ export class LinkServer extends EventEmitter {
     })
     ws.on('close', () => {
       this.peers.delete(peer)
-      this.ringingCallIds.clear()
+      if (peer.phase === 'ready') {
+        this.ringingCallIds.clear()
+        this.store.setCallState({ calls: [], dialerReady: false, speaker: false, muted: false })
+      }
       if (peer.deviceId) {
         this.store.markDisconnected(peer.deviceId)
         this.receiver.cancelAllForDevice(peer.deviceId)

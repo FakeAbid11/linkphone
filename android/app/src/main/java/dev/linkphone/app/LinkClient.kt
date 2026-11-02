@@ -234,7 +234,12 @@ class LinkClient(context: Context, private val store: PairStore) {
             open()
             return
         }
-        _status.value = LinkStatus(LinkState.ERROR, serverName, detail)
+        val help = if (detail.contains("Failed to connect", ignoreCase = true)) {
+            "$detail. On Windows, set this Wi-Fi to Private and allow LinkPhone through the firewall."
+        } else {
+            detail
+        }
+        _status.value = LinkStatus(LinkState.ERROR, serverName, help)
         scheduleReconnect()
     }
 

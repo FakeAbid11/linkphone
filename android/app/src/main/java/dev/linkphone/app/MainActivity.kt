@@ -183,7 +183,11 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                 dialerRoleHeld = nextDialer
                 CallHub.refreshDialerRole(context)
             }
-            callPermissionsGranted = hasCallPermissions(context)
+            val nextCallPermissions = hasCallPermissions(context)
+            if (nextCallPermissions != callPermissionsGranted) {
+                callPermissionsGranted = nextCallPermissions
+                CallHub.refreshDialerRole(context)
+            }
         }
     }
 

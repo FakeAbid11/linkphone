@@ -1,0 +1,25 @@
+# Node / Electron
+node_modules/
+dist/
+out/
+release/
+*.log
+.npm/
+
+# Android / Gradle
+.gradle/
+android/local.properties
+android/app/build/
+android/build/
+android/.idea/
+*.iml
+*.apk
+*.aab
+*.keystore
+!android/app/debug.keystore
+
+# Runtime state
+runtime/
+downloads/
+*.pem
+*.key

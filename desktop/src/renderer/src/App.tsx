@@ -1,0 +1,138 @@
+import { useEffect, useState } from 'react'
+import type { AppState } from '@shared/protocol'
+import { ClipboardPanel } from './components/ClipboardPanel'
+import { DevicePanel } from './components/DevicePanel'
+import { FilesPanel } from './components/FilesPanel'
+import { NotificationsPanel } from './components/NotificationsPanel'
+import { PairingCard } from './components/PairingCard'
+
+type Tab = 'notifications' | 'files' | 'clipboard'
+
+const TABS: Array<{ id: Tab; label: string }> = [
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'files', label: 'Files' },
+  { id: 'clipboard', label: 'Clipboard' }
+]
+
+export default function App(): JSX.Element {
+  const [state, setState] = useState<AppState | null>(null)
+  const [tab, setTab] = useState<Tab>('notifications')
+
+  useEffect(() => {
+    let alive = true
+    void window.linkphone.getState().then((next) => {
+      if (alive) setState(next)
+    })
+    const off = window.linkphone.onState((next) => setState(next))
+    return () => {
+      alive = false
+      off()
+    }
+  }, [])
+
+  if (!state) {
+    return (
+      <div className="boot">
+        <div className="boot-mark" />
+        <p>Starting LinkPhone…</p>
+      </div>
+    )
+  }
+
+  const connected = state.devices.filter((d) => d.connected)
+  const unread = state.notifications.length
+
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark" />
+          <div>
+            <div className="brand-name">LinkPhone</div>
+            <div className="brand-sub">Local network · v0.1</div>
+          </div>
+        </div>
+
+        <DevicePanel devices={state.devices} />
+
+        <nav className="tabs">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className={`tab ${tab === t.id ? 'tab-active' : ''}`}
+              onClick={() => setTab(t.id)}
+            >
+              <span>{t.label}</span>
+              {t.id === 'notifications' && unread > 0 && <span className="badge">{unread}</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-foot">
+          <PairingCard
+            code={state.pairingCode}
+            serverName={state.serverName}
+            port={state.port}
+            addresses={state.addresses}
+            onNewCode={() => void window.linkphone.newPairingCode()}
+          />
+        </div>
+      </aside>
+
+      <main className="main">
+        <header className="main-head">
+          <div>
+            <h1>{TABS.find((t) => t.id === tab)?.label}</h1>
+            <p className="muted">
+              {connected.length > 0
+                ? `${connected.map((d) => d.name).join(', ')} connected`
+                : 'Waiting for your phone on this Wi-Fi'}
+            </p>
+          </div>
+          <div className="head-actions">
+            {tab === 'files' && (
+              <button className="btn" onClick={() => void window.linkphone.sendFiles()}>
+                Send file
+              </button>
+            )}
+            {tab === 'notifications' && state.notifications.length > 0 && (
+              <button
+                className="btn btn-ghost"
+                onClick={() => void window.linkphone.clearNotifications()}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        </header>
+
+        <section className="content">
+          {tab === 'notifications' && (
+            <NotificationsPanel
+              notifications={state.notifications}
+              onDismiss={(key) => void window.linkphone.dismissNotification(key)}
+              onReply={(key, actionId, text) =>
+                void window.linkphone.sendNotificationReply(key, actionId, text)
+              }
+            />
+          )}
+          {tab === 'files' && (
+            <FilesPanel
+              transfers={state.transfers}
+              downloadsDir={state.downloadsDir}
+              onSend={() => void window.linkphone.sendFiles()}
+              onOpenFolder={() => void window.linkphone.openDownloads()}
+            />
+          )}
+          {tab === 'clipboard' && (
+            <ClipboardPanel
+              enabled={state.clipboardEnabled}
+              onToggle={(enabled) => void window.linkphone.setClipboardEnabled(enabled)}
+              onSend={(text) => void window.linkphone.sendClipboard(text)}
+            />
+          )}
+        </section>
+      </main>
+    </div>
+  )
+}

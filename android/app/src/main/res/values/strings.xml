@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LinkPhone</string>
+    <string name="notif_service_label">LinkPhone notifications</string>
+    <string name="service_channel">LinkPhone connection</string>
+    <string name="service_text">Connected to your PC</string>
+</resources>

@@ -1,0 +1,645 @@
+import { EventEmitter } from 'node:events'
+import crypto from 'node:crypto'
+import type { IncomingMessage } from 'node:http'
+import { WebSocketServer, WebSocket, type RawData } from 'ws'
+import type { AppStore } from './state'
+import { FileReceiver, FileSource } from './files'
+import {
+  DEFAULT_PORT,
+  KIND_CONTROL,
+  KIND_FILE,
+  MAX_FILE_CHUNK,
+  PROTO_VERSION,
+  bool,
+  isRawMsg,
+  num,
+  str,
+  type ControlMsg,
+  type FileOfferMsg,
+  type NotificationAction,
+  type NotificationItem,
+  type Platform,
+  type RawMsg,
+  type TransferItem
+} from '../shared/protocol'
+import {
+  decodeFileChunk,
+  deriveKey,
+  encodeControl,
+  fileChunkPayload,
+  hmac,
+  normalizeCode,
+  openFrame,
+  safeEqual,
+  sealFrame
+} from './crypto'
+
+type Phase = 'fresh' | 'awaitPair' | 'awaitAuth' | 'ready'
+
+const WINDOW_BYTES = 8 * MAX_FILE_CHUNK
+const ACK_TIMEOUT_MS = 30_000
+
+class Outbound {
+  acked = 0
+  cursor = 0
+  accepted = false
+  failed = false
+  private acceptResolve: ((ok: boolean) => void) | null = null
+  private dataResolve: (() => void) | null = null
+
+  waitAccept(timeoutMs: number): Promise<boolean> {
+    if (this.accepted) return Promise.resolve(true)
+    if (this.failed) return Promise.resolve(false)
+    return new Promise<boolean>((resolve) => {
+      this.acceptResolve = resolve
+      setTimeout(() => {
+        if (this.acceptResolve) {
+          this.acceptResolve(false)
+          this.acceptResolve = null
+        }
+      }, timeoutMs)
+    })
+  }
+
+  accept(): void {
+    this.accepted = true
+    this.acceptResolve?.(true)
+    this.acceptResolve = null
+  }
+
+  decline(): void {
+    this.failed = true
+    this.acceptResolve?.(false)
+    this.acceptResolve = null
+    this.kickData()
+  }
+
+  waitData(timeoutMs: number): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.dataResolve = resolve
+      setTimeout(() => {
+        const fn = this.dataResolve
+        this.dataResolve = null
+        if (fn) {
+          this.failed = true
+          fn()
+        }
+      }, timeoutMs)
+    })
+  }
+
+  kickData(): void {
+    const fn = this.dataResolve
+    this.dataResolve = null
+    fn?.()
+  }
+}
+
+class Peer {
+  phase: Phase = 'fresh'
+  key: Buffer | null = null
+  sendSeq = 0
+  recvSeq = 0
+  deviceId = ''
+  deviceName = ''
+  platform: Platform = 'android'
+  salt: Buffer | null = null
+  nonceB64 = ''
+  alive = true
+  address = ''
+
+  constructor(
+    readonly ws: WebSocket,
+    readonly connId: string
+  ) {}
+}
+
+export interface LinkServerEvents {
+  clipboardIn: [text: string]
+  notification: [item: NotificationItem]
+  notificationDismiss: [key: string]
+}
+
+export class LinkServer extends EventEmitter {
+  private wss: WebSocketServer | null = null
+  private peers = new Set<Peer>()
+  private outbound = new Map<string, Outbound>()
+  private readonly receiver: FileReceiver
+  private heartbeat: NodeJS.Timeout | null = null
+  port = 0
+
+  constructor(private readonly store: AppStore) {
+    super()
+    this.receiver = new FileReceiver(
+      store.downloadsDir,
+      (patch) => store.patchTransfer(patch.id, patch),
+      (id) => this.broadcast({ t: 'file.accept', id }),
+      (id, reason) => this.broadcast({ t: 'file.decline', id, reason })
+    )
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* lifecycle                                                         */
+  /* ---------------------------------------------------------------- */
+
+  async start(preferredPort = DEFAULT_PORT): Promise<number> {
+    const server = await this.listen(preferredPort)
+    this.wss = server.wss
+    this.port = server.port
+    this.store.setPort(this.port)
+
+    this.wss.on('connection', (ws, req) => this.onConnection(ws, req))
+    this.wss.on('error', (err) => console.error('[server] error', err))
+
+    this.heartbeat = setInterval(() => {
+      for (const peer of this.peers) {
+        if (!peer.alive) {
+          peer.ws.terminate()
+          continue
+        }
+        peer.alive = false
+        try {
+          peer.ws.ping()
+        } catch {
+          /* ignore */
+        }
+      }
+    }, 25_000)
+
+    return this.port
+  }
+
+  private listen(port: number): Promise<{ wss: WebSocketServer; port: number }> {
+    return new Promise((resolve, reject) => {
+      const wss = new WebSocketServer({ port, host: '0.0.0.0' })
+      const fail = (err: NodeJS.ErrnoException): void => {
+        wss.removeAllListeners()
+        wss.close()
+        if (err.code === 'EADDRINUSE' && port < DEFAULT_PORT + 10) {
+          this.listen(port + 1).then(resolve, reject)
+          return
+        }
+        reject(err)
+      }
+      wss.once('listening', () => resolve({ wss, port }))
+      wss.once('error', fail)
+    })
+  }
+
+  stop(): void {
+    if (this.heartbeat) clearInterval(this.heartbeat)
+    this.heartbeat = null
+    for (const peer of this.peers) {
+      try {
+        peer.ws.close(1001, 'shutting down')
+      } catch {
+        /* ignore */
+      }
+    }
+    this.peers.clear()
+    this.wss?.close()
+    this.wss = null
+  }
+
+  hasConnectedPeer(): boolean {
+    return [...this.peers].some((p) => p.phase === 'ready')
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* connection                                                        */
+  /* ---------------------------------------------------------------- */
+
+  private onConnection(ws: WebSocket, req: IncomingMessage): void {
+    const peer = new Peer(ws, crypto.randomUUID())
+    peer.address = req.socket.remoteAddress ?? ''
+    this.peers.add(peer)
+
+    ws.on('pong', () => {
+      peer.alive = true
+    })
+    ws.on('message', (data, isBinary) => {
+      peer.alive = true
+      try {
+        if (isBinary) this.onBinary(peer, toBuffer(data))
+        else this.onText(peer, data.toString())
+      } catch (err) {
+        console.error('[server] frame error', err)
+        ws.close(1011, 'protocol error')
+      }
+    })
+    ws.on('close', () => {
+      this.peers.delete(peer)
+      if (peer.deviceId) {
+        this.store.markDisconnected(peer.deviceId)
+        this.receiver.cancelAllForDevice(peer.deviceId)
+      }
+    })
+    ws.on('error', () => ws.terminate())
+  }
+
+  private onText(peer: Peer, raw: string): void {
+    if (raw.length > 64 * 1024) {
+      peer.ws.close(1009, 'too large')
+      return
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      return
+    }
+    if (!isRawMsg(parsed)) return
+    const msg = parsed
+    switch (str(msg.t)) {
+      case 'hello':
+        this.onHello(peer, msg)
+        return
+      case 'pair.request':
+        this.onPairRequest(peer, msg)
+        return
+      case 'auth.response':
+        this.onAuthResponse(peer, msg)
+        return
+      default:
+        // Anything else must arrive encrypted.
+        peer.ws.close(1008, 'expected handshake')
+    }
+  }
+
+  private onHello(peer: Peer, msg: RawMsg): void {
+    if (num(msg.proto) !== PROTO_VERSION) {
+      peer.ws.close(1002, 'protocol mismatch')
+      return
+    }
+    peer.deviceId = str(msg.deviceId).slice(0, 64)
+    peer.deviceName = str(msg.deviceName, 'Android phone').slice(0, 64)
+    peer.platform = (str(msg.platform, 'android') as Platform) ?? 'android'
+    if (!peer.deviceId) {
+      peer.ws.close(1008, 'missing device id')
+      return
+    }
+
+    const paired = this.store.findPaired(peer.deviceId)
+    if (paired) {
+      peer.phase = 'awaitAuth'
+      peer.nonceB64 = crypto.randomBytes(32).toString('base64')
+      this.send(peer, {
+        t: 'hello.result',
+        proto: PROTO_VERSION,
+        serverId: this.store.serverId,
+        serverName: this.store.serverName,
+        needPair: false,
+        needAuth: true
+      })
+      this.send(peer, { t: 'auth.challenge', nonce: peer.nonceB64 })
+      return
+    }
+
+    peer.phase = 'awaitPair'
+    peer.salt = crypto.randomBytes(16)
+    this.send(peer, {
+      t: 'hello.result',
+      proto: PROTO_VERSION,
+      serverId: this.store.serverId,
+      serverName: this.store.serverName,
+      needPair: true,
+      needAuth: false,
+      salt: peer.salt.toString('base64')
+    })
+  }
+
+  private onPairRequest(peer: Peer, msg: RawMsg): void {
+    if (peer.phase !== 'awaitPair' || !peer.salt) {
+      peer.ws.close(1008, 'unexpected pair request')
+      return
+    }
+    if (!normalizeCode(this.store.pairingCode)) {
+      this.send(peer, { t: 'pair.reject', reason: 'no-code' })
+      peer.ws.close(4002, 'no pairing code')
+      return
+    }
+
+    const proof = Buffer.from(str(msg.proof), 'base64')
+    const key = deriveKey(this.store.pairingCode, peer.salt)
+    const expected = hmac(key, `pair:${peer.deviceId}`)
+    if (!safeEqual(proof, expected)) {
+      // Plaintext rejection: the client has already switched to encrypted mode,
+      // so a text frame is the unambiguous "wrong code" signal.
+      this.send(peer, { t: 'pair.reject', reason: 'code' })
+      peer.ws.close(4001, 'bad pairing code')
+      return
+    }
+
+    peer.key = key
+    peer.sendSeq = 0
+    peer.recvSeq = 0
+    peer.phase = 'ready'
+    if (str(msg.deviceName)) peer.deviceName = str(msg.deviceName).slice(0, 64)
+
+    const platform = str(msg.platform, 'android') as Platform
+    if (platform) peer.platform = platform
+
+    this.store.addPaired({
+      deviceId: peer.deviceId,
+      name: peer.deviceName,
+      platform: peer.platform,
+      key: key.toString('base64'),
+      pairedAt: Date.now()
+    })
+    this.markReady(peer)
+    this.send(peer, { t: 'pair.ok', serverId: this.store.serverId, serverName: this.store.serverName })
+  }
+
+  private onAuthResponse(peer: Peer, msg: RawMsg): void {
+    if (peer.phase !== 'awaitAuth') {
+      peer.ws.close(1008, 'unexpected auth response')
+      return
+    }
+    const paired = this.store.findPaired(peer.deviceId)
+    if (!paired) {
+      peer.ws.close(4003, 'not paired')
+      return
+    }
+    const key = Buffer.from(paired.key, 'base64')
+    const expected = hmac(key, `auth:${peer.nonceB64}`)
+    const proof = Buffer.from(str(msg.proof), 'base64')
+    if (!safeEqual(proof, expected)) {
+      peer.ws.close(4001, 'bad auth proof')
+      return
+    }
+
+    peer.key = key
+    peer.sendSeq = 0
+    peer.recvSeq = 0
+    peer.phase = 'ready'
+    if (str(msg.deviceName)) peer.deviceName = str(msg.deviceName).slice(0, 64)
+    this.markReady(peer)
+    this.send(peer, { t: 'auth.ok', serverId: this.store.serverId, serverName: this.store.serverName })
+  }
+
+  private markReady(peer: Peer): void {
+    this.store.markConnected({
+      deviceId: peer.deviceId,
+      name: peer.deviceName,
+      platform: peer.platform,
+      paired: true,
+      connected: true,
+      address: peer.address
+    })
+    this.emit('peer-ready', peer.deviceId)
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* frames                                                            */
+  /* ---------------------------------------------------------------- */
+
+  private onBinary(peer: Peer, data: Buffer): void {
+    if (!peer.key) {
+      peer.ws.close(1008, 'not authenticated')
+      return
+    }
+    peer.recvSeq += 1
+    let plain: Buffer
+    try {
+      plain = openFrame(peer.key, 'c2s', peer.recvSeq, data)
+    } catch {
+      peer.ws.close(1008, 'bad frame')
+      return
+    }
+    const kind = plain.readUInt8(0)
+    if (kind === KIND_CONTROL) {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(plain.subarray(1).toString('utf8'))
+      } catch {
+        return
+      }
+      if (isRawMsg(parsed)) this.onControl(peer, parsed)
+      return
+    }
+    if (kind === KIND_FILE) {
+      const chunk = decodeFileChunk(plain)
+      this.receiver.write(chunk.transferId, chunk.offset, chunk.data)
+    }
+  }
+
+  private onControl(peer: Peer, msg: RawMsg): void {
+    switch (str(msg.t)) {
+      case 'ping':
+        this.send(peer, { t: 'pong', ts: num(msg.ts) })
+        return
+
+      case 'clip.set': {
+        if (!this.store.clipboardEnabled) return
+        const text = str(msg.text)
+        if (text.length > 512 * 1024) return
+        this.emit('clipboardIn', text)
+        return
+      }
+
+      case 'notif.post': {
+        const raw = msg.notif
+        if (!isRawMsg(raw)) return
+        const actions: NotificationAction[] = Array.isArray(raw.actions)
+          ? (raw.actions as unknown[])
+              .filter((a): a is RawMsg => isRawMsg(a))
+              .map((a) => ({
+                id: str(a.id),
+                label: str(a.label, 'Open'),
+                reply: bool(a.reply)
+              }))
+              .slice(0, 4)
+          : []
+        const item: NotificationItem = {
+          key: str(raw.key).slice(0, 256) || `n-${Date.now()}`,
+          app: str(raw.app, 'Phone').slice(0, 64),
+          pkg: str(raw.pkg).slice(0, 128),
+          title: str(raw.title).slice(0, 300),
+          text: str(raw.text).slice(0, 2000),
+          when: num(raw.when, Date.now()),
+          canReply: bool(raw.canReply),
+          actions,
+          deviceId: peer.deviceId
+        }
+        this.store.addNotification(item)
+        this.emit('notification', item)
+        return
+      }
+
+      case 'notif.dismiss':
+        this.store.dismissNotification(str(msg.key))
+        this.emit('notificationDismiss', str(msg.key))
+        return
+
+      case 'file.offer': {
+        const offer: FileOfferMsg = {
+          t: 'file.offer',
+          id: str(msg.id),
+          name: str(msg.name, 'file'),
+          size: num(msg.size),
+          mime: str(msg.mime, 'application/octet-stream')
+        }
+        this.receiver.offer(offer, peer.deviceId)
+        return
+      }
+
+      case 'file.done':
+        this.receiver.finish(str(msg.id))
+        return
+
+      case 'file.cancel':
+        this.receiver.abort(str(msg.id), str(msg.reason, 'canceled by phone'))
+        return
+
+      case 'file.ack': {
+        const out = this.outbound.get(str(msg.id))
+        if (out) {
+          out.acked = Math.max(out.acked, num(msg.offset))
+          this.store.patchTransfer(str(msg.id), { received: out.acked })
+          out.kickData()
+        }
+        return
+      }
+
+      case 'file.accept': {
+        this.outbound.get(str(msg.id))?.accept()
+        return
+      }
+
+      case 'file.decline': {
+        const id = str(msg.id)
+        this.outbound.get(id)?.decline()
+        this.finishOutbound(id, 'declined', str(msg.reason, 'declined by phone'))
+        return
+      }
+
+      case 'pong':
+        return
+
+      default:
+        return
+    }
+  }
+
+  private send(peer: Peer, msg: ControlMsg | RawMsg): void {
+    if (peer.ws.readyState !== WebSocket.OPEN) return
+    if (peer.key) {
+      peer.sendSeq += 1
+      const frame = sealFrame(peer.key, 's2c', peer.sendSeq, encodeControl(KIND_CONTROL, msg))
+      peer.ws.send(frame, { binary: true })
+      return
+    }
+    peer.ws.send(JSON.stringify(msg))
+  }
+
+  private sendBinary(peer: Peer, payload: Buffer): void {
+    if (!peer.key || peer.ws.readyState !== WebSocket.OPEN) return
+    peer.sendSeq += 1
+    peer.ws.send(sealFrame(peer.key, 's2c', peer.sendSeq, payload), { binary: true })
+  }
+
+  broadcast(msg: ControlMsg | RawMsg): void {
+    for (const peer of this.peers) {
+      if (peer.phase === 'ready') this.send(peer, msg)
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* desktop -> phone                                                  */
+  /* ---------------------------------------------------------------- */
+
+  async sendFiles(paths: string[]): Promise<void> {
+    const peers = [...this.peers].filter((p) => p.phase === 'ready')
+    for (const peer of peers) {
+      for (const filePath of paths) {
+        await this.sendFileTo(peer, filePath)
+      }
+    }
+  }
+
+  private async sendFileTo(peer: Peer, filePath: string): Promise<void> {
+    let source: FileSource
+    try {
+      source = new FileSource(filePath, filePath.split(/[\\/]/).pop() ?? 'file')
+    } catch {
+      return
+    }
+
+    const id = crypto.randomUUID()
+    const out = new Outbound()
+    this.outbound.set(id, out)
+    this.store.upsertTransfer({
+      id,
+      name: source.name,
+      size: source.size,
+      received: 0,
+      direction: 'out',
+      status: 'pending',
+      deviceId: peer.deviceId,
+      startedAt: Date.now()
+    })
+
+    try {
+      this.send(peer, {
+        t: 'file.offer',
+        id,
+        name: source.name,
+        size: source.size,
+        mime: 'application/octet-stream'
+      })
+
+      const accepted = await out.waitAccept(15_000)
+      if (!accepted) {
+        this.store.patchTransfer(id, {
+          status: 'failed',
+          error: out.failed ? 'declined by phone' : 'no response from phone'
+        })
+        return
+      }
+
+      this.store.patchTransfer(id, { status: 'active' })
+
+      while (out.cursor < source.size) {
+        if (out.failed) throw new Error('transfer aborted by phone')
+        if (out.cursor - out.acked >= WINDOW_BYTES) await out.waitData(ACK_TIMEOUT_MS)
+        if (out.failed) throw new Error('ack timeout')
+        const offset = out.cursor
+        const chunk = source.readChunk(MAX_FILE_CHUNK)
+        if (chunk.length === 0) break
+        this.sendBinary(peer, fileChunkPayload(KIND_FILE, id, offset, chunk))
+        out.cursor += chunk.length
+      }
+
+      this.send(peer, { t: 'file.done', id })
+      this.store.patchTransfer(id, { status: 'done', received: source.size })
+    } catch (err) {
+      const message = (err as Error).message
+      this.store.patchTransfer(id, { status: 'failed', error: message })
+      this.send(peer, { t: 'file.cancel', id, reason: message })
+    } finally {
+      source.close()
+      this.outbound.delete(id)
+    }
+  }
+
+  private finishOutbound(id: string, status: TransferItem['status'], error?: string): void {
+    this.store.patchTransfer(id, { status, error })
+    this.outbound.delete(id)
+  }
+
+  /** Called by the desktop clipboard watcher. */
+  sendClipboard(text: string): void {
+    this.broadcast({ t: 'clip.set', text, ts: Date.now() })
+  }
+
+  /** Forward a notification action (e.g. inline reply) back to the phone. */
+  sendNotificationAction(key: string, actionId: string, replyText?: string): void {
+    this.broadcast({ t: 'notif.action', key, actionId, replyText })
+  }
+}
+
+function toBuffer(data: RawData): Buffer {
+  if (Buffer.isBuffer(data)) return data
+  if (Array.isArray(data)) return Buffer.concat(data)
+  return Buffer.from(data as ArrayBuffer)
+}

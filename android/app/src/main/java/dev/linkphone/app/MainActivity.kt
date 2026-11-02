@@ -1,0 +1,452 @@
+package dev.linkphone.app
+
+import android.Manifest
+import android.app.NotificationManager
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Bundle
+import android.provider.Settings
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+
+private val Teal = Color(0xFF2DD4BF)
+private val DarkColors = darkColorScheme(
+    primary = Teal,
+    onPrimary = Color(0xFF04231F),
+    secondary = Color(0xFF7DD3FC),
+    background = Color(0xFF0B1220),
+    onBackground = Color(0xFFE6EEFC),
+    surface = Color(0xFF101A2C),
+    onSurface = Color(0xFFE6EEFC),
+    surfaceVariant = Color(0xFF16233A),
+    onSurfaceVariant = Color(0xFF8BA0BF),
+    outline = Color(0xFF1F2F4A)
+)
+
+class MainActivity : ComponentActivity() {
+
+    private lateinit var discovery: Discovery
+    private var suppressUntil = 0L
+    private var lastClip = ""
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        LinkCore.init(this)
+        discovery = Discovery(this)
+
+        lifecycleScope.launch {
+            LinkCore.requireClient().clipboardIn.collect { text -> applyRemoteClip(text) }
+        }
+
+        lifecycleScope.launch {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            while (isActive) {
+                delay(1500)
+                if (!LinkCore.requireClient().isReady) continue
+                if (!LinkCore.requireStore().clipboardEnabled) continue
+                if (System.currentTimeMillis() < suppressUntil) continue
+                val text = clipboard.primaryClip
+                    ?.takeIf { it.itemCount > 0 }
+                    ?.getItemAt(0)
+                    ?.coerceToText(this@MainActivity)
+                    ?.toString()
+                    .orEmpty()
+                if (text.isBlank() || text == lastClip) continue
+                lastClip = text
+                LinkCore.requireClient().sendClipboard(text)
+            }
+        }
+
+        setContent {
+            MaterialTheme(colorScheme = DarkColors) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+                        Screen(discovery, Modifier.padding(padding))
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        discovery.stop()
+        super.onDestroy()
+    }
+
+    private fun applyRemoteClip(text: String) {
+        suppressUntil = System.currentTimeMillis() + 2000
+        lastClip = text
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("LinkPhone", text))
+    }
+}
+
+private fun hasNotificationAccess(context: Context): Boolean =
+    NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+
+@Composable
+private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val client = LinkCore.requireClient()
+    val store = LinkCore.requireStore()
+    val status by client.status.collectAsStateWithLifecycle()
+    val transfers by client.transfers.collectAsStateWithLifecycle()
+
+    val devices = remember { mutableStateListOf<Discovery.Target>() }
+    var scanning by remember { mutableStateOf(false) }
+    var pendingDevice by remember { mutableStateOf<Discovery.Target?>(null) }
+    var code by remember { mutableStateOf("") }
+    var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
+
+    DisposableEffect(Unit) {
+        onDispose { discovery.stop() }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1500)
+            notifAccess = hasNotificationAccess(context)
+        }
+    }
+
+    val notifPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    val filePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            client.sendFile(uri)
+        }
+    }
+
+    fun scan() {
+        devices.clear()
+        scanning = true
+        discovery.start(
+            onFound = { target ->
+                if (devices.none { it.host == target.host && it.port == target.port }) {
+                    devices.add(target)
+                }
+            },
+            onError = { scanning = false }
+        )
+    }
+
+    fun connect(target: Discovery.Target, pairingCode: String?) {
+        scanning = false
+        discovery.stop()
+        LinkCore.startService(context)
+        client.connect(target.host, target.port, pairingCode)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Column {
+            Text(
+                "LinkPhone",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                "Your PC, on your phone",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp
+            )
+        }
+
+        StatusCard(status, notifAccess, paired = store.hasPairing())
+
+        if (store.hasPairing()) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Paired PC", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "${store.serverName ?: "PC"} · ${store.host ?: ""}:${store.port}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {
+                            LinkCore.startService(context)
+                            client.connectSaved()
+                        }) { Text("Reconnect") }
+                        OutlinedButton(onClick = {
+                            client.forget()
+                        }) { Text("Forget") }
+                    }
+                }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Find your PC", fontWeight = FontWeight.SemiBold)
+                    Button(onClick = { scan() }, enabled = !scanning) {
+                        Text(if (scanning) "Scanning…" else "Scan")
+                    }
+                }
+                if (devices.isEmpty()) {
+                    Text(
+                        "Make sure LinkPhone is open on your PC and both devices are on the same Wi-Fi.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    devices.forEach { target ->
+                        OutlinedButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                if (store.hasPairing()) connect(target, null)
+                                else pendingDevice = target
+                            }
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(target.name, fontWeight = FontWeight.Medium)
+                                Text(
+                                    "${target.host}:${target.port}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!notifAccess) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Notification access", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Required to mirror notifications. Android asks you to allow it in system settings.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    OutlinedButton(onClick = {
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }) { Text("Open settings") }
+                }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Files", fontWeight = FontWeight.SemiBold)
+                    Button(onClick = { filePicker.launch(arrayOf("*/*")) }) { Text("Send file") }
+                }
+                if (transfers.isEmpty()) {
+                    Text(
+                        "Files you send land in your PC's Downloads/LinkPhone folder.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    transfers.forEach { transfer ->
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    (if (transfer.direction == "in") "↓ " else "↑ ") + transfer.name,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    transfer.status,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            val fraction = if (transfer.size > 0) {
+                                (transfer.received.toFloat() / transfer.size).coerceIn(0f, 1f)
+                            } else 0f
+                            LinearProgressIndicator(
+                                progress = { fraction },
+                                modifier = Modifier.fillMaxWidth().height(4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Text(
+            "Clipboard sync is on while this screen is open (Android only allows clipboard reads to the app in the foreground).",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    val target = pendingDevice
+    if (target != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDevice = null },
+            title = { Text("Pair with ${target.name}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Type the pairing code shown on your PC.")
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = { code = it.uppercase().take(12) },
+                        singleLine = true,
+                        label = { Text("Pairing code") },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 20.sp,
+                            letterSpacing = 4.sp
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val value = code
+                        pendingDevice = null
+                        code = ""
+                        connect(target, value)
+                    },
+                    enabled = code.length >= 6
+                ) { Text("Pair") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDevice = null }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun StatusCard(status: LinkStatus, notifAccess: Boolean, paired: Boolean) {
+    val (label, detail, color) = when (status.state) {
+        LinkState.CONNECTED -> Triple(
+            "Connected to ${status.serverName.ifBlank { "PC" }}",
+            "Notifications mirror here",
+            Teal
+        )
+        LinkState.PAIRING -> Triple("Pairing…", status.detail, Color(0xFFFBBF24))
+        LinkState.CONNECTING -> Triple("Connecting…", status.detail, Color(0xFF7DD3FC))
+        LinkState.ERROR -> Triple("Offline", status.detail.ifBlank { "Not connected" }, Color(0xFFF87171))
+        LinkState.IDLE -> Triple(
+            if (paired) "Paired, not connected" else "Not connected",
+            if (paired) "Tap Reconnect or scan again" else "Scan for your PC below",
+            Color(0xFF8BA0BF)
+        )
+    }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Row(
+            Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                Modifier
+                    .size(10.dp)
+                    .background(color, CircleShape)
+            )
+            Column(Modifier.weight(1f)) {
+                Text(label, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                Text(detail, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (status.state == LinkState.CONNECTING || status.state == LinkState.PAIRING) {
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            }
+            Spacer(Modifier.width(2.dp))
+        }
+    }
+}
+

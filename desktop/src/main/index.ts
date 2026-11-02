@@ -11,7 +11,7 @@ import {
   shell,
   Tray
 } from 'electron'
-import type { AppState, SmsMessage } from '../shared/protocol'
+import type { AppState } from '../shared/protocol'
 import { ClipboardWatcher } from './clipboard'
 import { newPairCode } from './crypto'
 import { advertise, localAddresses, type Advertisement } from './discovery'
@@ -229,20 +229,6 @@ async function bootstrap(): Promise<void> {
         store.dismissNotification(item.key)
       })
       n.show()
-    } catch {
-      /* notifications unavailable */
-    }
-  })
-
-  server.on('sms', (message: SmsMessage) => {
-    if (!Notification.isSupported() || !message.body) return
-    try {
-      new Notification({
-        title: message.address || 'New message',
-        body: message.body
-      })
-        .on('click', () => showWindow())
-        .show()
     } catch {
       /* notifications unavailable */
     }

@@ -63,7 +63,7 @@ handshake and the threat model.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
    flow remains available as a fallback.
-6. On the phone, grant notification and SMS access when prompted.
+6. On the phone, open notification settings and tap **Allow SMS access**.
 
 Both devices must be on the same Wi-Fi, and the network must allow mDNS and client-to-client
 traffic. Guest/AP-isolated Wi-Fi will not work.

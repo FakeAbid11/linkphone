@@ -90,7 +90,7 @@ jobs:
             4. On the PC, click **Scan QR code instead** in the sidebar.
             5. On the phone: **Scan QR** and point the camera at the PC. Network scan + typed code is
                still available as a fallback.
-            6. On the phone, allow notification and SMS access.
+            6. On the phone, open notification settings and tap **Allow SMS access**.
 
             ## In this build
 

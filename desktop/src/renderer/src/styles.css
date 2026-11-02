@@ -74,6 +74,7 @@ button {
   background: var(--bg-elev);
   border-right: 1px solid var(--line);
   min-height: 0;
+  overflow-y: auto;
 }
 
 .brand {

@@ -536,7 +536,6 @@ export class LinkServer extends EventEmitter {
         if (!isRawMsg(raw)) return
         const message = parseSmsMessage(raw)
         this.store.appendSmsMessage(message)
-        this.emit('sms', message)
         return
       }
 

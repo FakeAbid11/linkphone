@@ -20,6 +20,7 @@ object LinkCore {
             storeRef = store
             clientRef = LinkClient(app, store)
             updaterRef = AppUpdateManager(app)
+            UpdateScheduler.schedule(app)
             ContactsRepository.get(app).preload()
         }
     }

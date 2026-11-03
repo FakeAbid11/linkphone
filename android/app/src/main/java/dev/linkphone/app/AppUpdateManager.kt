@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
@@ -38,13 +37,6 @@ data class AppUpdateState(
  * unavailable to ordinary sideloaded apps.
  */
 class AppUpdateManager(context: Context) {
-    private data class Release(
-        val version: String,
-        val url: String,
-        val digest: String?,
-        val size: Long
-    )
-
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val http = OkHttpClient.Builder()
@@ -54,7 +46,7 @@ class AppUpdateManager(context: Context) {
     private val _state = MutableStateFlow(AppUpdateState())
     val state: StateFlow<AppUpdateState> = _state.asStateFlow()
 
-    @Volatile private var release: Release? = null
+    @Volatile private var release: UpdateRelease? = null
     @Volatile private var downloaded: File? = null
     @Volatile private var lastCheckedAt = 0L
 
@@ -69,11 +61,11 @@ class AppUpdateManager(context: Context) {
             progress = 0
         )
         scope.launch {
-            runCatching { fetchLatest() }
+            runCatching { UpdateChecker.fetchLatest() }
                 .onSuccess { latest ->
                     lastCheckedAt = System.currentTimeMillis()
                     release = latest
-                    if (isNewer(latest.version, BuildConfig.VERSION_NAME)) {
+                    if (UpdateChecker.isNewer(latest.version, BuildConfig.VERSION_NAME)) {
                         _state.value = AppUpdateState(
                             phase = AppUpdatePhase.AVAILABLE,
                             availableVersion = latest.version,
@@ -156,37 +148,7 @@ class AppUpdateManager(context: Context) {
         }.onFailure { fail(it) }
     }
 
-    private fun fetchLatest(): Release {
-        val request = Request.Builder()
-            .url(RELEASE_API)
-            .header("Accept", "application/vnd.github+json")
-            .header("User-Agent", USER_AGENT)
-            .build()
-        http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error("GitHub update check failed (${response.code})")
-            val root = JSONObject(response.body?.string() ?: error("Empty update response"))
-            val version = root.optString("tag_name").removePrefix("v")
-            if (version.isBlank()) error("Release has no version")
-            val assets = root.optJSONArray("assets") ?: error("Release has no files")
-            for (index in 0 until assets.length()) {
-                val asset = assets.optJSONObject(index) ?: continue
-                if (asset.optString("name") != APK_NAME) continue
-                val url = asset.optString("browser_download_url")
-                if (!url.startsWith("https://github.com/")) {
-                    error("Release APK has an invalid download URL")
-                }
-                return Release(
-                    version = version,
-                    url = url,
-                    digest = asset.optString("digest").takeIf { it.isNotBlank() },
-                    size = asset.optLong("size", -1L)
-                )
-            }
-            error("Release does not contain $APK_NAME")
-        }
-    }
-
-    private fun downloadAndVerify(release: Release): File {
+    private fun downloadAndVerify(release: UpdateRelease): File {
         val directory = File(appContext.cacheDir, "updates").apply { mkdirs() }
         val partial = File(directory, "linkphone-${release.version}.apk.part")
         val final = File(directory, "linkphone-${release.version}.apk")
@@ -198,7 +160,7 @@ class AppUpdateManager(context: Context) {
 
         val request = Request.Builder()
             .url(release.url)
-            .header("User-Agent", USER_AGENT)
+            .header("User-Agent", UpdateChecker.USER_AGENT)
             .build()
         val digest = MessageDigest.getInstance("SHA-256")
         http.newCall(request).execute().use { response ->
@@ -282,27 +244,7 @@ class AppUpdateManager(context: Context) {
 
     private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
-    private fun isNewer(candidate: String, current: String): Boolean {
-        val left = versionParts(candidate)
-        val right = versionParts(current)
-        for (index in 0 until maxOf(left.size, right.size)) {
-            val a = left.getOrElse(index) { 0 }
-            val b = right.getOrElse(index) { 0 }
-            if (a != b) return a > b
-        }
-        return false
-    }
-
-    private fun versionParts(value: String): List<Int> =
-        value.removePrefix("v").split('.').map { part ->
-            part.takeWhile { it.isDigit() }.toIntOrNull() ?: 0
-        }
-
     companion object {
-        private const val RELEASE_API =
-            "https://api.github.com/repos/FakeAbid11/linkphone/releases/latest"
-        private const val APK_NAME = "linkphone-android.apk"
-        private const val USER_AGENT = "LinkPhone-Android-Updater"
         private const val AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
         private const val MAX_APK_BYTES = 200L * 1024 * 1024
     }

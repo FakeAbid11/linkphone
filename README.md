@@ -32,7 +32,7 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.6.2** adds Explorer → Send to → LinkPhone; v0.6.1 added live notification progress.
+> **v0.6.5** adds automatic update checks with notifications on Windows and Android.
 
 ## Features
 
@@ -50,7 +50,7 @@ service or a relay server.
 | Clipboard | Partial | Text only; phone side only while the app is open |
 | Start with Windows | Yes | Opt-in hidden tray start, listed in Windows Startup Apps |
 | Auto-reconnect | Yes | 2.5 s backoff across Wi-Fi hiccups |
-| Built-in updates | Yes | Windows download/restart and verified Android APK |
+| Built-in updates | Yes | Automatic checks + notifications; verified Windows/Android installers |
 | Screen mirroring | Not yet | Planned; `MediaProjection` + WebRTC |
 | App streaming, camera | Not yet | Planned |
 
@@ -68,7 +68,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”).
-3. **PC:** run `LinkPhone.Setup.0.6.2.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.6.5.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -158,10 +158,14 @@ LinkPhone discards them. Folders are not supported.
 
 v0.4 must be installed manually once because older versions do not contain updater code. After that:
 
-- **Windows:** Settings checks automatically every six hours. Choose **Download**, then
-  **Restart & install**.
-- **Android:** the App update card checks when LinkPhone opens. Choose **Download**, then
-  **Install**. Android always shows its system installer confirmation.
+- **Windows:** LinkPhone checks about 20 seconds after launch, every six hours, and after sleep;
+  a notification appears when a newer version is available. Choose **Download**, then
+  **Restart & install** in Settings.
+- **Android:** a background check runs about every six hours even when LinkPhone is closed, and the
+  App update card checks when the app opens. A notification appears when a newer version is
+  available; choose **Download**, then **Install**. Android always shows its system installer
+  confirmation. OEM battery managers may delay the background check; opening the app always checks.
+- Neither platform downloads or installs anything without you choosing it.
 - Android downloads are verified against GitHub's SHA-256 digest and the certificate that signed
   the installed LinkPhone app before the installer opens.
 

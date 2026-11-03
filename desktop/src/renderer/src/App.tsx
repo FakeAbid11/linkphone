@@ -49,9 +49,9 @@ export default function App(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    const off = window.linkphone.onShowFiles(() => setTab('files'))
-    void window.linkphone.uiReady().then((show) => {
-      if (show) setTab('files')
+    const off = window.linkphone.onNavigate((next) => setTab(next))
+    void window.linkphone.uiReady().then((next) => {
+      if (next) setTab(next)
     })
     return off
   }, [])
@@ -75,7 +75,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.6.2</div>
+            <div className="brand-sub">Local network · v0.6.5</div>
           </div>
         </div>
 

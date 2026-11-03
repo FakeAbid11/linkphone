@@ -10,6 +10,7 @@ const api: LinkPhoneApi = {
     return () => ipcRenderer.removeListener('state:update', handler)
   },
   newPairingCode: () => ipcRenderer.invoke('pair:new') as Promise<string>,
+  refreshAddresses: () => ipcRenderer.invoke('addresses:refresh') as Promise<void>,
   forgetDevice: (deviceId) => ipcRenderer.invoke('device:forget', deviceId) as Promise<void>,
   sendFiles: () => ipcRenderer.invoke('files:send') as Promise<number>,
   sendClipboard: (text) => ipcRenderer.invoke('clipboard:set', text) as Promise<void>,

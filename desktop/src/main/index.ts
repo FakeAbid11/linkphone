@@ -14,7 +14,7 @@ import {
 import type { AppState, PhoneCallInfo } from '../shared/protocol'
 import { ClipboardWatcher } from './clipboard'
 import { newPairCode } from './crypto'
-import { advertise, localAddresses, type Advertisement } from './discovery'
+import { advertise, localAddresses, localLinkLocalIPv6, type Advertisement } from './discovery'
 import { LinkServer } from './server'
 import { AppStore } from './state'
 import { DesktopUpdater } from './updater'
@@ -118,6 +118,11 @@ function registerIpc(): void {
     store.setPairingCode(newPairCode())
     rebuildTrayMenu()
     return store.pairingCode
+  })
+
+  ipcMain.handle('addresses:refresh', () => {
+    store.setAddresses(localAddresses())
+    store.setAddresses6(localLinkLocalIPv6())
   })
 
   ipcMain.handle('device:forget', (_event, deviceId: unknown) => {
@@ -256,6 +261,7 @@ async function bootstrap(): Promise<void> {
 
   await server.start()
   store.setAddresses(localAddresses())
+  store.setAddresses6(localLinkLocalIPv6())
 
   try {
     advertisement = advertise({

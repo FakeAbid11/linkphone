@@ -19,6 +19,10 @@ The desktop advertises an mDNS service:
 
 The Android app browses with `NsdManager`, resolves the SRV record and connects to the IP:port.
 
+The server binds dual-stack (`::`), so IPv4-mapped and IPv6 clients share the same port. The QR's
+`a6` field carries link-local IPv6 addresses for routers that isolate IPv4 Wi-Fi clients but still
+forward IPv6 between them.
+
 ## 2. Pairing key
 
 Both sides derive a 32-byte pre-shared key from the 8-character pairing code shown on the PC:
@@ -37,13 +41,17 @@ well, for convenience.
 The desktop can encode the same pairing data as a QR code (error correction level M):
 
 ```
-linkphone://pair?c=<code>&p=<port>&a=<comma-separated IPv4s>&n=<PC name>&i=<server UUID>&v=1
+linkphone://pair?c=<code>&p=<port>&a=<comma-separated IPv4s>
+                  &a6=<comma-separated link-local IPv6s>
+                  &n=<PC name>&i=<server UUID>&v=1
 ```
 
 All values are URL-encoded. The Android app prefers RFC 1918 addresses, then tries every remaining
-address in order. The QR is only a transport for the pairing code and address; the cryptographic
-handshake below is unchanged. Camera scanning uses CameraX + ZXing and has no Google Play Services
-dependency.
+IPv4 address, then the `a6` link-local IPv6 addresses. Link-local IPv6 is scoped to the phone's
+Wi-Fi interface (OkHttp resolves a synthetic hostname to a scoped `Inet6Address`). This is a
+fallback for routers that isolate IPv4 clients but still forward IPv6 between them. The QR is only
+a transport for the pairing code and addresses; the cryptographic handshake below is unchanged.
+Camera scanning uses CameraX + ZXing and has no Google Play Services dependency.
 
 ## 3. Frames
 

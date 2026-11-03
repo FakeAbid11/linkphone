@@ -58,7 +58,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark" />
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.4.11</div>
+            <div className="brand-sub">Local network · v0.4.12</div>
           </div>
         </div>
 

@@ -10,6 +10,7 @@ import { MessagesPanel } from './components/MessagesPanel'
 import { NotificationsPanel } from './components/NotificationsPanel'
 import { PairingCard } from './components/PairingCard'
 import { PhotosPanel } from './components/PhotosPanel'
+import { StartupPanel } from './components/StartupPanel'
 import { UpdatePanel } from './components/UpdatePanel'
 
 type Tab = 'notifications' | 'messages' | 'calls' | 'photos' | 'files' | 'clipboard' | 'settings'
@@ -59,7 +60,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.4.14</div>
+            <div className="brand-sub">Local network · v0.4.15</div>
           </div>
         </div>
 
@@ -219,12 +220,19 @@ export default function App(): JSX.Element {
             />
           )}
           {tab === 'settings' && (
-            <UpdatePanel
-              update={state.desktopUpdate}
-              onCheck={() => void window.linkphone.checkDesktopUpdate()}
-              onDownload={() => void window.linkphone.downloadDesktopUpdate()}
-              onInstall={() => window.linkphone.installDesktopUpdate()}
-            />
+            <div className="settings-panel">
+              <StartupPanel
+                supported={state.launchAtLoginSupported}
+                enabled={state.launchAtLogin}
+                onToggle={(enabled) => void window.linkphone.setLaunchAtLogin(enabled)}
+              />
+              <UpdatePanel
+                update={state.desktopUpdate}
+                onCheck={() => void window.linkphone.checkDesktopUpdate()}
+                onDownload={() => void window.linkphone.downloadDesktopUpdate()}
+                onInstall={() => window.linkphone.installDesktopUpdate()}
+              />
+            </div>
           )}
         </section>
       </main>

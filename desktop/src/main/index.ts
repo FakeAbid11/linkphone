@@ -36,6 +36,72 @@ function appIcon(name: string): Electron.NativeImage {
     : image
 }
 
+const LOGIN_ITEM_NAME = 'LinkPhone'
+const HIDDEN_ARG = '--hidden'
+const LOGIN_ITEM_ARGS = [HIDDEN_ARG]
+
+interface LaunchItem {
+  name?: string
+  path?: string
+  args?: string[] | string
+  scope?: string
+  enabled?: boolean
+}
+
+function launchAtLoginSupported(): boolean {
+  return process.platform === 'win32' && app.isPackaged
+}
+
+function readLaunchAtLogin(): boolean {
+  if (!launchAtLoginSupported()) return false
+  try {
+    const settings = app.getLoginItemSettings({
+      path: process.execPath,
+      args: LOGIN_ITEM_ARGS
+    }) as Electron.LoginItemSettings & { launchItems?: LaunchItem[] }
+    const expectedPath = path.normalize(process.execPath).toLowerCase()
+    const match = (settings.launchItems ?? []).find((item) => {
+      if (item.name?.toLowerCase() !== LOGIN_ITEM_NAME.toLowerCase()) return false
+      if (!item.path) return false
+      if (path.normalize(item.path).toLowerCase() !== expectedPath) return false
+      const args = Array.isArray(item.args)
+        ? item.args
+        : typeof item.args === 'string'
+          ? item.args.split(/\s+/)
+          : []
+      return args.includes(HIDDEN_ARG)
+    })
+    return Boolean(match?.enabled)
+  } catch (error) {
+    console.error('[startup] could not read login item', error)
+    return false
+  }
+}
+
+function syncLaunchAtLogin(): void {
+  const supported = launchAtLoginSupported()
+  store.setLaunchAtLogin(supported ? readLaunchAtLogin() : false, supported)
+}
+
+function applyLaunchAtLogin(enabled: boolean): void {
+  if (!launchAtLoginSupported()) {
+    store.setLaunchAtLogin(false, false)
+    return
+  }
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      path: process.execPath,
+      args: LOGIN_ITEM_ARGS,
+      name: LOGIN_ITEM_NAME,
+      ...(enabled ? { enabled: true } : {})
+    })
+  } catch (error) {
+    console.error('[startup] could not update login item', error)
+  }
+  syncLaunchAtLogin()
+}
+
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
 let store: AppStore
@@ -57,6 +123,7 @@ function showWindow(): void {
 }
 
 function createWindow(): void {
+  const startHidden = process.argv.includes(HIDDEN_ARG)
   win = new BrowserWindow({
     width: 1080,
     height: 720,
@@ -74,7 +141,10 @@ function createWindow(): void {
     }
   })
 
-  win.on('ready-to-show', () => win?.show())
+  win.on('ready-to-show', () => {
+    if (!startHidden) win?.show()
+  })
+  win.on('focus', () => syncLaunchAtLogin())
   win.on('close', (event) => {
     if (quitting) return
     event.preventDefault()
@@ -163,6 +233,10 @@ function registerIpc(): void {
 
   ipcMain.handle('clipboard:enable', (_event, enabled: unknown) => {
     store.setClipboardEnabled(Boolean(enabled))
+  })
+
+  ipcMain.handle('startup:set', (_event, enabled: unknown) => {
+    if (typeof enabled === 'boolean') applyLaunchAtLogin(enabled)
   })
 
   ipcMain.handle('notifications:clear', () => store.clearNotifications())
@@ -268,6 +342,7 @@ async function bootstrap(): Promise<void> {
 
   store = new AppStore(app.getPath('userData'), app.getVersion())
   store.setPairingCode(newPairCode())
+  syncLaunchAtLogin()
 
   server = new LinkServer(store)
   updater = new DesktopUpdater(store, app.isPackaged)
@@ -340,7 +415,9 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => showWindow())
+  app.on('second-instance', (_event, argv) => {
+    if (!argv.includes(HIDDEN_ARG)) showWindow()
+  })
 
   void app.whenReady().then(bootstrap)
 

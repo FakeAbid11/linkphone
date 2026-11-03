@@ -3,14 +3,15 @@
 Microsoft Phone Link, rebuilt from scratch — Android phone + Windows PC, **local network only, no
 cloud account, no relay server**.
 
-> **Status: v0.4.14.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
-> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.14 uses
-> the full phone + laptop + link logo in the Windows tray; v0.4.13 adds the app logo across both
-> platforms; v0.4.12 removes the desktop menu bar; v0.4.11 gives both apps a strictly monochrome
-> Material 3 theme; v0.4.10 adds contact names in SMS and calls; v0.4.9 adds a link-local IPv6 fallback
-> for routers that isolate IPv4 Wi-Fi clients; v0.4.8 lets a phone re-pair with a fresh QR even when the
-> PC still remembers an older pairing. Screen mirroring and Android app streaming are **not** — see
-> [Roadmap](#roadmap). Everything is built by GitHub Actions; there are no local build steps.
+> **Status: v0.4.15.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
+> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.15 adds
+> an optional Start with Windows setting; v0.4.14 uses the full logo in the Windows tray; v0.4.13 adds
+> the app logo across both platforms; v0.4.12 removes the desktop menu bar; v0.4.11 gives both apps a
+> strictly monochrome Material 3 theme; v0.4.10 adds contact names in SMS and calls; v0.4.9 adds a
+> link-local IPv6 fallback for routers that isolate IPv4 Wi-Fi clients; v0.4.8 lets a phone re-pair with
+> a fresh QR even when the PC still remembers an older pairing. Screen mirroring and Android app
+> streaming are **not** — see [Roadmap](#roadmap). Everything is built by GitHub Actions; there are no
+> local build steps.
 
 ---
 
@@ -41,6 +42,7 @@ docs/         PROTOCOL.md — the wire format, crypto and threat model
 | Call audio on PC | ⛔ | audio deliberately stays on the phone; no capture or streaming |
 | File transfer both ways | ✅ | 64 KiB chunks, 512 KiB window, Documents/Downloads |
 | Clipboard sync | ✅ (text) | PC ⇄ phone, phone side only while the app is open |
+| Start with Windows | ✅ | opt-in hidden tray start; appears in Windows Startup Apps |
 | Auto-reconnect | ✅ | 2.5 s backoff, survives Wi-Fi hiccups |
 | Screen mirror + control | ⛔ | planned — `MediaProjection` + WebRTC |
 | App streaming, camera | ⛔ | planned |
@@ -68,7 +70,7 @@ handshake and the threat model.
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
    If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
    v0.2 established the permanent key, so v0.2 and later update in place normally.
-3. Run `LinkPhone.Setup.0.4.14.exe` on Windows. The installer is unsigned, so SmartScreen requires
+3. Run `LinkPhone.Setup.0.4.15.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
@@ -112,6 +114,12 @@ Both apps use a strictly monochrome, dark-only Material 3 theme: pure black `#00
 text, and white/gray Material Symbols Rounded icons. There is no light theme and no colorful accent.
 The app logo is a white phone + laptop + chain-link mark on black, used for the Windows installer,
 app, tray, Android adaptive icon, themed icon, and the in-app header.
+
+### Start with Windows
+
+Open **Settings → Start with Windows**. This is off by default. Enabling it registers a per-user login
+item, so LinkPhone appears in **Windows Settings → Apps → Startup** and starts hidden in the tray when
+you sign in. Disable it from either LinkPhone or Windows; LinkPhone will not re-enable it.
 
 ### If discovery finds nothing
 

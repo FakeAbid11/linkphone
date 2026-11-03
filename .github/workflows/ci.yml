@@ -63,6 +63,10 @@ jobs:
         working-directory: desktop
         run: npm run build
 
+      - name: Package installer (validate NSIS)
+        working-directory: desktop
+        run: npm run dist:win
+
       - name: Upload bundled app
         uses: actions/upload-artifact@v5
         with:

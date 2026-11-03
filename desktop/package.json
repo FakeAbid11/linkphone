@@ -1,7 +1,7 @@
 {
   "name": "linkphone-desktop",
   "productName": "LinkPhone",
-  "version": "0.4.14",
+  "version": "0.4.15",
   "private": true,
   "description": "LinkPhone - your Android phone, on your PC. LAN only.",
   "author": "LinkPhone",
@@ -69,7 +69,8 @@
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
       "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico"
+      "uninstallerIcon": "build/icon.ico",
+      "include": "build/installer.nsh"
     },
     "publish": [
       {

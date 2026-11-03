@@ -65,6 +65,8 @@ export class AppStore extends EventEmitter {
   private live = new Map<string, DeviceInfo>()
   private addresses: string[] = []
   private addresses6: string[] = []
+  private launchAtLogin = false
+  private launchAtLoginSupported = false
   port = 0
   pairingCode = ''
 
@@ -128,6 +130,13 @@ export class AppStore extends EventEmitter {
   setClipboardEnabled(enabled: boolean): void {
     this.persisted.clipboardEnabled = enabled
     this.save()
+    this.changed()
+  }
+
+  setLaunchAtLogin(enabled: boolean, supported: boolean): void {
+    if (this.launchAtLogin === enabled && this.launchAtLoginSupported === supported) return
+    this.launchAtLogin = enabled
+    this.launchAtLoginSupported = supported
     this.changed()
   }
 
@@ -484,6 +493,8 @@ export class AppStore extends EventEmitter {
       callSpeaker: this.callSpeaker,
       callMuted: this.callMuted,
       callError: this.callError,
+      launchAtLogin: this.launchAtLogin,
+      launchAtLoginSupported: this.launchAtLoginSupported,
       clipboardEnabled: this.persisted.clipboardEnabled,
       downloadsDir: this.downloadsDir,
       clippingInFlight: false

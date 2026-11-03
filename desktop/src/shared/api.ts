@@ -32,6 +32,7 @@ export interface LinkPhoneApi {
   disconnectCall: (callId: string) => Promise<void>
   setCallSpeaker: (enabled: boolean) => Promise<void>
   setClipboardEnabled: (enabled: boolean) => Promise<void>
+  setLaunchAtLogin: (enabled: boolean) => Promise<void>
   openDownloads: () => Promise<void>
   copyToClipboard: (text: string) => Promise<void>
   openExternal: (url: string) => Promise<void>

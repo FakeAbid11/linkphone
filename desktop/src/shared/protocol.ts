@@ -183,6 +183,8 @@ export interface AppState {
   callSpeaker: boolean
   callMuted: boolean
   callError: string
+  launchAtLogin: boolean
+  launchAtLoginSupported: boolean
   clipboardEnabled: boolean
   downloadsDir: string
   clippingInFlight: boolean

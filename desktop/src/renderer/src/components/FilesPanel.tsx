@@ -1,4 +1,5 @@
 import type { TransferItem } from '@shared/protocol'
+import { Icon } from './Icon'
 
 interface Props {
   transfers: TransferItem[]
@@ -23,7 +24,7 @@ export function FilesPanel({ transfers, downloadsDir, onSend, onOpenFolder }: Pr
   return (
     <div className="files">
       <div className="dropzone" onClick={onSend}>
-        <div className="empty-art">📎</div>
+        <div className="empty-art"><Icon name="upload" size={30} /></div>
         <div>
           <strong>Send a file to your phone</strong>
           <p className="muted">Click to choose files — they land in your phone's Downloads.</p>

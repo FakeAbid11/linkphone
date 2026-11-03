@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
+import { Icon } from './Icon'
 
 interface Props {
   code: string
@@ -69,7 +70,7 @@ export function PairingCard({
       margin: 1,
       width: 240,
       errorCorrectionLevel: 'M',
-      color: { dark: '#0b1220', light: '#ffffff' }
+      color: { dark: '#000000', light: '#ffffff' }
     })
       .then((url) => {
         if (alive) setQr(url)
@@ -103,6 +104,7 @@ export function PairingCard({
       <div className="pairing-hint">{copied ? 'Copied' : 'Type this on your phone'}</div>
 
       <button className="link-btn qr-toggle" onClick={toggleQr}>
+        <Icon name="qr_code_2" size={18} />
         {showQr ? 'Hide QR code' : 'Scan QR code instead'}
       </button>
 
@@ -133,7 +135,7 @@ export function PairingCard({
       </div>
 
       <button className="link-btn" onClick={onNewCode}>
-        Generate a new code
+        <Icon name="refresh" size={18} /> Generate a new code
       </button>
     </div>
   )

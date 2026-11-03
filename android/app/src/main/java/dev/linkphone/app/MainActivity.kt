@@ -14,9 +14,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,7 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -35,6 +32,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -55,8 +53,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
@@ -67,19 +67,91 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private val Teal = Color(0xFF2DD4BF)
+private val Primary = Color.White
+private val Secondary = Color(0xFFB3B3B3)
+private val MaterialSymbols = FontFamily(Font(R.font.material_symbols_rounded))
+
+private object Symbols {
+    const val smartphone = "\ue7ba"
+    const val system_update = "\uf2cd"
+    const val search = "\uef7a"
+    const val notifications = "\ue7f5"
+    const val sms = "\ue625"
+    const val photo_library = "\ue413"
+    const val contacts = "\ue0ba"
+    const val call = "\uf0d4"
+    const val folder = "\ue2c7"
+    const val link = "\ue250"
+    const val qr_code_scanner = "\uf206"
+    const val check_circle = "\uf0be"
+    const val download = "\uf090"
+    const val install_desktop = "\ueb71"
+    const val refresh = "\ue5d5"
+    const val close = "\ue5cd"
+    const val settings = "\ue8b8"
+    const val upload = "\uf09b"
+}
+
 private val DarkColors = darkColorScheme(
-    primary = Teal,
-    onPrimary = Color(0xFF04231F),
-    secondary = Color(0xFF7DD3FC),
-    background = Color(0xFF0B1220),
-    onBackground = Color(0xFFE6EEFC),
-    surface = Color(0xFF101A2C),
-    onSurface = Color(0xFFE6EEFC),
-    surfaceVariant = Color(0xFF16233A),
-    onSurfaceVariant = Color(0xFF8BA0BF),
-    outline = Color(0xFF1F2F4A)
+    primary = Primary,
+    onPrimary = Color.Black,
+    primaryContainer = Color(0xFF1C1C1C),
+    onPrimaryContainer = Color.White,
+    secondary = Secondary,
+    onSecondary = Color.Black,
+    secondaryContainer = Color(0xFF1C1C1C),
+    onSecondaryContainer = Color.White,
+    tertiary = Secondary,
+    onTertiary = Color.Black,
+    background = Color.Black,
+    onBackground = Color.White,
+    surface = Color(0xFF121212),
+    onSurface = Color.White,
+    surfaceVariant = Color(0xFF1C1C1C),
+    onSurfaceVariant = Secondary,
+    outline = Color(0xFF3A3A3A),
+    error = Color.White,
+    onError = Color.Black,
+    errorContainer = Color(0xFF1C1C1C),
+    onErrorContainer = Color.White
 )
+
+@Composable
+private fun Symbol(
+    glyph: String,
+    size: TextUnit = 20.sp,
+    tint: Color = Color.Unspecified
+) {
+    Text(
+        text = glyph,
+        fontFamily = MaterialSymbols,
+        fontSize = size,
+        lineHeight = size,
+        color = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else tint
+    )
+}
+
+@Composable
+private fun ButtonLabel(glyph: String, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Symbol(glyph, 18.sp, LocalContentColor.current)
+        Text(label)
+    }
+}
+
+@Composable
+private fun CardTitle(glyph: String, text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Symbol(glyph)
+        Text(text, fontWeight = FontWeight.SemiBold)
+    }
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -338,7 +410,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         if (store.hasPairing()) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Paired PC", fontWeight = FontWeight.SemiBold)
+                    CardTitle(Symbols.link, "Paired PC")
                     Text(
                         "${store.serverName ?: "PC"} · ${store.host ?: ""}:${store.port}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -348,10 +420,10 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                         OutlinedButton(onClick = {
                             LinkCore.startService(context)
                             client.connectSaved()
-                        }) { Text("Reconnect") }
+                        }) { ButtonLabel(Symbols.refresh, "Reconnect") }
                         OutlinedButton(onClick = {
                             client.forget()
-                        }) { Text("Forget") }
+                        }) { ButtonLabel(Symbols.close, "Forget") }
                     }
                 }
             }
@@ -364,13 +436,13 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Find your PC", fontWeight = FontWeight.SemiBold)
+                    CardTitle(Symbols.search, "Find your PC")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { scanningQr = true }) {
-                            Text("Scan QR")
+                            ButtonLabel(Symbols.qr_code_scanner, "Scan QR")
                         }
                         Button(onClick = { scan() }, enabled = !scanning) {
-                            Text(if (scanning) "Scanning…" else "Scan")
+                            ButtonLabel(Symbols.search, if (scanning) "Scanning…" else "Scan")
                         }
                     }
                 }
@@ -405,7 +477,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         if (!notifAccess) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Notification access", fontWeight = FontWeight.SemiBold)
+                    CardTitle(Symbols.notifications, "Notification access")
                     Text(
                         "Required to mirror notifications. Android asks you to allow it in system settings.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -413,7 +485,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                     )
                     OutlinedButton(onClick = {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                    }) { Text("Open settings") }
+                    }) { ButtonLabel(Symbols.settings, "Open settings") }
                 }
             }
         }
@@ -421,7 +493,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         if (!smsAccess) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Messages", fontWeight = FontWeight.SemiBold)
+                    CardTitle(Symbols.sms, "Messages")
                     Text(
                         "Allow LinkPhone to read and send SMS so your texts show up on the PC. " +
                             "It stays a normal app — it never becomes your default SMS app.",
@@ -436,7 +508,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                                 Manifest.permission.RECEIVE_SMS
                             )
                         )
-                    }) { Text("Allow SMS access") }
+                    }) { ButtonLabel(Symbols.sms, "Allow SMS access") }
                 }
             }
         }
@@ -444,7 +516,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         if (!photoAccess) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Photos", fontWeight = FontWeight.SemiBold)
+                    CardTitle(Symbols.photo_library, "Photos")
                     Text(
                         "Allow LinkPhone to show photo albums on your PC. You can grant all photos " +
                             "or a selected set on newer Android versions.",
@@ -453,7 +525,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                     )
                     OutlinedButton(onClick = {
                         photoPermission.launch(photoPermissions())
-                    }) { Text("Allow photo access") }
+                    }) { ButtonLabel(Symbols.photo_library, "Allow photo access") }
                 }
             }
         }
@@ -461,7 +533,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         if (!contactsAccess) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Contact names", fontWeight = FontWeight.SemiBold)
+                    CardTitle(Symbols.contacts, "Contact names")
                     Text(
                         "Allow contact access to show names instead of numbers in Messages and Calls.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -469,14 +541,14 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                     )
                     OutlinedButton(onClick = {
                         contactsPermission.launch(Manifest.permission.READ_CONTACTS)
-                    }) { Text("Allow contact access") }
+                    }) { ButtonLabel(Symbols.contacts, "Allow contact access") }
                 }
             }
         }
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Calls from your PC", fontWeight = FontWeight.SemiBold)
+                CardTitle(Symbols.call, "Calls from your PC")
                 Text(
                     "Answer, decline, dial and switch the phone speaker from Windows. Call audio " +
                         "always stays on this phone.",
@@ -491,17 +563,17 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                         } else {
                             notice = "Default phone-app control is unavailable on this device."
                         }
-                    }) { Text("Set as default phone app") }
+                    }) { ButtonLabel(Symbols.call, "Set as default phone app") }
 
                     !callPermissionsGranted -> OutlinedButton(onClick = {
                         callPermission.launch(
                             arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
                         )
-                    }) { Text("Allow call access") }
+                    }) { ButtonLabel(Symbols.call, "Allow call access") }
 
                     else -> Text(
                         "Call control is ready",
-                        color = Teal,
+                        color = Primary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -516,7 +588,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(text, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { notice = null }) { Text("Dismiss") }
+                    TextButton(onClick = { notice = null }) { ButtonLabel(Symbols.close, "Dismiss") }
                 }
             }
         }
@@ -528,8 +600,10 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Files", fontWeight = FontWeight.SemiBold)
-                    Button(onClick = { filePicker.launch(arrayOf("*/*")) }) { Text("Send file") }
+                    CardTitle(Symbols.folder, "Files")
+                    Button(onClick = { filePicker.launch(arrayOf("*/*")) }) {
+                        ButtonLabel(Symbols.upload, "Send file")
+                    }
                 }
                 if (transfers.isEmpty()) {
                     Text(
@@ -606,7 +680,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                         connect(target, value)
                     },
                     enabled = code.length >= 6
-                ) { Text("Pair") }
+                ) { ButtonLabel(Symbols.link, "Pair") }
             },
             dismissButton = {
                 TextButton(onClick = { pendingDevice = null }) { Text("Cancel") }
@@ -700,7 +774,7 @@ private fun UpdateCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("App update", fontWeight = FontWeight.SemiBold)
+                    CardTitle(Symbols.system_update, "App update")
                     Text(
                         "Current version ${update.currentVersion}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -709,18 +783,19 @@ private fun UpdateCard(
                 }
                 when (update.phase) {
                     AppUpdatePhase.AVAILABLE ->
-                        Button(onClick = onDownload) { Text("Download") }
+                        Button(onClick = onDownload) { ButtonLabel(Symbols.download, "Download") }
                     AppUpdatePhase.READY ->
-                        Button(onClick = onInstall) { Text("Install") }
+                        Button(onClick = onInstall) { ButtonLabel(Symbols.install_desktop, "Install") }
                     AppUpdatePhase.CHECKING, AppUpdatePhase.DOWNLOADING ->
                         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                    else -> OutlinedButton(onClick = onCheck) { Text("Check") }
+                    else -> OutlinedButton(onClick = onCheck) {
+                        ButtonLabel(Symbols.refresh, "Check")
+                    }
                 }
             }
             Text(
                 text,
-                color = if (update.phase == AppUpdatePhase.ERROR) Color(0xFFF87171)
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
             if (update.phase == AppUpdatePhase.DOWNLOADING) {
@@ -739,15 +814,15 @@ private fun StatusCard(status: LinkStatus, notifAccess: Boolean, paired: Boolean
         LinkState.CONNECTED -> Triple(
             "Connected to ${status.serverName.ifBlank { "PC" }}",
             if (notifAccess) "Notifications and messages mirror here" else "Messages mirror here",
-            Teal
+            Primary
         )
-        LinkState.PAIRING -> Triple("Pairing…", status.detail, Color(0xFFFBBF24))
-        LinkState.CONNECTING -> Triple("Connecting…", status.detail, Color(0xFF7DD3FC))
-        LinkState.ERROR -> Triple("Offline", status.detail.ifBlank { "Not connected" }, Color(0xFFF87171))
+        LinkState.PAIRING -> Triple("Pairing…", status.detail, Secondary)
+        LinkState.CONNECTING -> Triple("Connecting…", status.detail, Secondary)
+        LinkState.ERROR -> Triple("Offline", status.detail.ifBlank { "Not connected" }, Secondary)
         LinkState.IDLE -> Triple(
             if (paired) "Paired, not connected" else "Not connected",
             if (paired) "Tap Reconnect or scan again" else "Scan for your PC below",
-            Color(0xFF8BA0BF)
+            Secondary
         )
     }
 
@@ -757,11 +832,7 @@ private fun StatusCard(status: LinkStatus, notifAccess: Boolean, paired: Boolean
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(
-                Modifier
-                    .size(10.dp)
-                    .background(color, CircleShape)
-            )
+            Symbol(Symbols.smartphone, 22.sp, color)
             Column(Modifier.weight(1f)) {
                 Text(label, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 Text(detail, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

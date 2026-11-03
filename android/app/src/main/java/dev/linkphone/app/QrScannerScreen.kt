@@ -219,7 +219,7 @@ fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
                         Modifier
                             .align(Alignment.Center)
                             .size(260.dp)
-                            .border(2.dp, Color(0xFF2DD4BF), RoundedCornerShape(20.dp))
+                            .border(2.dp, Color.White, RoundedCornerShape(20.dp))
                     )
                 }
 
@@ -237,7 +237,7 @@ fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
                     )
                     Text(
                         "LinkPhone → sidebar → “Scan QR code instead”",
-                        color = Color(0xFF8BA0BF),
+                        color = Color(0xFFB3B3B3),
                         fontSize = 12.sp
                     )
                 }
@@ -247,7 +247,7 @@ fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
                         Modifier
                             .align(Alignment.Center)
                             .padding(24.dp)
-                            .background(Color(0xCC101A2C), RoundedCornerShape(12.dp))
+                            .background(Color(0xE6121212), RoundedCornerShape(12.dp))
                             .padding(16.dp)
                     ) {
                         Text(
@@ -264,7 +264,7 @@ fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 32.dp)
                 ) {
-                    Text("Cancel", color = Color(0xFF2DD4BF))
+                    Text("Cancel", color = Color.White)
                 }
             }
         }

@@ -21,7 +21,7 @@ import { DesktopUpdater } from './updater'
 
 /* 32x32 phone glyph, generated offline; keeps the repo free of binary assets. */
 const TRAY_ICON_B64 =
-  'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABOElEQVR42u2X20pCURRF/YA+oJdulpVlfmwYEhERiUSEiSZmaqJJF7rQH02fVkw2x6Nrbn1zw3jbgznO29mZzOo4z8b4D2ksZXRz9AuFhYxvDX8QQ3zA4BvM2no2lfB+dMB2/wvGrHGDnbjx7ieMecf/I8iVA3Y6HzC8AezKAdn2OwxvALt6QOsNhjuAXDlgtzmG4Q1gVw7Ya7zC8AawqwfURzDcAeTKAbnaEIY3gF094H4Awx1Arhywf/cCwxvArhxwcNuH4Q1gVw+o9mC4A8iVAw4rzzC8AezKAfmbDgxvALt6wPUTDHcAuXLA0VUbhjeAXT3gsgVm7vHAkwOOLx4RMms8yYn6KyqcNxFD9D9hodxAEuGXT7sXHXByVkcSYcC0ewt5GxRLD1BYyiupeFpDGqvHq/dMALVvcVhpB/PlAAAAAElFTkSuQmCC'
+  'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAEUSURBVFhH1ZchTgNBGEYrkUiO0SNUIis5AhJZWccROAYSWckROAISWfd9ZJNp0vwd+ObtAgkvGbPz9s0/63a1+k/YvpJ0b3v/1ZL0YPumvruY6WBJHx5E0lNtzMb2taRjC7/WW5cv8Hw2x7q2ZtE++3T4oe71mG7fBtjXvVm02w0HqR+hQepHaJD6ERqkfoQGqR+hQepHaJD6ERqkfoQGqR+hQepHaJD6ERqkfoQGqR+hQepHaJD6ERqkfoQGqR+hQepHaJD6ERqkfqQXtL1pz09r852/iF7w7NmJ3t6vDvD3X2D0b8f27qcHWLcBjpIey83r2kl6awNsa2s2kl5adAhJ79PPbO0sQtJt58YXS9Ld6OGfVmF8Qkmi9gEAAAAASUVORK5CYII='
 
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -50,7 +50,7 @@ function createWindow(): void {
     minWidth: 880,
     minHeight: 560,
     show: false,
-    backgroundColor: '#0b1220',
+    backgroundColor: '#000000',
     title: 'LinkPhone',
     icon: nativeImage.createFromBuffer(Buffer.from(TRAY_ICON_B64, 'base64')),
     webPreferences: {

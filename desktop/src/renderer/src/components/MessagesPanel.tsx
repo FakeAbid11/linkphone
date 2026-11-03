@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SmsActiveThread, SmsThread } from '@shared/protocol'
+import { Icon } from './Icon'
 
 interface Props {
   threads: SmsThread[]
@@ -49,14 +50,14 @@ export function MessagesPanel({
       <div className="sms-thread">
         <div className="sms-thread-head">
           <button className="link-btn" onClick={onClose}>
-            ← All conversations
+            <Icon name="arrow_back" size={18} /> All conversations
           </button>
           <div className="sms-peer">{active.name || active.address}</div>
           <button
             className="link-btn"
             onClick={() => onOpen(active.threadId, active.address)}
           >
-            Refresh
+            <Icon name="refresh" size={18} /> Refresh
           </button>
         </div>
 
@@ -88,7 +89,7 @@ export function MessagesPanel({
             }}
           />
           <button className="btn" onClick={send} disabled={draft.trim().length === 0}>
-            Send
+            <Icon name="send" size={18} /> Send
           </button>
         </div>
       </div>
@@ -100,13 +101,19 @@ export function MessagesPanel({
       <div className="files-head">
         <h2>Conversations</h2>
         <button className="link-btn" onClick={onRefresh} disabled={loading}>
-          {loading ? 'Loading…' : 'Refresh'}
+          {loading ? (
+            'Loading…'
+          ) : (
+            <>
+              <Icon name="refresh" size={18} /> Refresh
+            </>
+          )}
         </button>
       </div>
 
       {threads.length === 0 ? (
         <div className="empty">
-          <div className="empty-art">💬</div>
+          <div className="empty-art"><Icon name="chat" size={34} /></div>
           <h2>No messages yet</h2>
           <p className="muted">
             LinkPhone needs SMS permission on the phone to read your texts. Open the app, grant the

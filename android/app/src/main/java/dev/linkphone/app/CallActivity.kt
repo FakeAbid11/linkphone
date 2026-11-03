@@ -39,11 +39,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 
 private val CallColors = darkColorScheme(
-    primary = Color(0xFF2DD4BF),
-    background = Color(0xFF0B1220),
-    surface = Color(0xFF101A2C),
-    onSurface = Color(0xFFE6EEFC),
-    onBackground = Color(0xFFE6EEFC)
+    primary = Color.White,
+    onPrimary = Color.Black,
+    background = Color.Black,
+    surface = Color(0xFF121212),
+    onSurface = Color.White,
+    onBackground = Color.White,
+    surfaceVariant = Color(0xFF1C1C1C),
+    onSurfaceVariant = Color(0xFFB3B3B3),
+    secondary = Color(0xFFB3B3B3),
+    onSecondary = Color.Black,
+    tertiary = Color(0xFFB3B3B3),
+    onTertiary = Color.Black,
+    outline = Color(0xFF3A3A3A),
+    error = Color.White,
+    onError = Color.Black
 )
 
 /** Minimal default-dialer screen so calls remain usable without the PC. */
@@ -96,7 +106,7 @@ private fun PhoneCallScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("LinkPhone call", color = Color(0xFF8BA0BF), fontSize = 13.sp)
+        Text("LinkPhone call", color = Color(0xFFB3B3B3), fontSize = 13.sp)
 
         if (call == null) {
             Text(
@@ -113,7 +123,7 @@ private fun PhoneCallScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             error.takeIf { it.isNotBlank() }?.let {
-                Text(it, color = Color(0xFFF87171), fontSize = 12.sp, modifier = Modifier.padding(8.dp))
+                Text(it, color = Color(0xFFB3B3B3), fontSize = 12.sp, modifier = Modifier.padding(8.dp))
             }
             Button(
                 onClick = {
@@ -131,11 +141,11 @@ private fun PhoneCallScreen(
             Modifier
                 .padding(top = 18.dp, bottom = 16.dp)
                 .size(84.dp)
-                .background(Color(0x332DD4BF), CircleShape),
+                .background(Color(0x33FFFFFF), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             val label = (call.displayName.ifBlank { call.number }).take(2).uppercase()
-            Text(label, color = Color(0xFF2DD4BF), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         }
         Text(
             call.displayName.ifBlank { call.number },
@@ -143,12 +153,12 @@ private fun PhoneCallScreen(
             fontWeight = FontWeight.Bold
         )
         if (call.displayName.isNotBlank() && call.number.isNotBlank()) {
-            Text(call.number, color = Color(0xFF8BA0BF), fontSize = 14.sp)
+            Text(call.number, color = Color(0xFFB3B3B3), fontSize = 14.sp)
         }
         Text(
             call.phase.label(),
             modifier = Modifier.padding(top = 6.dp, bottom = 24.dp),
-            color = Color(0xFF8BA0BF),
+            color = Color(0xFFB3B3B3),
             fontSize = 13.sp
         )
 
@@ -156,11 +166,17 @@ private fun PhoneCallScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Button(
                     onClick = { CallHub.reject(call.id) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1C1C1C),
+                        contentColor = Color.White
+                    )
                 ) { Text("Decline") }
                 Button(
                     onClick = { CallHub.answer(call.id) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    )
                 ) { Text("Answer") }
             }
         } else {
@@ -170,7 +186,10 @@ private fun PhoneCallScreen(
                 }
                 Button(
                     onClick = { CallHub.disconnect(call.id) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1C1C1C),
+                        contentColor = Color.White
+                    )
                 ) { Text("Hang up") }
             }
         }
@@ -178,7 +197,7 @@ private fun PhoneCallScreen(
         Text(
             "Audio stays on this phone.",
             modifier = Modifier.padding(top = 24.dp),
-            color = Color(0xFF8BA0BF),
+            color = Color(0xFFB3B3B3),
             fontSize = 12.sp
         )
     }

@@ -29,7 +29,7 @@ class LinkService : Service() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(getString(R.string.service_text))
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_stat_linkphone)
             .setContentIntent(tapIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

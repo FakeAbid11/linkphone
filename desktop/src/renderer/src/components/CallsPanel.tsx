@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { PhoneCallInfo } from '@shared/protocol'
+import { Icon } from './Icon'
 
 interface Props {
   calls: PhoneCallInfo[]
@@ -90,7 +91,7 @@ export function CallsPanel({
               title="Delete last digit"
               onClick={() => setNumber((value) => value.slice(0, -1))}
             >
-              ⌫
+              <Icon name="backspace" />
             </button>
           </div>
           <div className="dial-pad">
@@ -101,7 +102,7 @@ export function CallsPanel({
             ))}
           </div>
           <button className="call-primary" disabled={!dialerReady || !number.trim()} onClick={place}>
-            Call
+            <Icon name="call" size={18} /> Call
           </button>
         </div>
       )}
@@ -144,10 +145,10 @@ function CallCard({
       {ringing ? (
         <div className="call-actions">
           <button className="call-decline" onClick={() => onReject(call.id)}>
-            Decline
+            <Icon name="call_end" size={18} /> Decline
           </button>
           <button className="call-answer" onClick={() => onAnswer(call.id)}>
-            Answer
+            <Icon name="call" size={18} /> Answer
           </button>
         </div>
       ) : (
@@ -157,10 +158,11 @@ function CallCard({
             disabled={ended}
             onClick={() => onSpeaker(!speaker)}
           >
+            <Icon name={speaker ? 'volume_off' : 'volume_up'} size={18} />
             {speaker ? 'Speaker on' : 'Phone speaker'}
           </button>
           <button className="call-decline" disabled={ended} onClick={() => onDisconnect(call.id)}>
-            Hang up
+            <Icon name="call_end" size={18} /> Hang up
           </button>
         </div>
       )}

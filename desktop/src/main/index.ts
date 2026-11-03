@@ -19,9 +19,22 @@ import { LinkServer } from './server'
 import { AppStore } from './state'
 import { DesktopUpdater } from './updater'
 
-/* 32x32 phone glyph, generated offline; keeps the repo free of binary assets. */
-const TRAY_ICON_B64 =
+/* Fallback 32x32 phone glyph if the packaged icon resource is missing. */
+const FALLBACK_ICON_B64 =
   'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAEUSURBVFhH1ZchTgNBGEYrkUiO0SNUIis5AhJZWccROAYSWckROAISWfd9ZJNp0vwd+ObtAgkvGbPz9s0/63a1+k/YvpJ0b3v/1ZL0YPumvruY6WBJHx5E0lNtzMb2taRjC7/WW5cv8Hw2x7q2ZtE++3T4oe71mG7fBtjXvVm02w0HqR+hQepHaJD6ERqkfoQGqR+hQepHaJD6ERqkfoQGqR+hQepHaJD6ERqkfoQGqR+hQepHaJD6ERqkfoQGqR+hQepHaJD6ERqkfqQXtL1pz09r852/iF7w7NmJ3t6vDvD3X2D0b8f27qcHWLcBjpIey83r2kl6awNsa2s2kl5adAhJ79PPbO0sQtJt58YXS9Ld6OGfVmF8Qkmi9gEAAAAASUVORK5CYII='
+
+function iconPath(name: string): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, name)
+    : path.join(__dirname, '../../resources', name)
+}
+
+function appIcon(name: string): Electron.NativeImage {
+  const image = nativeImage.createFromPath(iconPath(name))
+  return image.isEmpty()
+    ? nativeImage.createFromBuffer(Buffer.from(FALLBACK_ICON_B64, 'base64'))
+    : image
+}
 
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -52,7 +65,7 @@ function createWindow(): void {
     show: false,
     backgroundColor: '#000000',
     title: 'LinkPhone',
-    icon: nativeImage.createFromBuffer(Buffer.from(TRAY_ICON_B64, 'base64')),
+    icon: appIcon('icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -74,8 +87,7 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  const icon = nativeImage.createFromBuffer(Buffer.from(TRAY_ICON_B64, 'base64'))
-  tray = new Tray(icon)
+  tray = new Tray(appIcon('tray.png'))
   tray.setToolTip('LinkPhone')
   tray.on('click', () => showWindow())
   rebuildTrayMenu()

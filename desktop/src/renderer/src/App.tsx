@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AppState } from '@shared/protocol'
+import logo from './assets/logo.png'
 import { Icon, type IconName } from './components/Icon'
 import { ClipboardPanel } from './components/ClipboardPanel'
 import { CallsPanel } from './components/CallsPanel'
@@ -42,7 +43,7 @@ export default function App(): JSX.Element {
   if (!state) {
     return (
       <div className="boot">
-        <div className="boot-mark" />
+        <div className="boot-mark"><img src={logo} alt="" /></div>
         <p>Starting LinkPhone…</p>
       </div>
     )
@@ -55,10 +56,10 @@ export default function App(): JSX.Element {
     <div className="app">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark" />
+          <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.4.12</div>
+            <div className="brand-sub">Local network · v0.4.13</div>
           </div>
         </div>
 

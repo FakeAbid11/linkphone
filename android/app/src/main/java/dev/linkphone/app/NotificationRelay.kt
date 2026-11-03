@@ -7,12 +7,16 @@ import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Mirrors posted notifications to the PC and executes inline replies coming back.
  * Requires the user to grant notification access in system settings.
  */
 class NotificationRelay : NotificationListenerService() {
+
+    private val lastSent = ConcurrentHashMap<String, String>()
+    private val mirrored = ConcurrentHashMap.newKeySet<String>()
 
     override fun onListenerConnected() {
         instance = this
@@ -26,11 +30,18 @@ class NotificationRelay : NotificationListenerService() {
         val sbn = sbn ?: return
         val client = LinkCore.clientOrNull() ?: return
         if (!client.isReady) return
-        if (sbn.packageName == packageName) return
+
+        val key = sbn.key
+        if (sbn.packageName == packageName) {
+            drop(key, client)
+            return
+        }
 
         val notification = sbn.notification ?: return
-        if (notification.flags and Notification.FLAG_ONGOING_EVENT != 0) return
-        if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+        if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) {
+            drop(key, client)
+            return
+        }
 
         val extras = notification.extras ?: return
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
@@ -40,7 +51,24 @@ class NotificationRelay : NotificationListenerService() {
                 ?: extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)
             )?.toString().orEmpty()
 
-        if (title.isBlank() && text.isBlank()) return
+        val progressMax = extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0)
+        val rawProgress = extras.getInt(Notification.EXTRA_PROGRESS, -1)
+        val indeterminate = extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)
+        val hasProgress = indeterminate || progressMax > 0
+        val ongoing = notification.flags and Notification.FLAG_ONGOING_EVENT != 0
+
+        if (ongoing && !hasProgress) {
+            drop(key, client)
+            return
+        }
+        if (hasProgress && !client.supportsLiveProgress) {
+            drop(key, client)
+            return
+        }
+        if (title.isBlank() && text.isBlank() && !hasProgress) {
+            drop(key, client)
+            return
+        }
 
         val appLabel = runCatching {
             val info = packageManager.getApplicationInfo(sbn.packageName, 0)
@@ -65,23 +93,49 @@ class NotificationRelay : NotificationListenerService() {
         }
         val canReply = actions.any { it.reply }
 
+        val progress = if (!indeterminate && progressMax > 0) {
+            rawProgress.coerceIn(0, progressMax)
+        } else {
+            null
+        }
+        val signature = buildString {
+            append(title).append('|').append(text).append('|')
+            append(progress ?: "").append('|')
+            append(progressMax).append('|')
+            append(indeterminate).append('|').append(ongoing).append('|')
+            actions.forEach { append(it.id).append(':').append(it.label).append(':').append(it.reply).append(',') }
+        }
+        if (lastSent.put(key, signature) == signature) return
+
+        mirrored.add(key)
         client.sendNotification(
             OutgoingNotification(
-                key = sbn.key,
+                key = key,
                 app = appLabel,
                 pkg = sbn.packageName,
                 title = title,
                 text = text,
                 whenTs = sbn.postTime,
                 canReply = canReply,
-                actions = actions
+                actions = actions,
+                progress = progress,
+                progressMax = if (!indeterminate && progressMax > 0) progressMax else null,
+                indeterminate = indeterminate,
+                ongoing = ongoing
             )
         )
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
-        sbn ?: return
+        val sbn = sbn ?: return
+        lastSent.remove(sbn.key)
+        mirrored.remove(sbn.key)
         LinkCore.clientOrNull()?.sendNotificationDismissed(sbn.key)
+    }
+
+    private fun drop(key: String, client: LinkClient) {
+        lastSent.remove(key)
+        if (mirrored.remove(key)) client.sendNotificationDismissed(key)
     }
 
     private fun handleAction(key: String, actionId: String, replyText: String) {

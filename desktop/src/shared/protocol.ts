@@ -4,6 +4,7 @@
  */
 
 export const PROTO_VERSION = 1
+export const CAP_NOTIF_PROGRESS = 'notif.progress'
 export const SERVICE_TYPE = 'linkphone'
 export const DEFAULT_PORT = 8765
 export const MAX_FILE_CHUNK = 64 * 1024
@@ -35,6 +36,10 @@ export interface NotificationItem {
   actions: NotificationAction[]
   deviceId: string
   dismissed?: boolean
+  progress?: number
+  progressMax?: number
+  indeterminate?: boolean
+  ongoing?: boolean
 }
 
 export type TransferStatus = 'pending' | 'active' | 'done' | 'failed' | 'declined' | 'canceled'
@@ -273,6 +278,8 @@ export interface HelloResultMsg {
   serverName: string
   needPair: boolean
   needAuth: boolean
+  /** Optional capability strings advertised by the PC. */
+  caps?: string[]
   /** base64, 16 random bytes. Present when needPair. */
   salt?: string
 }

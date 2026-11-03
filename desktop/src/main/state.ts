@@ -46,6 +46,7 @@ export class AppStore extends EventEmitter {
   private persisted: Persisted
   readonly downloadsDir: string
   private notifications: NotificationItem[] = []
+  private hiddenNotificationKeys = new Set<string>()
   private transfers: TransferItem[] = []
   private smsThreads: SmsThread[] = []
   private smsActive: SmsActiveThread | null = null
@@ -220,20 +221,43 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
-  addNotification(item: NotificationItem): void {
-    this.notifications = [item, ...this.notifications.filter((n) => n.key !== item.key)].slice(
-      0,
-      MAX_NOTIFICATIONS
-    )
+  addNotification(item: NotificationItem): boolean {
+    if (this.hiddenNotificationKeys.has(item.key)) return false
+    const index = this.notifications.findIndex((n) => n.key === item.key)
+    if (index >= 0) {
+      this.notifications = this.notifications.map((n, i) =>
+        i === index ? { ...item, when: n.when } : n
+      )
+      this.changed()
+      return false
+    }
+    this.notifications = [item, ...this.notifications].slice(0, MAX_NOTIFICATIONS)
     this.changed()
+    return true
+  }
+
+  private hideNotification(key: string): void {
+    this.hiddenNotificationKeys.add(key)
+    if (this.hiddenNotificationKeys.size > 500) {
+      const oldest = this.hiddenNotificationKeys.values().next().value
+      if (oldest !== undefined) this.hiddenNotificationKeys.delete(oldest)
+    }
   }
 
   dismissNotification(key: string): void {
+    this.hideNotification(key)
+    this.notifications = this.notifications.filter((n) => n.key !== key)
+    this.changed()
+  }
+
+  phoneNotificationDismissed(key: string): void {
+    this.hiddenNotificationKeys.delete(key)
     this.notifications = this.notifications.filter((n) => n.key !== key)
     this.changed()
   }
 
   clearNotifications(): void {
+    for (const item of this.notifications) this.hideNotification(item.key)
     this.notifications = []
     this.changed()
   }

@@ -57,6 +57,15 @@ export function NotificationsPanel({
           .filter((action) => !action.reply && action.id !== 'content')
           .slice(0, 3)
         const open = (): void => onAction(item.key, 'content')
+        const progressMax = item.progressMax ?? 0
+        const indeterminate = item.indeterminate === true
+        const hasProgress = indeterminate || progressMax > 0
+        const pct = hasProgress && !indeterminate
+          ? Math.max(0, Math.min(100, Math.round(((item.progress ?? 0) / progressMax) * 100)))
+          : null
+        const live = Boolean(
+          item.ongoing && hasProgress && (indeterminate || (pct ?? 0) < 100)
+        )
 
         return (
           <li className="notif" key={item.key}>
@@ -85,6 +94,26 @@ export function NotificationsPanel({
               </div>
               {item.title && <div className="notif-title">{item.title}</div>}
               {item.text && <div className="notif-text">{item.text}</div>}
+
+              {hasProgress && (
+                <div className="notif-progress-row">
+                  <div
+                    className={`notif-progress ${indeterminate ? 'notif-progress-indeterminate' : ''}`}
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={indeterminate ? undefined : progressMax}
+                    aria-valuenow={indeterminate ? undefined : pct ?? 0}
+                    aria-valuetext={indeterminate ? 'In progress' : `${pct ?? 0}%`}
+                  >
+                    <div
+                      className="notif-progress-fill"
+                      style={indeterminate ? undefined : { width: `${pct ?? 0}%` }}
+                    />
+                  </div>
+                  {!indeterminate && <span className="notif-progress-pct">{pct ?? 0}%</span>}
+                  {live && <span className="notif-live">Live</span>}
+                </div>
+              )}
 
               {replying === item.key ? (
                 <div

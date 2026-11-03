@@ -17,6 +17,7 @@ import {
   isRawMsg,
   num,
   str,
+  type CallAccountInfo,
   type CallLogEntry,
   type CallLogType,
   type ControlMsg,
@@ -29,6 +30,7 @@ import {
   type PhoneContact,
   type Platform,
   type RawMsg,
+  type SimInfo,
   type SmsMessage,
   type SmsThread,
   type TransferItem
@@ -50,6 +52,7 @@ type Phase = 'fresh' | 'awaitPair' | 'awaitAuth' | 'ready'
 const WINDOW_BYTES = 8 * MAX_FILE_CHUNK
 const ACK_TIMEOUT_MS = 30_000
 const GALLERY_PAGE_SIZE = 48
+const MAX_SIMS = 8
 // Gallery previews are base64 JPEGs in control frames, so allow up to 16 MiB;
 // contact and call-log lists are capped far below this.
 const MAX_PLAIN_CONTROL = 16 * 1024 * 1024
@@ -251,6 +254,7 @@ export class LinkServer extends EventEmitter {
         this.ringingCallIds.clear()
         this.store.setCallState({ calls: [], dialerReady: false, speaker: false, muted: false })
         this.store.resetContacts()
+        this.store.resetSims()
       }
       if (peer.deviceId) {
         this.store.markDisconnected(peer.deviceId)
@@ -674,6 +678,17 @@ export class LinkServer extends EventEmitter {
         return
       }
 
+      case 'sims.sync': {
+        const sms = Array.isArray(msg.sms) ? (msg.sms as unknown[]) : []
+        const call = Array.isArray(msg.call) ? (msg.call as unknown[]) : []
+        this.store.setSims(
+          sms.filter(isRawMsg).map(parseSimInfo).slice(0, MAX_SIMS),
+          call.filter(isRawMsg).map(parseCallAccount).slice(0, MAX_SIMS),
+          bool(msg.granted)
+        )
+        return
+      }
+
       case 'pong':
         return
 
@@ -819,10 +834,13 @@ export class LinkServer extends EventEmitter {
     this.broadcast({ t: 'sms.thread.request', threadId })
   }
 
-  sendSms(threadId: string, address: string, body: string): void {
+  sendSms(threadId: string, address: string, body: string, subscriptionId?: number): void {
     const peer = [...this.peers].find((p) => p.phase === 'ready')
     if (!peer) return
     const tempId = `tmp-${crypto.randomUUID()}`
+    const simLabel = subscriptionId === undefined
+      ? undefined
+      : this.store.simLabelFor(subscriptionId)
     this.store.appendSmsMessage({
       id: tempId,
       threadId,
@@ -830,9 +848,11 @@ export class LinkServer extends EventEmitter {
       body,
       date: Date.now(),
       outgoing: true,
-      pending: true
+      pending: true,
+      subscriptionId,
+      simLabel
     })
-    this.send(peer, { t: 'sms.send', tempId, address, body })
+    this.send(peer, { t: 'sms.send', tempId, address, body, subscriptionId })
   }
 
   /* ---------------------------------------------------------------- */
@@ -899,10 +919,14 @@ export class LinkServer extends EventEmitter {
   /* Calls                                                             */
   /* ---------------------------------------------------------------- */
 
-  placeCall(number: string): void {
+  placeCall(number: string, accountId?: string): void {
     if (!this.hasConnectedPeer()) return
     this.store.setCallError('')
-    this.broadcast({ t: 'call.place', number: number.slice(0, 64) })
+    this.broadcast({
+      t: 'call.place',
+      number: number.slice(0, 64),
+      accountId: accountId?.slice(0, 256)
+    })
   }
 
   answerCall(callId: string): void {
@@ -935,6 +959,12 @@ export class LinkServer extends EventEmitter {
     this.broadcast({ t: 'contacts.request' })
   }
 
+  requestSims(): void {
+    if (!this.hasConnectedPeer()) return
+    this.store.setSimsLoading(true)
+    this.broadcast({ t: 'sims.request' })
+  }
+
   requestCallHistory(limit = MAX_CALL_LOG): void {
     if (!this.hasConnectedPeer()) return
     this.store.setCallLogLoading(true)
@@ -955,7 +985,9 @@ function parseSmsMessage(raw: RawMsg): SmsMessage {
     date: num(raw.date, Date.now()),
     outgoing: bool(raw.outgoing),
     pending: bool(raw.pending),
-    failed: bool(raw.failed)
+    failed: bool(raw.failed),
+    subscriptionId: optionalInt(raw.subscriptionId),
+    simLabel: str(raw.simLabel).slice(0, 24) || undefined
   }
 }
 
@@ -966,7 +998,9 @@ function parseSmsThread(raw: RawMsg): SmsThread {
     name: str(raw.name).slice(0, 200),
     snippet: str(raw.snippet).slice(0, 500),
     date: num(raw.date),
-    count: num(raw.count, 1)
+    count: num(raw.count, 1),
+    subscriptionId: optionalInt(raw.subscriptionId),
+    simLabel: str(raw.simLabel).slice(0, 24) || undefined
   }
 }
 
@@ -1039,7 +1073,8 @@ function parseCallLogEntry(raw: RawMsg): CallLogEntry {
     name: name || undefined,
     type: allowed.includes(type as CallLogType) ? (type as CallLogType) : 'unknown',
     date: Math.max(0, num(raw.date)),
-    duration: Math.max(0, Math.floor(num(raw.duration)))
+    duration: Math.max(0, Math.floor(num(raw.duration))),
+    simLabel: str(raw.simLabel).slice(0, 24) || undefined
   }
 }
 
@@ -1064,7 +1099,32 @@ function parsePhoneCall(raw: RawMsg): PhoneCallInfo {
       ? (phase as PhoneCallInfo['phase'])
       : 'unknown',
     incoming: bool(raw.incoming),
-    startedAt: Math.max(0, num(raw.startedAt, Date.now()))
+    startedAt: Math.max(0, num(raw.startedAt, Date.now())),
+    simLabel: str(raw.simLabel).slice(0, 24) || undefined
+  }
+}
+
+function optionalInt(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : undefined
+}
+
+function parseSimInfo(raw: RawMsg): SimInfo {
+  return {
+    id: str(raw.id).slice(0, 256),
+    label: str(raw.label, 'SIM').slice(0, 24),
+    carrier: str(raw.carrier).slice(0, 24) || undefined,
+    slot: optionalInt(raw.slot),
+    isDefault: bool(raw.isDefault)
+  }
+}
+
+function parseCallAccount(raw: RawMsg): CallAccountInfo {
+  return {
+    id: str(raw.id).slice(0, 256),
+    label: str(raw.label, 'SIM').slice(0, 24),
+    isDefault: bool(raw.isDefault)
   }
 }
 

@@ -32,7 +32,7 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.5.2** puts the contact list beside the dialer in Calls; no separate Contacts tab.
+> **v0.6.0** adds dual-SIM support: choose the SIM for texts and calls, with SIM labels everywhere.
 
 ## Features
 
@@ -41,6 +41,7 @@ service or a relay server.
 | Pairing and discovery | Yes | QR or 8-character code; mDNS, with an IPv6 link-local fallback |
 | Notification mirroring | Yes | Open the source app, run notification actions, dismiss and reply from the PC |
 | SMS | Partial | Existing threads only; no MMS or new conversations |
+| Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
 | Contacts and call history | Yes | Beside the dialer in Calls: search, call back or open an SMS thread |
 | Phone calls | Partial | Dial, answer, decline and hang up; audio stays on the phone |
 | Photo albums | Yes | Thumbnails, paged albums, previews and original download |
@@ -67,7 +68,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”).
-3. **PC:** run `LinkPhone.Setup.0.5.2.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.6.0.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
    and point the camera at the PC.
@@ -129,6 +130,16 @@ Open **Calls** to search the phone book and call or message any number; the cont
 the dialer. **Recent calls** below it shows direction, time and duration, with a call-back button.
 Messaging opens an existing SMS thread only; a number without a thread shows a hint instead. Both
 lists are read-only and pulled on demand over the encrypted link.
+
+</details>
+
+<details>
+<summary><strong>Dual SIM</strong></summary>
+
+When the phone has more than one SIM, Messages and Calls show a SIM picker. Sending uses the phone
+default unless you choose another SIM. The phone needs **Phone access** to list SIMs; without it,
+texts and calls keep using the default SIM and labels may be missing. Calls use Android's call
+accounts, so eSIM profiles and carrier labels follow what the phone reports.
 
 </details>
 

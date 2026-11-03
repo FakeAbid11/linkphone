@@ -167,6 +167,21 @@ Windows. The contact list sits beside the dialer; there is no separate Contacts 
 * ✅ A phone book with 500+ contacts scrolls and searches without visible stalls; only the first 200
   matches render.
 
+## 9c. Dual SIM
+
+Use a phone with two active SIMs (or an eSIM plus a physical SIM). Grant **Phone access** if the
+phone offers the “Choose a SIM” card.
+
+* ✅ Messages and Calls show a SIM picker only when more than one SIM/account is available.
+* ✅ Sending a text from each SIM uses that SIM; verify the sender on a second phone.
+* ✅ Incoming messages show the receiving SIM, and replying defaults to that SIM.
+* ✅ Placing a call from each SIM/account works; active calls and recent calls show the SIM.
+* ✅ Contact call buttons and recent-call redial use the SIM selected in Calls.
+* ✅ Deny Phone access: the pickers disappear and texts/calls still use the phone default.
+* ✅ Disable/remove a SIM while connected: the next send/call reports a clear error and the list
+  refreshes.
+* ✅ A single-SIM phone shows no picker and behaves as before.
+
 ## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.

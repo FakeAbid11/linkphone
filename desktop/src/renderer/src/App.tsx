@@ -67,7 +67,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.5.2</div>
+            <div className="brand-sub">Local network · v0.6.0</div>
           </div>
         </div>
 
@@ -80,11 +80,15 @@ export default function App(): JSX.Element {
               className={`tab ${tab === t.id ? 'tab-active' : ''}`}
               onClick={() => {
                 setTab(t.id)
-                if (t.id === 'messages') void window.linkphone.requestSmsThreads()
+                if (t.id === 'messages') {
+                  void window.linkphone.requestSmsThreads()
+                  void window.linkphone.requestSims()
+                }
                 if (t.id === 'calls') {
                   void window.linkphone.requestCallHistory()
                   void window.linkphone.requestContacts()
                   void window.linkphone.requestSmsThreads()
+                  void window.linkphone.requestSims()
                 }
                 if (t.id === 'photos') void window.linkphone.requestGalleryAlbums()
               }}
@@ -172,6 +176,7 @@ export default function App(): JSX.Element {
               threads={state.smsThreads}
               active={state.smsActive}
               loading={state.smsLoading}
+              sims={state.phoneSims}
               onRefresh={() => void window.linkphone.requestSmsThreads()}
               onOpen={(threadId, address) =>
                 void window.linkphone.openSmsThread(threadId, address)
@@ -179,8 +184,8 @@ export default function App(): JSX.Element {
               onClose={() => {
                 void window.linkphone.closeSmsThread()
               }}
-              onSend={(threadId, address, body) =>
-                void window.linkphone.sendSms(threadId, address, body)
+              onSend={(threadId, address, body, subscriptionId) =>
+                void window.linkphone.sendSms(threadId, address, body, subscriptionId)
               }
             />
           )}
@@ -199,14 +204,19 @@ export default function App(): JSX.Element {
               contactsGranted={state.contactsGranted}
               contactsLoading={state.contactsLoading}
               smsLoading={state.smsLoading}
-              onPlace={(number) => void window.linkphone.placeCall(number)}
+              callAccounts={state.callAccounts}
+              onPlace={(number, accountId) =>
+                void window.linkphone.placeCall(number, accountId)
+              }
               onAnswer={(callId) => void window.linkphone.answerCall(callId)}
               onReject={(callId) => void window.linkphone.rejectCall(callId)}
               onDisconnect={(callId) => void window.linkphone.disconnectCall(callId)}
               onSpeaker={(enabled) => void window.linkphone.setCallSpeaker(enabled)}
               onRefreshHistory={() => void window.linkphone.requestCallHistory()}
               onRefreshContacts={() => void window.linkphone.requestContacts()}
-              onCall={(number) => void window.linkphone.placeCall(number)}
+              onCall={(number, accountId) =>
+                void window.linkphone.placeCall(number, accountId)
+              }
               onMessage={(threadId, address) => {
                 setTab('messages')
                 void window.linkphone.openSmsThread(threadId, address)

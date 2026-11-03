@@ -27,6 +27,7 @@ class SmsReceiver : BroadcastReceiver() {
             .getOrNull()
             ?: return
         if (parts.isEmpty()) return
+        val subscriptionId = intent.getIntExtra(EXTRA_SUBSCRIPTION, -1).takeIf { it >= 0 }
 
         val bodies = LinkedHashMap<String, StringBuilder>()
         var receivedAt = System.currentTimeMillis()
@@ -62,7 +63,8 @@ class SmsReceiver : BroadcastReceiver() {
                             name = repository.contactName(address),
                             body = text,
                             date = receivedAt,
-                            outgoing = false
+                            outgoing = false,
+                            subscriptionId = subscriptionId
                         )
                     )
                 }
@@ -74,5 +76,6 @@ class SmsReceiver : BroadcastReceiver() {
 
     private companion object {
         const val TAG = "LinkPhone"
+        const val EXTRA_SUBSCRIPTION = "subscription"
     }
 }

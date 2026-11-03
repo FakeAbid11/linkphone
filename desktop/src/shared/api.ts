@@ -15,7 +15,7 @@ export interface LinkPhoneApi {
   requestSmsThreads: () => Promise<void>
   openSmsThread: (threadId: string, address: string) => Promise<void>
   closeSmsThread: () => Promise<void>
-  sendSms: (threadId: string, address: string, body: string) => Promise<void>
+  sendSms: (threadId: string, address: string, body: string, subscriptionId?: number) => Promise<void>
   requestGalleryAlbums: () => Promise<void>
   openGalleryAlbum: (albumId: string, name: string) => Promise<void>
   closeGalleryAlbum: () => Promise<void>
@@ -27,13 +27,14 @@ export interface LinkPhoneApi {
   checkDesktopUpdate: () => Promise<void>
   downloadDesktopUpdate: () => Promise<void>
   installDesktopUpdate: () => void
-  placeCall: (number: string) => Promise<void>
+  placeCall: (number: string, accountId?: string) => Promise<void>
   answerCall: (callId: string) => Promise<void>
   rejectCall: (callId: string) => Promise<void>
   disconnectCall: (callId: string) => Promise<void>
   setCallSpeaker: (enabled: boolean) => Promise<void>
   requestContacts: () => Promise<void>
   requestCallHistory: () => Promise<void>
+  requestSims: () => Promise<void>
   setClipboardEnabled: (enabled: boolean) => Promise<void>
   setLaunchAtLogin: (enabled: boolean) => Promise<void>
   openDownloads: () => Promise<void>

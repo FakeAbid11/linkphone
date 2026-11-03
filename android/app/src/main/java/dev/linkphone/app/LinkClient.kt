@@ -79,6 +79,7 @@ class LinkClient(context: Context, private val store: PairStore) {
     private val appContext = context.applicationContext
     private val resolver = appContext.contentResolver
     private val sms = SmsRepository(appContext)
+    private val sims = SimRepository.get(appContext)
     private val media = MediaRepository(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -512,8 +513,11 @@ class LinkClient(context: Context, private val store: PairStore) {
             "gallery.preview.request" -> scope.launch { sendGalleryPreview(msg.optString("photoId")) }
             "gallery.download" -> scope.launch { downloadGalleryPhoto(msg.optString("photoId")) }
             "call.place" -> {
-                CallHub.placeCall(appContext, msg.optString("number"))
-                    .onFailure { sendCallError(it.message ?: "Could not place call") }
+                CallHub.placeCall(
+                    appContext,
+                    msg.optString("number"),
+                    msg.optString("accountId").ifBlank { null }
+                ).onFailure { sendCallError(it.message ?: "Could not place call") }
             }
             "call.answer" -> CallHub.answer(msg.optString("callId"))
             "call.reject" -> CallHub.reject(msg.optString("callId"))
@@ -521,6 +525,7 @@ class LinkClient(context: Context, private val store: PairStore) {
             "call.speaker" -> CallHub.setSpeaker(msg.optBoolean("enabled"))
             "contacts.request" -> scope.launch { sendContacts() }
             "calllog.request" -> scope.launch { sendCallLog(msg.optInt("limit", 200)) }
+            "sims.request" -> scope.launch { sendSims() }
         }
     }
 
@@ -792,6 +797,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("phase", call.phase.name.lowercase())
                 put("incoming", call.incoming)
                 put("startedAt", call.startedAt)
+                call.simLabel?.takeIf { it.isNotBlank() }?.let { put("simLabel", it) }
             }
         })
         send(
@@ -850,6 +856,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("type", entry.type)
                 put("date", entry.date)
                 put("duration", entry.duration)
+                entry.simLabel.takeIf { it.isNotBlank() }?.let { put("simLabel", it) }
             }
         })
         send(
@@ -857,6 +864,38 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("t", "calllog.sync")
                 put("entries", callLog)
                 put("granted", granted)
+            }
+        )
+    }
+
+    /* ------------------------------------------------------------ */
+    /* SIMs                                                          */
+    /* ------------------------------------------------------------ */
+
+    private fun sendSims() {
+        sims.reload()
+        val smsList = JSONArray(sims.smsSims().map { sim ->
+            JSONObject().apply {
+                put("id", sim.id)
+                put("label", sim.label)
+                put("carrier", sim.carrier)
+                put("slot", sim.slot)
+                put("isDefault", sim.isDefault)
+            }
+        })
+        val callList = JSONArray(sims.callAccounts().map { account ->
+            JSONObject().apply {
+                put("id", account.id)
+                put("label", account.label)
+                put("isDefault", account.isDefault)
+            }
+        })
+        send(
+            JSONObject().apply {
+                put("t", "sims.sync")
+                put("sms", smsList)
+                put("call", callList)
+                put("granted", sims.hasPermission())
             }
         )
     }
@@ -888,6 +927,10 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("snippet", thread.snippet)
                 put("date", thread.date)
                 put("count", thread.count)
+                thread.subscriptionId?.let { subId ->
+                    put("subscriptionId", subId)
+                    sims.labelForSubscription(subId)?.let { put("simLabel", it) }
+                }
             }
         }
         send(
@@ -936,7 +979,16 @@ class LinkClient(context: Context, private val store: PairStore) {
             sendSmsResult(tempId, false, "SMS permission not granted on the phone")
             return
         }
-        val result = sms.send(address, body)
+        val subscriptionId = msg.optInt("subscriptionId", -1).takeIf { it >= 0 }
+        if (subscriptionId != null) {
+            if (!sims.hasPermission() ||
+                sims.smsSims().none { it.id == subscriptionId.toString() }
+            ) {
+                sendSmsResult(tempId, false, "That SIM is no longer available")
+                return
+            }
+        }
+        val result = sms.send(address, body, subscriptionId)
         if (result.isFailure) Log.w("LinkPhone", "sms send failed", result.exceptionOrNull())
         sendSmsResult(tempId, result.isSuccess, result.exceptionOrNull()?.message)
     }
@@ -971,6 +1023,10 @@ class LinkClient(context: Context, private val store: PairStore) {
         put("date", date)
         put("outgoing", outgoing)
         put("failed", failed)
+        subscriptionId?.let { subId ->
+            put("subscriptionId", subId)
+            sims.labelForSubscription(subId)?.let { put("simLabel", it) }
+        }
     }
 
     /* ------------------------------------------------------------ */

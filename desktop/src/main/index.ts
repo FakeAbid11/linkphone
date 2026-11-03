@@ -248,11 +248,14 @@ function registerIpc(): void {
 
   ipcMain.handle('sms:close', () => store.openSmsThread(null))
 
-  ipcMain.handle('sms:send', (_event, threadId: unknown, address: unknown, body: unknown) => {
+  ipcMain.handle('sms:send', (_event, threadId: unknown, address: unknown, body: unknown, subscriptionId: unknown) => {
     if (typeof threadId !== 'string' || typeof address !== 'string' || typeof body !== 'string') {
       return
     }
-    server.sendSms(threadId, address, body)
+    const subId = typeof subscriptionId === 'number' && Number.isFinite(subscriptionId)
+      ? Math.floor(subscriptionId)
+      : undefined
+    server.sendSms(threadId, address, body, subId)
   })
 
   ipcMain.handle('gallery:albums', () => server.requestGalleryAlbums())
@@ -289,8 +292,10 @@ function registerIpc(): void {
   ipcMain.handle('update:download', () => updater.download())
   ipcMain.on('update:install', () => updater.install())
 
-  ipcMain.handle('call:place', (_event, number: unknown) => {
-    if (typeof number === 'string') server.placeCall(number)
+  ipcMain.handle('call:place', (_event, number: unknown, accountId: unknown) => {
+    if (typeof number === 'string') {
+      server.placeCall(number, typeof accountId === 'string' ? accountId : undefined)
+    }
   })
   ipcMain.handle('call:answer', (_event, callId: unknown) => {
     if (typeof callId === 'string') server.answerCall(callId)
@@ -307,6 +312,7 @@ function registerIpc(): void {
 
   ipcMain.handle('contacts:request', () => server.requestContacts())
   ipcMain.handle('calllog:request', () => server.requestCallHistory())
+  ipcMain.handle('sims:request', () => server.requestSims())
 
   ipcMain.handle('shell:open', (_event, url: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) return shell.openExternal(url)

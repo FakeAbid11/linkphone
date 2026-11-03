@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import type { CallLogEntry, PhoneCallInfo, PhoneContact, SmsThread } from '@shared/protocol'
+import type {
+  CallAccountInfo,
+  CallLogEntry,
+  PhoneCallInfo,
+  PhoneContact,
+  SmsThread
+} from '@shared/protocol'
 import { Icon } from './Icon'
 import { ContactsPanel } from './ContactsPanel'
 import { callDuration, relativeTime } from '../lib/phone'
@@ -18,14 +24,15 @@ interface Props {
   contactsGranted: boolean
   contactsLoading: boolean
   smsLoading: boolean
-  onPlace: (number: string) => void
+  callAccounts: CallAccountInfo[]
+  onPlace: (number: string, accountId?: string) => void
   onAnswer: (callId: string) => void
   onReject: (callId: string) => void
   onDisconnect: (callId: string) => void
   onSpeaker: (enabled: boolean) => void
   onRefreshHistory: () => void
   onRefreshContacts: () => void
-  onCall: (number: string) => void
+  onCall: (number: string, accountId?: string) => void
   onMessage: (threadId: string, address: string) => void
 }
 
@@ -45,6 +52,7 @@ export function CallsPanel({
   contactsGranted,
   contactsLoading,
   smsLoading,
+  callAccounts,
   onPlace,
   onAnswer,
   onReject,
@@ -56,7 +64,17 @@ export function CallsPanel({
   onMessage
 }: Props): JSX.Element {
   const [number, setNumber] = useState('')
+  const [accountId, setAccountId] = useState('')
   const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const fallback = callAccounts.find((account) => account.isDefault)?.id
+      ?? callAccounts[0]?.id
+      ?? ''
+    setAccountId((current) =>
+      current && callAccounts.some((account) => account.id === current) ? current : fallback
+    )
+  }, [callAccounts])
 
   useEffect(() => {
     if (!calls.some((call) => call.phase === 'active')) return
@@ -67,7 +85,7 @@ export function CallsPanel({
   const place = (): void => {
     const value = number.trim()
     if (!value) return
-    onPlace(value)
+    onPlace(value, accountId || undefined)
   }
 
   return (
@@ -105,6 +123,25 @@ export function CallsPanel({
             </div>
           ) : (
             <div className="dialer-card">
+              {callAccounts.length > 1 && (
+                <div className="sim-row">
+                  <label htmlFor="call-account">Call using</label>
+                  <select
+                    id="call-account"
+                    className="sim-select"
+                    value={accountId}
+                    onChange={(event) => setAccountId(event.target.value)}
+                  >
+                    <option value="">Phone default</option>
+                    {callAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.label}
+                        {account.isDefault ? ' (default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <label htmlFor="dial-number">Phone number</label>
               <div className="dial-input-row">
                 <input
@@ -188,13 +225,16 @@ export function CallsPanel({
                           {entry.name && entry.number && (
                             <span className="muted"> · {entry.number}</span>
                           )}
+                          {entry.simLabel && (
+                            <span className="muted"> · {entry.simLabel}</span>
+                          )}
                         </div>
                       </div>
                       <button
                         className="icon-btn"
                         title={dialerReady ? `Call ${entry.number}` : 'Calling needs the default phone app'}
                         disabled={!dialerReady || !entry.number}
-                        onClick={() => onCall(entry.number)}
+                        onClick={() => onCall(entry.number, accountId || undefined)}
                       >
                         <Icon name="call" size={18} />
                       </button>
@@ -215,7 +255,7 @@ export function CallsPanel({
             connected={connected}
             dialerReady={dialerReady}
             onRefresh={onRefreshContacts}
-            onCall={onCall}
+            onCall={(contactNumber) => onCall(contactNumber, accountId || undefined)}
             onMessage={onMessage}
           />
         </div>
@@ -254,6 +294,7 @@ function CallCard({
       <div className="caller-detail">
         {subtitle}
         {duration ? ` · ${duration}` : ''}
+        {call.simLabel ? ` · ${call.simLabel}` : ''}
       </div>
 
       {ringing ? (

@@ -4,6 +4,7 @@ export interface LinkPhoneApi {
   getState: () => Promise<AppState>
   onState: (cb: (state: AppState) => void) => () => void
   newPairingCode: () => Promise<string>
+  refreshAddresses: () => Promise<void>
   forgetDevice: (deviceId: string) => Promise<void>
   sendFiles: () => Promise<number>
   sendClipboard: (text: string) => Promise<void>

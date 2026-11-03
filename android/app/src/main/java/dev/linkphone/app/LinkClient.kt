@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -30,7 +31,11 @@ import okio.ByteString.Companion.toByteString
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.OutputStream
+import java.net.Inet6Address
+import java.net.InetAddress
+import java.net.NetworkInterface
 import java.nio.ByteBuffer
+import java.util.Collections
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -75,7 +80,15 @@ class LinkClient(context: Context, private val store: PairStore) {
     private val media = MediaRepository(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val ipv6Hosts = ConcurrentHashMap<String, InetAddress>()
+
+    private val dns = object : Dns {
+        override fun lookup(hostname: String): List<InetAddress> =
+            ipv6Hosts[hostname]?.let { listOf(it) } ?: Dns.SYSTEM.lookup(hostname)
+    }
+
     private val http = OkHttpClient.Builder()
+        .dns(dns)
         .connectTimeout(6, TimeUnit.SECONDS)
         .pingInterval(20, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -165,9 +178,52 @@ class LinkClient(context: Context, private val store: PairStore) {
         sendSeq = 0
         recvSeq = 0
         _status.value = LinkStatus(LinkState.CONNECTING)
-        Log.d("LinkPhone", "connecting ws://$host:$port pair=${!pendingCode.isNullOrBlank()}")
-        val request = Request.Builder().url("ws://$host:$port/").build()
+        val urlHost = urlHostFor(host)
+        Log.d(
+            "LinkPhone",
+            "connecting ws://$host:$port as $urlHost pair=${!pendingCode.isNullOrBlank()}"
+        )
+        val request = Request.Builder().url("ws://$urlHost:$port/").build()
         ws = http.newWebSocket(request, listener)
+    }
+
+    /**
+     * OkHttp rejects zone IDs in IPv6 URLs. Map the PC's link-local address to
+     * a synthetic hostname and resolve it to a scoped Inet6Address, so the
+     * socket leaves through the phone's Wi-Fi interface.
+     */
+    private fun urlHostFor(address: String): String {
+        if (!address.contains(':')) return address
+        val plain = address.substringBefore('%')
+        val parsed = runCatching { InetAddress.getByName(plain) }.getOrNull()
+        if (parsed !is Inet6Address || !parsed.isLinkLocalAddress) return address
+        val index = wifiInterfaceIndex() ?: return address
+        val scoped = runCatching {
+            Inet6Address.getByAddress(null, parsed.address, index)
+        }.getOrNull() ?: return address
+        val synthetic = "pc6-${Integer.toHexString(plain.hashCode())}.linkphone"
+        if (ipv6Hosts.size > 16) ipv6Hosts.clear()
+        ipv6Hosts[synthetic] = scoped
+        Log.d("LinkPhone", "IPv6 $plain via interface index $index as $synthetic")
+        return synthetic
+    }
+
+    private fun wifiInterfaceIndex(): Int? {
+        return try {
+            var fallback: Int? = null
+            for (iface in Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!iface.isUp || iface.isLoopback) continue
+                val addresses = Collections.list(iface.inetAddresses)
+                if (addresses.none { it is Inet6Address && it.isLinkLocalAddress }) continue
+                if (iface.name.startsWith("wlan") || iface.name.startsWith("ap")) {
+                    return iface.index
+                }
+                if (fallback == null) fallback = iface.index
+            }
+            fallback
+        } catch (_: Exception) {
+            null
+        }
     }
 
     @Synchronized

@@ -156,6 +156,8 @@ export interface AppState {
   port: number
   pairingCode: string
   addresses: string[]
+  /** Link-local IPv6 addresses, tried when the router isolates IPv4 clients. */
+  addresses6: string[]
   devices: DeviceInfo[]
   notifications: NotificationItem[]
   transfers: TransferItem[]

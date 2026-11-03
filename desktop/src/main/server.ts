@@ -178,7 +178,9 @@ export class LinkServer extends EventEmitter {
 
   private listen(port: number): Promise<{ wss: WebSocketServer; port: number }> {
     return new Promise((resolve, reject) => {
-      const wss = new WebSocketServer({ port, host: '0.0.0.0' })
+      // Dual-stack: IPv4-mapped clients keep working, and link-local IPv6
+      // reaches the phone when the router isolates IPv4 clients.
+      const wss = new WebSocketServer({ port, host: '::' })
       const fail = (err: NodeJS.ErrnoException): void => {
         wss.removeAllListeners()
         wss.close()

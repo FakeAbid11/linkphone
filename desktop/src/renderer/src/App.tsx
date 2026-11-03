@@ -57,7 +57,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark" />
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.4.8</div>
+            <div className="brand-sub">Local network · v0.4.9</div>
           </div>
         </div>
 
@@ -95,6 +95,7 @@ export default function App(): JSX.Element {
             serverName={state.serverName}
             port={state.port}
             addresses={state.addresses}
+            addresses6={state.addresses6}
             onNewCode={() => void window.linkphone.newPairingCode()}
           />
         </div>

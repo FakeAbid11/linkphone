@@ -3,11 +3,12 @@
 Microsoft Phone Link, rebuilt from scratch — Android phone + Windows PC, **local network only, no
 cloud account, no relay server**.
 
-> **Status: v0.4.8.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
-> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.8 also
-> lets a phone re-pair with a fresh QR even when the PC still remembers an older pairing. Screen mirroring
-> and Android app streaming are **not** — see [Roadmap](#roadmap). Everything is built by GitHub Actions;
-> there are no local build steps.
+> **Status: v0.4.9.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
+> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.8 lets a
+> phone re-pair with a fresh QR even when the PC still remembers an older pairing; v0.4.9 adds a
+> link-local IPv6 fallback for routers that isolate IPv4 Wi-Fi clients. Screen mirroring and Android app
+> streaming are **not** — see [Roadmap](#roadmap). Everything is built by GitHub Actions; there are no
+> local build steps.
 
 ---
 
@@ -64,7 +65,7 @@ handshake and the threat model.
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
    If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
    v0.2 established the permanent key, so v0.2 and later update in place normally.
-3. Run `LinkPhone.Setup.0.4.8.exe` on Windows. The installer is unsigned, so SmartScreen requires
+3. Run `LinkPhone.Setup.0.4.9.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
@@ -112,6 +113,11 @@ pairing handshake even for a phone it already knows, and replaces the old key on
 proves valid — so forgetting on the phone no longer requires forgetting on the PC first. If a
 connection still fails, click the **×** on the phone card in the PC sidebar and tap **Forget** on
 the phone, then pair again with the current code.
+
+If the router blocks device-to-device IPv4 traffic (both devices can reach the router but not each
+other), v0.4.9 also embeds the PC's link-local IPv6 address in the QR. The phone tries it after the
+IPv4 addresses and pairs over Wi-Fi without any router change. USB tethering and the phone hotspot
+remain fallbacks for networks that block both families.
 
 ## Running from source (optional, needs a dev machine)
 

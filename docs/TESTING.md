@@ -25,6 +25,8 @@ Run `LinkPhone.exe` (or `npm run dev`).
 PC sidebar → **Scan QR code instead**. Phone → **Scan QR** and point it at the PC.
 
 * ✅ Camera opens, detects the code, and status goes Connecting → Pairing → Connected.
+* ✅ If the router isolates IPv4 clients, v0.4.9 still connects over the PC's link-local IPv6
+  address, which is tried after the IPv4 addresses.
 * ❌ Camera does not open → grant Camera in Android Settings → Apps → LinkPhone → Permissions.
 * ❌ Connects forever → Windows Firewall or none of the PC's advertised addresses is reachable.
 

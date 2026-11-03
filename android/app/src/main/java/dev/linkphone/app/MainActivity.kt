@@ -282,9 +282,12 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     fun connectScanned(payload: PairPayload) {
         scanning = false
         discovery.stop()
-        val addresses = preferredAddress(payload.addresses)?.let { first ->
-            listOf(first) + payload.addresses.filter { it != first }
-        } ?: payload.addresses
+        val preferred = preferredAddress(payload.addresses)
+        val addresses = buildList {
+            if (preferred != null) add(preferred)
+            addAll(payload.addresses.filter { it != preferred })
+            addAll(payload.ipv6Addresses)
+        }
         LinkCore.startService(context)
         client.connect(addresses, payload.port, payload.code)
     }
@@ -590,7 +593,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                 when {
                     payload == null ->
                         notice = "That QR code is not a LinkPhone pairing code."
-                    payload.addresses.isEmpty() ->
+                    payload.addresses.isEmpty() && payload.ipv6Addresses.isEmpty() ->
                         notice = "The QR code had no network address. Use Scan instead."
                     else -> connectScanned(payload)
                 }

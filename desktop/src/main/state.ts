@@ -64,6 +64,7 @@ export class AppStore extends EventEmitter {
   private callError = ''
   private live = new Map<string, DeviceInfo>()
   private addresses: string[] = []
+  private addresses6: string[] = []
   port = 0
   pairingCode = ''
 
@@ -150,6 +151,11 @@ export class AppStore extends EventEmitter {
 
   setAddresses(addresses: string[]): void {
     this.addresses = addresses
+    this.changed()
+  }
+
+  setAddresses6(addresses: string[]): void {
+    this.addresses6 = addresses
     this.changed()
   }
 
@@ -444,6 +450,7 @@ export class AppStore extends EventEmitter {
       port: this.port,
       pairingCode: this.pairingCode,
       addresses: this.addresses,
+      addresses6: this.addresses6,
       devices,
       notifications: this.notifications,
       transfers: this.transfers,

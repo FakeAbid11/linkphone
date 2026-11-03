@@ -61,6 +61,7 @@ data class PairPayload(
     val code: String,
     val port: Int,
     val addresses: List<String>,
+    val ipv6Addresses: List<String>,
     val serverName: String,
     val serverId: String
 )
@@ -86,11 +87,18 @@ fun parsePairPayload(raw: String): PairPayload? {
         ?.map { it.trim() }
         ?.filter { it.isNotEmpty() }
         .orEmpty()
+    // Link-local IPv6, used when the router isolates IPv4 clients.
+    val ipv6Addresses = uri.getQueryParameter("a6")
+        ?.split(',')
+        ?.map { it.trim() }
+        ?.filter { it.contains(':') }
+        .orEmpty()
 
     return PairPayload(
         code = code,
         port = port,
         addresses = addresses,
+        ipv6Addresses = ipv6Addresses,
         serverName = uri.getQueryParameter("n").orEmpty().ifBlank { "PC" },
         serverId = uri.getQueryParameter("i").orEmpty()
     )

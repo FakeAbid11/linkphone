@@ -7,6 +7,7 @@ interface Props {
   serverName: string
   port: number
   addresses: string[]
+  addresses6: string[]
   onNewCode: () => void
 }
 
@@ -19,6 +20,7 @@ export function pairPayload(input: {
   code: string
   port: number
   addresses: string[]
+  addresses6: string[]
   serverName: string
   serverId: string
 }): string {
@@ -26,6 +28,9 @@ export function pairPayload(input: {
     `c=${encodeURIComponent(input.code)}`,
     `p=${input.port}`,
     `a=${encodeURIComponent(input.addresses.join(','))}`,
+    ...(input.addresses6.length > 0
+      ? [`a6=${encodeURIComponent(input.addresses6.join(','))}`]
+      : []),
     `n=${encodeURIComponent(input.serverName)}`,
     `i=${encodeURIComponent(input.serverId)}`,
     `v=1`
@@ -39,6 +44,7 @@ export function PairingCard({
   serverName,
   port,
   addresses,
+  addresses6,
   onNewCode
 }: Props): JSX.Element {
   const [copied, setCopied] = useState(false)
@@ -46,6 +52,7 @@ export function PairingCard({
   const [qr, setQr] = useState('')
 
   const addressKey = addresses.join(',')
+  const address6Key = addresses6.join(',')
 
   useEffect(() => {
     if (!showQr) return
@@ -54,6 +61,7 @@ export function PairingCard({
       code,
       port,
       addresses: addressKey ? addressKey.split(',') : [],
+      addresses6: address6Key ? address6Key.split(',') : [],
       serverName,
       serverId
     })
@@ -72,7 +80,13 @@ export function PairingCard({
     return () => {
       alive = false
     }
-  }, [showQr, code, port, addressKey, serverName, serverId])
+  }, [showQr, code, port, addressKey, address6Key, serverName, serverId])
+
+  const toggleQr = (): void => {
+    const next = !showQr
+    setShowQr(next)
+    if (next) void window.linkphone.refreshAddresses()
+  }
 
   const copy = (): void => {
     void window.linkphone.copyToClipboard(code)
@@ -88,7 +102,7 @@ export function PairingCard({
       </button>
       <div className="pairing-hint">{copied ? 'Copied' : 'Type this on your phone'}</div>
 
-      <button className="link-btn qr-toggle" onClick={() => setShowQr((v) => !v)}>
+      <button className="link-btn qr-toggle" onClick={toggleQr}>
         {showQr ? 'Hide QR code' : 'Scan QR code instead'}
       </button>
 

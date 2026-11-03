@@ -59,7 +59,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.4.13</div>
+            <div className="brand-sub">Local network · v0.4.14</div>
           </div>
         </div>
 

@@ -42,6 +42,11 @@ export interface NotificationItem {
   ongoing?: boolean
 }
 
+export interface MutedApp {
+  pkg: string
+  app: string
+}
+
 export type TransferStatus = 'pending' | 'active' | 'done' | 'failed' | 'declined' | 'canceled'
 
 export interface SmsThread {
@@ -220,6 +225,7 @@ export interface AppState {
   addresses6: string[]
   devices: DeviceInfo[]
   notifications: NotificationItem[]
+  mutedNotifications: MutedApp[]
   transfers: TransferItem[]
   smsThreads: SmsThread[]
   smsActive: SmsActiveThread | null

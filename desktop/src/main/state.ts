@@ -11,6 +11,7 @@ import type {
   DeviceInfo,
   GalleryAlbum,
   GalleryPhoto,
+  MutedApp,
   NotificationItem,
   PhoneCallInfo,
   PhoneContact,
@@ -36,10 +37,36 @@ interface Persisted {
   serverName: string
   paired: PairedDevice[]
   clipboardEnabled: boolean
+  mutedNotifications: MutedApp[]
 }
 
 const MAX_NOTIFICATIONS = 200
 const MAX_TRANSFERS = 100
+const MAX_MUTED_APPS = 100
+
+function muteKey(pkg: string, app: string): string {
+  const trimmed = pkg.trim()
+  return trimmed || `app:${app.trim().toLowerCase()}`
+}
+
+function sanitizeMuted(value: unknown): MutedApp[] {
+  if (!Array.isArray(value)) return []
+  const out: MutedApp[] = []
+  const seen = new Set<string>()
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') continue
+    const raw = entry as Record<string, unknown>
+    const pkg = typeof raw.pkg === 'string' ? raw.pkg.trim().slice(0, 128) : ''
+    const app = typeof raw.app === 'string' ? raw.app.trim().slice(0, 64) : ''
+    if (!pkg && !app) continue
+    const key = muteKey(pkg, app)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ pkg, app: app || pkg })
+    if (out.length >= MAX_MUTED_APPS) break
+  }
+  return out
+}
 
 export class AppStore extends EventEmitter {
   private readonly file: string
@@ -102,14 +129,16 @@ export class AppStore extends EventEmitter {
         serverId: parsed.serverId ?? crypto.randomUUID(),
         serverName: parsed.serverName ?? os.hostname(),
         paired: Array.isArray(parsed.paired) ? parsed.paired : [],
-        clipboardEnabled: parsed.clipboardEnabled ?? true
+        clipboardEnabled: parsed.clipboardEnabled ?? true,
+        mutedNotifications: sanitizeMuted(parsed.mutedNotifications)
       }
     } catch {
       const fresh: Persisted = {
         serverId: crypto.randomUUID(),
         serverName: os.hostname() || 'This PC',
         paired: [],
-        clipboardEnabled: true
+        clipboardEnabled: true,
+        mutedNotifications: []
       }
       try {
         fs.mkdirSync(dir, { recursive: true })
@@ -260,6 +289,56 @@ export class AppStore extends EventEmitter {
     for (const item of this.notifications) this.hideNotification(item.key)
     this.notifications = []
     this.changed()
+  }
+
+  isNotificationMuted(pkg: string, app: string): boolean {
+    const key = muteKey(pkg, app)
+    return this.persisted.mutedNotifications.some(
+      (entry) => muteKey(entry.pkg, entry.app) === key
+    )
+  }
+
+  setNotificationMuted(pkg: string, app: string, muted: boolean): void {
+    const key = muteKey(pkg, app)
+    const list = this.persisted.mutedNotifications
+    const exists = list.some((entry) => muteKey(entry.pkg, entry.app) === key)
+    let dirty = false
+    if (muted) {
+      if (!exists) {
+        const label = app.trim().slice(0, 64) || pkg.trim().slice(0, 128)
+        this.persisted.mutedNotifications = [
+          ...list,
+          { pkg: pkg.trim().slice(0, 128), app: label }
+        ].slice(0, 100)
+        dirty = true
+      }
+      if (this.removeNotificationsForApp(pkg, app)) dirty = true
+    } else {
+      if (!exists) return
+      this.persisted.mutedNotifications = list.filter(
+        (entry) => muteKey(entry.pkg, entry.app) !== key
+      )
+      dirty = true
+    }
+    if (!dirty) return
+    this.save()
+    this.changed()
+  }
+
+  clearNotificationsForApp(pkg: string, app: string): void {
+    if (this.removeNotificationsForApp(pkg, app)) this.changed()
+  }
+
+  private removeNotificationsForApp(pkg: string, app: string): boolean {
+    const key = muteKey(pkg, app)
+    const keys = new Set<string>()
+    for (const item of this.notifications) {
+      if (muteKey(item.pkg, item.app) === key) keys.add(item.key)
+    }
+    if (keys.size === 0) return false
+    for (const itemKey of keys) this.hideNotification(itemKey)
+    this.notifications = this.notifications.filter((item) => !keys.has(item.key))
+    return true
   }
 
   upsertTransfer(item: TransferItem): void {
@@ -593,6 +672,7 @@ export class AppStore extends EventEmitter {
       addresses6: this.addresses6,
       devices,
       notifications: this.notifications,
+      mutedNotifications: this.persisted.mutedNotifications,
       transfers: this.transfers,
       smsThreads: this.smsThreads,
       smsActive: this.smsActive,

@@ -74,11 +74,17 @@ yourself a message from another app).
 * ✅ An indeterminate “preparing” notification shows an animated bar without a percentage.
 * ✅ Dismissing a live progress card on the PC keeps it hidden while the phone keeps updating it;
   removing it on the phone allows a later repost.
+* ✅ Search matches app names, titles and text; **Newest** and **By app** show the same filtered set.
+* ✅ By-app headers show correct counts; **Clear** removes that app's cards and later new
+  notifications still appear.
+* ✅ **Mute** removes the app's cards, suppresses future cards and toasts, and survives a PC restart;
+  **Unmute** from the Muted chips lets new notifications through.
+* ✅ Live progress updates in both views; an in-progress reply survives switching views.
 * ✅ Ongoing media/navigation notifications without progress remain filtered out.
 * ❌ Quick actions or open do nothing: some OEMs block background activity starts. On HyperOS allow
   LinkPhone to autostart and display pop-up windows while running in the background.
-* ❌ Nothing arrives: notification access not granted, or only "ongoing" notifications were posted
-  (those are filtered out on purpose — media players, downloads).
+* ❌ Nothing arrives: notification access not granted, or only “ongoing” notifications without
+  progress were posted (media players are filtered out on purpose).
 
 ## 6. SMS
 

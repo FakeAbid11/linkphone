@@ -1896,3 +1896,151 @@ button {
     opacity: 0.45;
   }
 }
+
+.notif-center {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notif-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.notif-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 180px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.notif-search:focus-within {
+  border-color: var(--accent-dim);
+}
+
+.notif-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.notif-view {
+  display: flex;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.notif-view button {
+  padding: 7px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.notif-view button:hover {
+  color: var(--text);
+}
+
+.notif-view .notif-view-active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.notif-muted-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.notif-muted-label {
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.notif-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.notif-chip:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.notif-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.notif-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notif-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.notif-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.notif-group-name {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif-group-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.notif-view button:focus-visible,
+.notif-chip:focus-visible,
+.notif-group-actions button:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 2px;
+}

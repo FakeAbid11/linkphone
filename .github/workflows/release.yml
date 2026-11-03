@@ -85,7 +85,7 @@ jobs:
                apps" when asked).
                **If v0.1 is installed, uninstall it first and pair again.** v0.1 used a temporary
                CI signing key; v0.2 started the permanent signing key. v0.2+ update in place.
-            2. **PC** — download and run `LinkPhone.Setup.0.4.15.exe`. SmartScreen will warn because
+            2. **PC** — download and run `LinkPhone.Setup.0.4.16.exe`. SmartScreen will warn because
                the installer is unsigned: *More info → Run anyway*. Allow it on **private**
                networks when Windows Firewall asks.
             3. Make sure both devices are on the same Wi-Fi (not a guest network).
@@ -120,6 +120,7 @@ jobs:
             * New monochrome phone + laptop + link logo for the installer, app, tray, Android launcher, themed icon, and in-app header
             * Tray icon now uses the full phone + laptop + link mark
             * Optional Start with Windows, launching hidden in the tray and listed in Windows Startup Apps
+            * Fixed the Start with Windows toggle state so it reflects Windows Startup Apps
             * Two-way file transfer
             * Clipboard sync (phone → PC only while the app is open, an Android restriction)
             * Auto-reconnect

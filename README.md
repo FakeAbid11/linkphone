@@ -32,7 +32,7 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.6.1** shows live notification progress; v0.6.0 added dual-SIM support.
+> **v0.6.2** adds Explorer → Send to → LinkPhone; v0.6.1 added live notification progress.
 
 ## Features
 
@@ -46,7 +46,7 @@ service or a relay server.
 | Phone calls | Partial | Dial, answer, decline and hang up; audio stays on the phone |
 | Photo albums | Yes | Thumbnails, paged albums, previews and original download |
 | Battery | Yes | Live percentage and charging state |
-| File transfer | Yes | Both directions, 64 KiB chunks |
+| File transfer | Yes | Both directions, 64 KiB chunks; Explorer → Send to → LinkPhone |
 | Clipboard | Partial | Text only; phone side only while the app is open |
 | Start with Windows | Yes | Opt-in hidden tray start, listed in Windows Startup Apps |
 | Auto-reconnect | Yes | 2.5 s backoff across Wi-Fi hiccups |
@@ -68,8 +68,9 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”).
-3. **PC:** run `LinkPhone.Setup.0.6.1.exe`. The installer is unsigned, so SmartScreen requires
-   **More info → Run anyway**.
+3. **PC:** run `LinkPhone.Setup.0.6.2.exe`. The installer is unsigned, so SmartScreen requires
+   **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
+   it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
    and point the camera at the PC.
 5. **Grant phone permissions:** notification access for mirroring, SMS for messages, photos for the
@@ -140,6 +141,15 @@ When the phone has more than one SIM, Messages and Calls show a SIM picker. Send
 default unless you choose another SIM. The phone needs **Phone access** to list SIMs; without it,
 texts and calls keep using the default SIM and labels may be missing. Calls use Android's call
 accounts, so eSIM profiles and carrier labels follow what the phone reports.
+
+</details>
+
+<details>
+<summary><strong>Send files from Explorer</strong></summary>
+
+Right-click one or more files → **Send to → LinkPhone**. The app opens the Files tab and sends them.
+If the phone is not connected, the files wait in memory and are sent when it connects; quitting
+LinkPhone discards them. Folders are not supported.
 
 </details>
 

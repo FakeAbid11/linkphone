@@ -85,7 +85,7 @@ jobs:
                apps" when asked).
                **If v0.1 is installed, uninstall it first and pair again.** v0.1 used a temporary
                CI signing key; v0.2 started the permanent signing key. v0.2+ update in place.
-            2. **PC** — download and run `LinkPhone.Setup.0.6.1.exe`. SmartScreen will warn because
+            2. **PC** — download and run `LinkPhone.Setup.0.6.2.exe`. SmartScreen will warn because
                the installer is unsigned: *More info → Run anyway*. Allow it on **private**
                networks when Windows Firewall asks.
             3. Make sure both devices are on the same Wi-Fi (not a guest network).
@@ -107,6 +107,7 @@ jobs:
             * Contacts now sit beside the dialer in the Calls tab
             * Dual-SIM: choose the SIM for texts and calls, with SIM labels on messages, calls and history
             * Live notification progress: downloads, updates and file copies update in place
+            * Explorer Send-to: right-click files and send them to the phone
             * Existing SMS conversations, live incoming texts and replies from the PC
             * Phone photo albums with thumbnails, large preview and original download
             * Live phone battery percentage and charging state

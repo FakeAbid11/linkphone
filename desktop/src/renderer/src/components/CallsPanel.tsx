@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { CallLogEntry, PhoneCallInfo } from '@shared/protocol'
+import type { CallLogEntry, PhoneCallInfo, PhoneContact, SmsThread } from '@shared/protocol'
 import { Icon } from './Icon'
+import { ContactsPanel } from './ContactsPanel'
 import { callDuration, relativeTime } from '../lib/phone'
 
 interface Props {
@@ -12,13 +13,20 @@ interface Props {
   history: CallLogEntry[]
   historyGranted: boolean
   historyLoading: boolean
+  contacts: PhoneContact[]
+  threads: SmsThread[]
+  contactsGranted: boolean
+  contactsLoading: boolean
+  smsLoading: boolean
   onPlace: (number: string) => void
   onAnswer: (callId: string) => void
   onReject: (callId: string) => void
   onDisconnect: (callId: string) => void
   onSpeaker: (enabled: boolean) => void
   onRefreshHistory: () => void
+  onRefreshContacts: () => void
   onCall: (number: string) => void
+  onMessage: (threadId: string, address: string) => void
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
@@ -32,13 +40,20 @@ export function CallsPanel({
   history,
   historyGranted,
   historyLoading,
+  contacts,
+  threads,
+  contactsGranted,
+  contactsLoading,
+  smsLoading,
   onPlace,
   onAnswer,
   onReject,
   onDisconnect,
   onSpeaker,
   onRefreshHistory,
-  onCall
+  onRefreshContacts,
+  onCall,
+  onMessage
 }: Props): JSX.Element {
   const [number, setNumber] = useState('')
   const [now, setNow] = useState(Date.now())
@@ -71,6 +86,8 @@ export function CallsPanel({
 
       {error && <div className="call-error">{error}</div>}
 
+      <div className="calls-grid">
+        <div className="calls-left">
       {calls.length > 0 ? (
         <div className="call-stack">
           {calls.map((call) => (
@@ -186,6 +203,21 @@ export function CallsPanel({
             })}
           </ul>
         )}
+        </div>
+        <div className="calls-contacts">
+          <ContactsPanel
+            contacts={contacts}
+            threads={threads}
+            granted={contactsGranted}
+            loading={contactsLoading}
+            threadsLoading={smsLoading}
+            connected={connected}
+            dialerReady={dialerReady}
+            onRefresh={onRefreshContacts}
+            onCall={onCall}
+            onMessage={onMessage}
+          />
+        </div>
       </div>
     </div>
   )

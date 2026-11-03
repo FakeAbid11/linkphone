@@ -146,11 +146,6 @@ export function ContactsPanel({
             </p>
           )}
           {notice && <div className="contacts-notice">{notice}</div>}
-          {!dialerReady && (
-            <div className="call-warning">
-              Set LinkPhone as the default phone app on your phone to call from here.
-            </div>
-          )}
 
           <ul className="contact-list">
             {visible.map((contact) => (

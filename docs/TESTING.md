@@ -148,16 +148,18 @@ Android Settings → Apps → Default apps → Phone app if you no longer want L
 
 ## 9b. Contacts and recent calls
 
-On the phone grant **Contact access** and **Call history** (Call logs), then open **Contacts** and
-**Calls** on Windows.
+On the phone grant **Contact access** and **Call history** (Call logs), then open **Calls** on
+Windows. The contact list sits beside the dialer; there is no separate Contacts tab.
 
+* ✅ At the default window the dialer/active call is on the left and contacts on the right; below
+  1000 px they stack as dialer → contacts → recent calls.
 * ✅ Contacts lists names, numbers and labels; search matches both names and digits.
 * ✅ The call button places a call through the phone (it is disabled until the default-phone card is
   complete).
 * ✅ **Message** opens an existing SMS conversation; a number with no thread shows
   “No SMS thread yet — start one on the phone.”
 * ✅ Recent calls shows direction, relative time and talk duration; the call button redials.
-* ✅ **Refresh** repopulates both tabs; reopening either tab also refreshes.
+* ✅ **Refresh** repopulates contacts and recent calls; reopening Calls also refreshes.
 * ✅ Revoke Call logs in Android settings and refresh: the PC explains that call history is off
   instead of showing an empty list.
 * ❌ Contacts refused → allow Contact access on the phone and refresh.

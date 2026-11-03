@@ -1307,11 +1307,62 @@ button {
 /* ---------------- calls ---------------- */
 
 .calls-panel {
-  width: min(520px, 100%);
+  width: min(1080px, 100%);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.calls-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px 16px;
+  align-items: start;
+}
+
+.calls-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.calls-contacts {
+  min-width: 0;
+}
+
+.calls-contacts .contacts {
+  width: 100%;
+  margin: 0;
+}
+
+.calls-contacts .empty {
+  margin: 24px auto 0;
+  max-width: 100%;
+}
+
+@media (max-width: 1000px) {
+  .calls-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calls-left {
+    display: contents;
+  }
+
+  .dialer-card,
+  .call-stack {
+    order: 1;
+  }
+
+  .calls-contacts {
+    order: 2;
+  }
+
+  .recent-calls {
+    order: 3;
+  }
 }
 
 .call-audio-note,

@@ -46,15 +46,16 @@ def write_desktop(master: Image.Image) -> None:
     master.resize((512, 512), Image.LANCZOS).save(DESKTOP / "resources" / "icon.png")
 
 
-def write_tray(source: Image.Image) -> None:
-    # The full trio is unreadable at 16 px; the chain link stays crisp.
-    link = source.crop((432, 538, 736, 690))
-    plate = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
-    ImageDraw.Draw(plate).rounded_rectangle((0, 0, 31, 31), radius=6, fill=(0, 0, 0, 255))
-    scale = min((32 * 0.92) / link.width, (32 * 0.84) / link.height)
-    link = link.resize((round(link.width * scale), round(link.height * scale)), Image.LANCZOS)
-    plate.paste(link, ((32 - link.width) // 2, (32 - link.height) // 2))
-    plate.save(DESKTOP / "resources" / "tray.png")
+def write_tray(master: Image.Image) -> None:
+    # Match the app icon: the full trio on a black rounded plate.
+    logo = master.resize((32, 32), Image.LANCZOS).filter(
+        ImageFilter.UnsharpMask(radius=0.6, percent=60)
+    )
+    mask = Image.new("L", (32, 32), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, 31, 31), radius=6, fill=255)
+    tray = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    tray.paste(logo, (0, 0), mask)
+    tray.save(DESKTOP / "resources" / "tray.png")
 
 
 def write_renderer(transparent: Image.Image) -> None:
@@ -106,7 +107,7 @@ def main() -> None:
     master.paste(resized, ((1024 - resized.width) // 2, (1024 - resized.height) // 2))
 
     write_desktop(master)
-    write_tray(source)
+    write_tray(master)
     write_renderer(transparent)
     write_android(transparent)
     print("wrote desktop/build/icon.png, icon.ico, resources/icon.png, resources/tray.png")

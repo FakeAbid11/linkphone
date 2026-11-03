@@ -3,12 +3,12 @@
 Microsoft Phone Link, rebuilt from scratch — Android phone + Windows PC, **local network only, no
 cloud account, no relay server**.
 
-> **Status: v0.4.9.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
-> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.8 lets a
-> phone re-pair with a fresh QR even when the PC still remembers an older pairing; v0.4.9 adds a
-> link-local IPv6 fallback for routers that isolate IPv4 Wi-Fi clients. Screen mirroring and Android app
-> streaming are **not** — see [Roadmap](#roadmap). Everything is built by GitHub Actions; there are no
-> local build steps.
+> **Status: v0.4.10.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
+> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.10 adds
+> contact names in SMS and calls; v0.4.9 adds a link-local IPv6 fallback for routers that isolate IPv4
+> Wi-Fi clients; v0.4.8 lets a phone re-pair with a fresh QR even when the PC still remembers an older
+> pairing. Screen mirroring and Android app streaming are **not** — see [Roadmap](#roadmap). Everything
+> is built by GitHub Actions; there are no local build steps.
 
 ---
 
@@ -30,6 +30,7 @@ docs/         PROTOCOL.md — the wire format, crypto and threat model
 | Notification mirroring | ✅ | app, title, text, tap-to-open, dismiss sync |
 | Inline reply from PC | ✅ | via `RemoteInput` when the notification supports it |
 | SMS conversations | ✅ | read existing threads, receive live messages, reply from PC |
+| Contact names | ✅ | SMS threads and calls show names from the phone's contacts |
 | MMS / new conversation | ⛔ | existing SMS threads only |
 | Photo albums | ✅ | thumbnails, paged albums, large preview, original download |
 | Battery status | ✅ | live percentage and charging state beside the connected phone |
@@ -65,13 +66,14 @@ handshake and the threat model.
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
    If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
    v0.2 established the permanent key, so v0.2 and later update in place normally.
-3. Run `LinkPhone.Setup.0.4.9.exe` on Windows. The installer is unsigned, so SmartScreen requires
+3. Run `LinkPhone.Setup.0.4.10.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
    flow remains available as a fallback.
 6. On the phone, open notification settings, then tap **Allow SMS access** and
-   **Allow photo access**. Android 14+ can expose all photos or only a selected set.
+   **Allow photo access**. Android 14+ can expose all photos or only a selected set. Optionally tap
+   **Allow contact access** to see names instead of numbers in Messages and Calls.
 7. For call controls, tap **Set as default phone app**, accept Android's role prompt, then allow
    phone permissions.
 
@@ -137,6 +139,8 @@ Android needs Android Studio or the SDK plus a JDK 17; `gradle :app:installDebug
 * SMS and photo previews use the same encrypted channel and are never uploaded. Both permissions
   are optional; gallery thumbnails/previews are held only in PC memory. Originals are saved only
   when **Download original** is clicked.
+* Contact names are resolved on the phone with the optional `READ_CONTACTS` permission and sent
+  only over the encrypted LAN channel. No contact data is stored on the PC or uploaded.
 * Updater checks contact only this repository's public GitHub Releases API. They send no phone data,
   account information or telemetry.
 * Phone numbers, call state and control commands use the encrypted LAN channel. No call audio is

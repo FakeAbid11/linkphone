@@ -79,6 +79,14 @@ v0.2 supports SMS replies in existing threads only. It does not support MMS or a
 composer. Because LinkPhone is not the default SMS app, its outgoing message is not written into the
 system SMS database by LinkPhone; the PC keeps the optimistic bubble for the current session.
 
+## 6b. Contact names
+
+Phone → **Allow contact access**. Open **Messages** and **Calls**.
+
+* ✅ SMS threads, an open conversation, and incoming/active calls show the contact's name instead of
+  the number.
+* ❌ Numbers only → `READ_CONTACTS` was denied; messaging and calling still work with numbers.
+
 ## 7. Photos and albums
 
 Phone → **Allow photo access**. On Android 14+, choose all photos or a selected set. On the PC open

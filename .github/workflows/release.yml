@@ -85,7 +85,7 @@ jobs:
                apps" when asked).
                **If v0.1 is installed, uninstall it first and pair again.** v0.1 used a temporary
                CI signing key; v0.2 started the permanent signing key. v0.2+ update in place.
-            2. **PC** — download and run `LinkPhone.Setup.0.4.9.exe`. SmartScreen will warn because
+            2. **PC** — download and run `LinkPhone.Setup.0.4.10.exe`. SmartScreen will warn because
                the installer is unsigned: *More info → Run anyway*. Allow it on **private**
                networks when Windows Firewall asks.
             3. Make sure both devices are on the same Wi-Fi (not a guest network).
@@ -114,6 +114,7 @@ jobs:
             * Foreground link service starts before the socket, matching v0.1 on restrictive OEMs
             * Re-pairing recovery: a fresh QR re-pairs even if the PC still remembers the phone
             * Wi-Fi pairing over link-local IPv6 when the router isolates IPv4 clients
+            * Contact names in SMS threads and calls (optional READ_CONTACTS permission)
             * Two-way file transfer
             * Clipboard sync (phone → PC only while the app is open, an Android restriction)
             * Auto-reconnect

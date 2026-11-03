@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="540" viewBox="0 0 1400 540" role="img" aria-label="LinkPhone architecture: Android and Windows linked by one encrypted WebSocket">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#B3B3B3"/>
+    </marker>
+  </defs>
+
+  <rect x="1" y="1" width="1398" height="538" rx="28" fill="#000000" stroke="#2E2E2E" stroke-width="2"/>
+
+  <g font-family="Segoe UI, system-ui, sans-serif">
+    <rect x="56" y="64" width="400" height="424" rx="24" fill="#121212" stroke="#3A3A3A" stroke-width="1.5"/>
+    <text x="88" y="112" fill="#B3B3B3" font-size="17" letter-spacing="3">ANDROID</text>
+    <text x="88" y="152" fill="#FFFFFF" font-size="26" font-weight="600">Kotlin · Jetpack Compose</text>
+    <line x1="88" y1="176" x2="424" y2="176" stroke="#2A2A2A" stroke-width="1.5"/>
+
+    <g fill="#E6E6E6" font-size="22">
+      <circle cx="96" cy="207" r="3" fill="#B3B3B3"/>
+      <text x="114" y="214">QR + typed-code pairing</text>
+      <circle cx="96" cy="247" r="3" fill="#B3B3B3"/>
+      <text x="114" y="254">mDNS + IPv6 discovery</text>
+      <circle cx="96" cy="287" r="3" fill="#B3B3B3"/>
+      <text x="114" y="294">Notifications + reply</text>
+      <circle cx="96" cy="327" r="3" fill="#B3B3B3"/>
+      <text x="114" y="334">SMS + contacts + recents</text>
+      <circle cx="96" cy="367" r="3" fill="#B3B3B3"/>
+      <text x="114" y="374">Calls + InCallService</text>
+      <circle cx="96" cy="407" r="3" fill="#B3B3B3"/>
+      <text x="114" y="414">Photos + battery</text>
+      <circle cx="96" cy="447" r="3" fill="#B3B3B3"/>
+      <text x="114" y="454">Files + clipboard</text>
+    </g>
+
+    <rect x="944" y="64" width="400" height="424" rx="24" fill="#121212" stroke="#3A3A3A" stroke-width="1.5"/>
+    <text x="976" y="112" fill="#B3B3B3" font-size="17" letter-spacing="3">WINDOWS</text>
+    <text x="976" y="152" fill="#FFFFFF" font-size="26" font-weight="600">Electron · React</text>
+    <line x1="976" y1="176" x2="1312" y2="176" stroke="#2A2A2A" stroke-width="1.5"/>
+
+    <g fill="#E6E6E6" font-size="22">
+      <circle cx="984" cy="207" r="3" fill="#B3B3B3"/>
+      <text x="1002" y="214">Desktop UI + tray</text>
+      <circle cx="984" cy="247" r="3" fill="#B3B3B3"/>
+      <text x="1002" y="254">WebSocket server</text>
+      <circle cx="984" cy="287" r="3" fill="#B3B3B3"/>
+      <text x="1002" y="294">Notifications + SMS</text>
+      <circle cx="984" cy="327" r="3" fill="#B3B3B3"/>
+      <text x="1002" y="334">Contacts + recents</text>
+      <circle cx="984" cy="367" r="3" fill="#B3B3B3"/>
+      <text x="1002" y="374">Photos + file transfer</text>
+      <circle cx="984" cy="407" r="3" fill="#B3B3B3"/>
+      <text x="1002" y="414">Clipboard + updater</text>
+      <circle cx="984" cy="447" r="3" fill="#B3B3B3"/>
+      <text x="1002" y="454">Start with Windows</text>
+    </g>
+
+    <text x="700" y="112" fill="#B3B3B3" font-size="16" letter-spacing="3" text-anchor="middle">ONE ENCRYPTED LINK</text>
+
+    <text x="700" y="156" fill="#FFFFFF" font-size="20" text-anchor="middle">mDNS discovery</text>
+    <line x1="480" y1="178" x2="920" y2="178" stroke="#B3B3B3" stroke-width="1.5" stroke-dasharray="6 8" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+    <rect x="560" y="210" width="280" height="84" rx="16" fill="#1C1C1C" stroke="#3A3A3A" stroke-width="1.5"/>
+    <text x="700" y="246" fill="#FFFFFF" font-size="23" text-anchor="middle">ws://&lt;PC&gt;:8765</text>
+    <text x="700" y="272" fill="#B3B3B3" font-size="16" text-anchor="middle">one WebSocket</text>
+    <line x1="480" y1="252" x2="548" y2="252" stroke="#B3B3B3" stroke-width="1.5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <line x1="852" y1="252" x2="920" y2="252" stroke="#B3B3B3" stroke-width="1.5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+    <text x="700" y="348" fill="#FFFFFF" font-size="22" text-anchor="middle">AES-256-GCM</text>
+    <text x="700" y="374" fill="#B3B3B3" font-size="16" text-anchor="middle">sealed frames · monotonic sequence</text>
+    <line x1="480" y1="400" x2="920" y2="400" stroke="#B3B3B3" stroke-width="1.5" stroke-dasharray="6 8" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+    <text x="700" y="512" fill="#B3B3B3" font-size="19" text-anchor="middle">Same Wi-Fi · no account · no relay · nothing leaves the LAN</text>
+  </g>
+</svg>

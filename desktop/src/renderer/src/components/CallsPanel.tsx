@@ -123,7 +123,7 @@ export function CallsPanel({
             </div>
           ) : (
             <div className="dialer-card">
-              {callAccounts.length > 0 && (
+              {callAccounts.length > 1 && (
                 <div className="sim-row">
                   <label htmlFor="call-account">Call using</label>
                   <select

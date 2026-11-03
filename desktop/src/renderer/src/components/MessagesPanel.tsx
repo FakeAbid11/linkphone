@@ -103,7 +103,7 @@ export function MessagesPanel({
         </div>
 
         <div className="sms-compose">
-          {sims.length > 0 && (
+          {sims.length > 1 && (
             <select
               className="sim-select"
               value={simId}

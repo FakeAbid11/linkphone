@@ -40,14 +40,6 @@ const LOGIN_ITEM_NAME = 'LinkPhone'
 const HIDDEN_ARG = '--hidden'
 const LOGIN_ITEM_ARGS = [HIDDEN_ARG]
 
-interface LaunchItem {
-  name?: string
-  path?: string
-  args?: string[] | string
-  scope?: string
-  enabled?: boolean
-}
-
 function launchAtLoginSupported(): boolean {
   return process.platform === 'win32' && app.isPackaged
 }
@@ -55,24 +47,12 @@ function launchAtLoginSupported(): boolean {
 function readLaunchAtLogin(): boolean {
   if (!launchAtLoginSupported()) return false
   try {
-    const settings = app.getLoginItemSettings({
+    // executableWillLaunchAtLogin accounts for the Windows StartupApproved state
+    // and ignores the command-line args; launchItems is not a Windows check.
+    return app.getLoginItemSettings({
       path: process.execPath,
       args: LOGIN_ITEM_ARGS
-    }) as unknown as { launchItems?: LaunchItem[] }
-    const expectedPath = path.normalize(process.execPath).toLowerCase()
-    const match = (settings.launchItems ?? []).find((item) => {
-      if (item.name?.toLowerCase() !== LOGIN_ITEM_NAME.toLowerCase()) return false
-      if (!item.path) return false
-      if (path.normalize(item.path).toLowerCase() !== expectedPath) return false
-      let args: string[] = []
-      if (Array.isArray(item.args)) {
-        args = item.args
-      } else if (item.args) {
-        args = item.args.split(/\s+/)
-      }
-      return args.includes(HIDDEN_ARG)
-    })
-    return Boolean(match?.enabled)
+    }).executableWillLaunchAtLogin
   } catch (error) {
     console.error('[startup] could not read login item', error)
     return false

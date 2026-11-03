@@ -3,8 +3,9 @@
 Microsoft Phone Link, rebuilt from scratch — Android phone + Windows PC, **local network only, no
 cloud account, no relay server**.
 
-> **Status: v0.4.17.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
-> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.17 puts
+> **Status: v0.5.0.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
+> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.5.0 adds
+> a searchable contacts list and recent-call history with click-to-call; v0.4.17 puts
 > the new phone + link mark in Android notifications with a gray accent; v0.4.16 fixes
 > the Start with Windows toggle state; v0.4.15 adds the optional setting; v0.4.14 uses the full logo in
 > the Windows tray; v0.4.13 adds the app logo across both platforms; v0.4.12 removes the desktop menu
@@ -35,6 +36,8 @@ docs/         PROTOCOL.md — the wire format, crypto and threat model
 | Inline reply from PC | ✅ | via `RemoteInput` when the notification supports it |
 | SMS conversations | ✅ | read existing threads, receive live messages, reply from PC |
 | Contact names | ✅ | SMS threads and calls show names from the phone's contacts |
+| Contacts browser | ✅ | searchable list on the PC; call or open an existing SMS thread |
+| Call history | ✅ | recent calls with direction, time and duration; call back from the PC |
 | MMS / new conversation | ⛔ | existing SMS threads only |
 | Photo albums | ✅ | thumbnails, paged albums, large preview, original download |
 | Battery status | ✅ | live percentage and charging state beside the connected phone |
@@ -71,7 +74,7 @@ handshake and the threat model.
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
    If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
    v0.2 established the permanent key, so v0.2 and later update in place normally.
-3. Run `LinkPhone.Setup.0.4.17.exe` on Windows. The installer is unsigned, so SmartScreen requires
+3. Run `LinkPhone.Setup.0.5.0.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
@@ -122,6 +125,15 @@ simplified phone + link version of the same mark with a gray accent, so it stays
 Open **Settings → Start with Windows**. This is off by default. Enabling it registers a per-user login
 item, so LinkPhone appears in **Windows Settings → Apps → Startup** and starts hidden in the tray when
 you sign in. Disable it from either LinkPhone or Windows; LinkPhone will not re-enable it.
+
+### Contacts and call history
+
+Open **Contacts** to search the phone book and call or message any number. **Calls → Recent calls**
+shows direction, time and duration, with a call-back button. Messaging opens an existing SMS thread
+only; a number without a thread shows a hint instead. Both lists are read-only and pulled on demand.
+
+Call history needs the optional **Call logs** permission on the phone. Google Play restricts that
+permission, which is why LinkPhone is distributed as a sideloaded APK.
 
 ### If discovery finds nothing
 
@@ -177,7 +189,7 @@ Android needs Android Studio or the SDK plus a JDK 17; `gradle :app:installDebug
    provider history by LinkPhone itself.
 2. **Screen mirroring** — `MediaProjection` → hardware H.264 encoder → WebRTC; touch injection via an
    `AccessibilityService`.
-3. **TLS + pinning**, manual IP entry, contact-name lookup, multi-device.
+3. **TLS + pinning**, manual IP entry, multi-device.
 
 ### Why iOS is out of scope
 

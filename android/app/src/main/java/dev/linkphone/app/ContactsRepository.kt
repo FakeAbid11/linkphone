@@ -21,10 +21,16 @@ import java.util.concurrent.ConcurrentHashMap
  * one query per number. Names never leave the phone except over the existing
  * encrypted LAN channel.
  */
+data class NumberLabel(val number: String, val label: String)
+
+data class ContactEntry(val id: String, val name: String, val numbers: List<NumberLabel>)
+
 class ContactsRepository private constructor(private val context: Context) {
 
     private val resolver = context.contentResolver
     private val cache = ConcurrentHashMap<String, String>()
+
+    @Volatile private var listCache: List<ContactEntry> = emptyList()
 
     @Volatile private var loaded = false
     @Volatile private var loadedAt = 0L
@@ -51,6 +57,12 @@ class ContactsRepository private constructor(private val context: Context) {
         return cache[key]
     }
 
+    /** Full contact list for the PC hub, loaded with the same TTL as the name map. */
+    fun list(): List<ContactEntry> {
+        ensureLoaded()
+        return listCache
+    }
+
     /** Load in the background so the first call or SMS thread does not block the UI. */
     fun preload() {
         CoroutineScope(Dispatchers.IO).launch { ensureLoaded() }
@@ -60,6 +72,7 @@ class ContactsRepository private constructor(private val context: Context) {
         loaded = false
         loadedAt = 0L
         cache.clear()
+        listCache = emptyList()
     }
 
     @Synchronized
@@ -67,40 +80,81 @@ class ContactsRepository private constructor(private val context: Context) {
         val now = SystemClock.elapsedRealtime()
         if (loaded && now - loadedAt < TTL_MS) return
         cache.clear()
+        listCache = emptyList()
         loaded = true
         loadedAt = now
         if (!hasPermission()) return
 
         runCatching {
+            val contacts = LinkedHashMap<Long, ContactBuilder>()
             resolver.query(
                 ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
                 arrayOf(
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
                     ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                    ContactsContract.CommonDataKinds.Phone.NUMBER
+                    ContactsContract.CommonDataKinds.Phone.NUMBER,
+                    ContactsContract.CommonDataKinds.Phone.TYPE,
+                    ContactsContract.CommonDataKinds.Phone.LABEL
                 ),
                 null,
                 null,
                 null
             )?.use { cursor ->
+                val idIndex = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID
+                )
                 val nameIndex = cursor.getColumnIndex(
                     ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
                 )
                 val numberIndex = cursor.getColumnIndex(
                     ContactsContract.CommonDataKinds.Phone.NUMBER
                 )
+                val typeIndex = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.TYPE
+                )
+                val labelIndex = cursor.getColumnIndex(
+                    ContactsContract.CommonDataKinds.Phone.LABEL
+                )
                 if (nameIndex < 0 || numberIndex < 0) return@use
                 while (cursor.moveToNext()) {
                     val name = cursor.getString(nameIndex)?.trim().orEmpty()
-                    val key = normalize(cursor.getString(numberIndex).orEmpty()) ?: continue
-                    if (name.isNotEmpty()) cache.putIfAbsent(key, name)
+                    val number = cursor.getString(numberIndex)?.trim().orEmpty()
+                    val key = normalize(number) ?: continue
+                    if (name.isEmpty()) continue
+                    cache.putIfAbsent(key, name)
+
+                    val id = if (idIndex >= 0) cursor.getLong(idIndex) else 0L
+                    if (id <= 0L) continue
+                    val entry = contacts.getOrPut(id) { ContactBuilder(id, name) }
+                    if (entry.numbers.size >= MAX_NUMBERS) continue
+                    if (entry.numbers.any { normalize(it.number) == key }) continue
+                    val type = if (typeIndex >= 0) cursor.getInt(typeIndex) else 0
+                    val custom = if (labelIndex >= 0) cursor.getString(labelIndex) else null
+                    val label = ContactsContract.CommonDataKinds.Phone.getTypeLabel(
+                        context.resources,
+                        type,
+                        custom ?: ""
+                    ).toString()
+                    entry.numbers.add(NumberLabel(number, label.take(24)))
                 }
             }
+            listCache = contacts.values
+                .filter { it.numbers.isNotEmpty() }
+                .map { ContactEntry(it.id.toString(), it.name, it.numbers.toList()) }
+                .sortedBy { it.name.lowercase() }
+                .take(MAX_CONTACTS)
         }.onFailure { Log.w(TAG, "cannot read contacts", it) }
+    }
+
+    private class ContactBuilder(val id: Long, val name: String) {
+        val numbers = mutableListOf<NumberLabel>()
     }
 
     companion object {
         private const val TAG = "LinkPhone"
         private const val TTL_MS = 5 * 60 * 1000L
+        private const val MAX_CONTACTS = 800
+        private const val MAX_NUMBERS = 5
 
         @Volatile private var instance: ContactsRepository? = null
 

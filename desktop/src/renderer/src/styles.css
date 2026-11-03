@@ -1508,3 +1508,196 @@ button {
   background: #1c1c1c;
   color: var(--text);
 }
+
+/* ---------------- contacts and recent calls ---------------- */
+
+.contacts {
+  width: min(760px, 100%);
+  margin: 0 auto;
+}
+
+.contacts-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg-elev);
+  color: var(--muted);
+}
+
+.contacts-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.contacts-search input::placeholder {
+  color: var(--muted);
+}
+
+.contacts-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+
+.contacts-notice {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 11px;
+  background: var(--bg-elev);
+  font-size: 12px;
+}
+
+.contact-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contact-row {
+  display: flex;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-elev);
+}
+
+.contact-row:hover {
+  border-color: #3a3a3a;
+  background: var(--bg-soft);
+}
+
+.contact-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.contact-name {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.contact-number {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.contact-number-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12.5px;
+}
+
+.contact-label {
+  font-size: 11px;
+}
+
+.contact-actions {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.icon-btn:disabled:hover {
+  background: transparent;
+  color: var(--muted);
+}
+
+.recent-calls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.recent-empty {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg-elev);
+}
+
+.recent-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.recent-missed {
+  color: var(--muted);
+}
+
+.recent-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.recent-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.recent-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-time {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.recent-meta {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--muted);
+}

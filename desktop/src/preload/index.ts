@@ -45,6 +45,8 @@ const api: LinkPhoneApi = {
   rejectCall: (callId) => ipcRenderer.invoke('call:reject', callId) as Promise<void>,
   disconnectCall: (callId) => ipcRenderer.invoke('call:disconnect', callId) as Promise<void>,
   setCallSpeaker: (enabled) => ipcRenderer.invoke('call:speaker', enabled) as Promise<void>,
+  requestContacts: () => ipcRenderer.invoke('contacts:request') as Promise<void>,
+  requestCallHistory: () => ipcRenderer.invoke('calllog:request') as Promise<void>,
   setClipboardEnabled: (enabled) =>
     ipcRenderer.invoke('clipboard:enable', enabled) as Promise<void>,
   setLaunchAtLogin: (enabled) =>

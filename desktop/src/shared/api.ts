@@ -31,6 +31,8 @@ export interface LinkPhoneApi {
   rejectCall: (callId: string) => Promise<void>
   disconnectCall: (callId: string) => Promise<void>
   setCallSpeaker: (enabled: boolean) => Promise<void>
+  requestContacts: () => Promise<void>
+  requestCallHistory: () => Promise<void>
   setClipboardEnabled: (enabled: boolean) => Promise<void>
   setLaunchAtLogin: (enabled: boolean) => Promise<void>
   openDownloads: () => Promise<void>

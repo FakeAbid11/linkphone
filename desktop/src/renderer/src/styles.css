@@ -774,6 +774,11 @@ button {
   display: flex;
 }
 
+.switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .switch span {
   width: 16px;
   height: 16px;

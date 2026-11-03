@@ -174,6 +174,17 @@ v0.4 is the first updater-enabled build. Use it to test the v0.4.5 update:
 * Change the PC's Wi-Fi network → the phone reconnects to the stored IP; if the PC's address changed
   you must re-pair.
 
+## 14. Start with Windows
+
+* ✅ **Settings → Start with Windows** turns on; `HKCU\...\Run` has `LinkPhone` =
+  `"...\LinkPhone.exe" --hidden`.
+* ✅ Windows Settings → Apps → Startup and Task Manager → Startup list LinkPhone as On.
+* ✅ Sign out/in starts LinkPhone with only the tray icon, no window.
+* ✅ Launching it manually while hidden opens the window.
+* ✅ Toggle off removes the Run and StartupApproved values; disabling it in Windows Settings instead is
+  respected and not re-enabled by LinkPhone.
+* ✅ Uninstall removes both registry values and the Startup Apps entry.
+
 ## Debugging
 
 ```powershell

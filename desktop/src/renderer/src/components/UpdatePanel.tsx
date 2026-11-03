@@ -55,7 +55,7 @@ export function UpdatePanel({ update, onCheck, onDownload, onInstall }: Props): 
   })()
 
   return (
-    <div className="settings-panel">
+    <>
       <div className="settings-card">
         <div className="settings-card-head">
           <div>
@@ -86,6 +86,6 @@ export function UpdatePanel({ update, onCheck, onDownload, onInstall }: Props): 
           data, account information or telemetry.
         </p>
       </div>
-    </div>
+    </>
   )
 }

@@ -47,6 +47,8 @@ const api: LinkPhoneApi = {
   setCallSpeaker: (enabled) => ipcRenderer.invoke('call:speaker', enabled) as Promise<void>,
   setClipboardEnabled: (enabled) =>
     ipcRenderer.invoke('clipboard:enable', enabled) as Promise<void>,
+  setLaunchAtLogin: (enabled) =>
+    ipcRenderer.invoke('startup:set', enabled) as Promise<void>,
   openDownloads: () => ipcRenderer.invoke('files:open-downloads') as Promise<void>,
   copyToClipboard: (text) => ipcRenderer.invoke('clipboard:copy', text) as Promise<void>,
   openExternal: (url) => ipcRenderer.invoke('shell:open', url) as Promise<void>,

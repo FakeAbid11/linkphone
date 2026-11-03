@@ -64,11 +64,12 @@ function readLaunchAtLogin(): boolean {
       if (item.name?.toLowerCase() !== LOGIN_ITEM_NAME.toLowerCase()) return false
       if (!item.path) return false
       if (path.normalize(item.path).toLowerCase() !== expectedPath) return false
-      const args = Array.isArray(item.args)
-        ? item.args
-        : typeof item.args === 'string'
-          ? item.args.split(/\s+/)
-          : []
+      let args: string[] = []
+      if (Array.isArray(item.args)) {
+        args = item.args
+      } else if (item.args) {
+        args = item.args.split(/\s+/)
+      }
       return args.includes(HIDDEN_ARG)
     })
     return Boolean(match?.enabled)

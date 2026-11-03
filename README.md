@@ -3,13 +3,14 @@
 Microsoft Phone Link, rebuilt from scratch — Android phone + Windows PC, **local network only, no
 cloud account, no relay server**.
 
-> **Status: v0.4.12.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
-> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.12
-> removes the desktop menu bar; v0.4.11 gives both apps a strictly monochrome Material 3 theme; v0.4.10
-> adds contact names in SMS and calls; v0.4.9 adds a link-local IPv6 fallback for routers that isolate
-> IPv4 Wi-Fi clients; v0.4.8 lets a phone re-pair with a fresh QR even when the PC still remembers an
-> older pairing. Screen mirroring and Android app streaming are **not** — see [Roadmap](#roadmap).
-> Everything is built by GitHub Actions; there are no local build steps.
+> **Status: v0.4.13.** Phone call controls, built-in updates, photo albums, battery status, QR pairing,
+> SMS, notifications, two-way file transfer and clipboard sync are implemented end to end. v0.4.13 adds
+> the phone + laptop + link app logo across both platforms; v0.4.12 removes the desktop menu bar;
+> v0.4.11 gives both apps a strictly monochrome Material 3 theme; v0.4.10 adds contact names in SMS and
+> calls; v0.4.9 adds a link-local IPv6 fallback for routers that isolate IPv4 Wi-Fi clients; v0.4.8 lets
+> a phone re-pair with a fresh QR even when the PC still remembers an older pairing. Screen mirroring and
+> Android app streaming are **not** — see [Roadmap](#roadmap). Everything is built by GitHub Actions;
+> there are no local build steps.
 
 ---
 
@@ -67,7 +68,7 @@ handshake and the threat model.
 2. Install `linkphone-android.apk` on the phone (allow "install unknown apps").
    If upgrading from v0.1, uninstall it first and pair again: v0.1 used a temporary CI signing key.
    v0.2 established the permanent key, so v0.2 and later update in place normally.
-3. Run `LinkPhone.Setup.0.4.12.exe` on Windows. The installer is unsigned, so SmartScreen requires
+3. Run `LinkPhone.Setup.0.4.13.exe` on Windows. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. On the PC, expand **Scan QR code instead** in the sidebar.
 5. On the phone: **Scan QR** and point the camera at the PC. The original network Scan + typed code
@@ -109,6 +110,8 @@ use the phone's emergency interface directly.
 Both apps use a strictly monochrome, dark-only Material 3 theme: pure black `#000000` background,
 `#121212` cards, `#1C1C1C` elevated components, white primary text, soft gray `#B3B3B3` secondary
 text, and white/gray Material Symbols Rounded icons. There is no light theme and no colorful accent.
+The app logo is a white phone + laptop + chain-link mark on black, used for the Windows installer,
+app, tray, Android adaptive icon, themed icon, and the in-app header.
 
 ### If discovery finds nothing
 

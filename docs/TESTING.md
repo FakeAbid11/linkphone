@@ -62,6 +62,15 @@ yourself a message from another app).
 * ✅ Tapping the toast opens the window and dismisses the entry.
 * ✅ Dismissing on the phone removes it from the desktop list.
 * ✅ **Reply** (on a messaging notification) sends the text from the phone's own app.
+* ✅ Notifications with actions show quick-action buttons (Open, Mark read, Archive, …); tapping one
+  applies it on the phone.
+* ✅ Tapping the notification body opens the source app on the phone. Without a tap intent the body is
+  not clickable.
+* ✅ **Reply** does not trigger Open; a notification with four or more actions shows Open plus up to
+  three buttons.
+* ✅ Dismissing the phone notification removes its action buttons from the PC.
+* ❌ Quick actions or open do nothing: some OEMs block background activity starts. On HyperOS allow
+  LinkPhone to autostart and display pop-up windows while running in the background.
 * ❌ Nothing arrives: notification access not granted, or only "ongoing" notifications were posted
   (those are filtered out on purpose — media players, downloads).
 

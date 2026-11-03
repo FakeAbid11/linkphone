@@ -57,6 +57,8 @@ data class TransferUi(
     val status: String
 )
 
+data class OutgoingAction(val id: String, val label: String, val reply: Boolean)
+
 data class OutgoingNotification(
     val key: String,
     val app: String,
@@ -65,7 +67,7 @@ data class OutgoingNotification(
     val text: String,
     val whenTs: Long,
     val canReply: Boolean,
-    val actions: List<Pair<String, Boolean>>
+    val actions: List<OutgoingAction>
 )
 
 /**
@@ -724,12 +726,12 @@ class LinkClient(context: Context, private val store: PairStore) {
     fun sendNotification(notification: OutgoingNotification) {
         if (!ready) return
         val actions = JSONArray()
-        notification.actions.forEachIndexed { index, entry ->
+        notification.actions.forEach { entry ->
             actions.put(
                 JSONObject().apply {
-                    put("id", index.toString())
-                    put("label", entry.first)
-                    put("reply", entry.second)
+                    put("id", entry.id)
+                    put("label", entry.label)
+                    put("reply", entry.reply)
                 }
             )
         }

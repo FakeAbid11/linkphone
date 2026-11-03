@@ -11,6 +11,7 @@ export interface LinkPhoneApi {
   clearNotifications: () => Promise<void>
   dismissNotification: (key: string) => Promise<void>
   sendNotificationReply: (key: string, actionId: string, text: string) => Promise<void>
+  sendNotificationAction: (key: string, actionId: string) => Promise<void>
   requestSmsThreads: () => Promise<void>
   openSmsThread: (threadId: string, address: string) => Promise<void>
   closeSmsThread: () => Promise<void>

@@ -480,8 +480,8 @@ export class LinkServer extends EventEmitter {
           ? (raw.actions as unknown[])
               .filter((a): a is RawMsg => isRawMsg(a))
               .map((a) => ({
-                id: str(a.id),
-                label: str(a.label, 'Open'),
+                id: str(a.id).slice(0, 16),
+                label: str(a.label, 'Open').slice(0, 40),
                 reply: bool(a.reply)
               }))
               .slice(0, 4)

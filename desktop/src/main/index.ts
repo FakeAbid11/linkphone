@@ -231,6 +231,12 @@ function registerIpc(): void {
     server.sendNotificationAction(key, actionId, text)
   })
 
+  ipcMain.handle('notification:action', (_event, key: unknown, actionId: unknown) => {
+    if (typeof key !== 'string' || typeof actionId !== 'string') return
+    if (!/^(content|\d{1,2})$/.test(actionId)) return
+    server.sendNotificationAction(key, actionId)
+  })
+
   ipcMain.handle('files:open-downloads', () => shell.openPath(store.downloadsDir))
 
   ipcMain.handle('sms:threads', () => server.requestSmsThreads())

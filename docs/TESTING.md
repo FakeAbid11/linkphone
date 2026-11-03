@@ -202,6 +202,22 @@ phone offers the “Choose a SIM” card.
 A 100 MB file should take a few seconds on 5 GHz and must not stall: the sender keeps 512 KiB in
 flight, the receiver acks every 512 KiB.
 
+## 10b. Send to from Explorer
+
+Install v0.6.2, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+**Show more options**).
+
+* ✅ The SendTo menu lists LinkPhone with the app icon.
+* ✅ One file, including spaces/Unicode in its name, arrives in the phone's `Download/LinkPhone`;
+  the PC opens the Files tab.
+* ✅ Selecting several files sends them all.
+* ✅ With LinkPhone hidden in the tray, SendTo focuses the window on Files and sends; no second
+  process appears.
+* ✅ With LinkPhone closed, SendTo cold-starts it, waits for the phone to reconnect, then sends.
+* ✅ With the phone disconnected, one “queued” toast appears; connecting sends the files once.
+* ✅ Selecting only a folder skips it without an error or crash.
+* ✅ Updating from v0.6.1 keeps the shortcut; uninstalling removes it.
+
 ## 11. Clipboard
 
 * Copy text on the PC → after ~1 s it should be on the phone's clipboard (paste somewhere to check).

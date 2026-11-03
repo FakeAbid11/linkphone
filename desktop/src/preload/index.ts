@@ -9,6 +9,12 @@ const api: LinkPhoneApi = {
     ipcRenderer.on('state:update', handler)
     return () => ipcRenderer.removeListener('state:update', handler)
   },
+  onShowFiles: (cb) => {
+    const handler = (): void => cb()
+    ipcRenderer.on('ui:show-files', handler)
+    return () => ipcRenderer.removeListener('ui:show-files', handler)
+  },
+  uiReady: () => ipcRenderer.invoke('ui:ready') as Promise<boolean>,
   newPairingCode: () => ipcRenderer.invoke('pair:new') as Promise<string>,
   refreshAddresses: () => ipcRenderer.invoke('addresses:refresh') as Promise<void>,
   forgetDevice: (deviceId) => ipcRenderer.invoke('device:forget', deviceId) as Promise<void>,

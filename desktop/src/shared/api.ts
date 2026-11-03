@@ -3,6 +3,8 @@ import type { AppState, TransferItem } from './protocol'
 export interface LinkPhoneApi {
   getState: () => Promise<AppState>
   onState: (cb: (state: AppState) => void) => () => void
+  onShowFiles: (cb: () => void) => () => void
+  uiReady: () => Promise<boolean>
   newPairingCode: () => Promise<string>
   refreshAddresses: () => Promise<void>
   forgetDevice: (deviceId: string) => Promise<void>

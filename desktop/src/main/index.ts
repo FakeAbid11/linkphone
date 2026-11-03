@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import {
   app,
@@ -38,6 +39,8 @@ function appIcon(name: string): Electron.NativeImage {
 
 const LOGIN_ITEM_NAME = 'LinkPhone'
 const HIDDEN_ARG = '--hidden'
+const SEND_ARG = '--send'
+const MAX_SEND_FILES = 100
 const LOGIN_ITEM_ARGS = [HIDDEN_ARG]
 
 function launchAtLoginSupported(): boolean {
@@ -91,6 +94,15 @@ let advertisement: Advertisement | null = null
 let watcher: ClipboardWatcher
 let updater: DesktopUpdater
 let quitting = false
+let booted = false
+let uiReady = false
+let pendingShowFiles = false
+let sendQueue: string[] = []
+let sendDraining = false
+let sendTimer: NodeJS.Timeout | null = null
+let sendToast: Notification | null = null
+let sendToastCount = 0
+let sendIntentSeen = false
 
 function sendState(state: AppState): void {
   if (win && !win.isDestroyed()) win.webContents.send('state:update', state)
@@ -101,6 +113,110 @@ function showWindow(): void {
   if (win.isMinimized()) win.restore()
   win.show()
   win.focus()
+}
+
+function parseSendPaths(argv: string[]): string[] {
+  const index = argv.indexOf(SEND_ARG)
+  if (index < 0) return []
+  const files: string[] = []
+  const seen = new Set<string>()
+  for (const raw of argv.slice(index + 1)) {
+    if (!raw || raw.startsWith('-')) continue
+    try {
+      const file = path.resolve(raw)
+      if (!fs.statSync(file).isFile()) continue
+      const key = file.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      files.push(file)
+      if (files.length >= MAX_SEND_FILES) break
+    } catch {
+      /* skip missing or inaccessible files */
+    }
+  }
+  return files
+}
+
+function showFilesTab(): void {
+  if (!booted || !win) return
+  pendingShowFiles = true
+  showWindow()
+  if (uiReady && !win.isDestroyed()) {
+    win.webContents.send('ui:show-files')
+    pendingShowFiles = false
+  }
+}
+
+function showQueueToast(): void {
+  if (!Notification.isSupported() || sendQueue.length === 0) return
+  if (sendToast && sendToastCount === sendQueue.length) return
+  sendToast?.close()
+  sendToast = null
+  sendToastCount = sendQueue.length
+  try {
+    const toast = new Notification({
+      title: 'Waiting for your phone',
+      body: `${sendQueue.length} file${sendQueue.length === 1 ? '' : 's'} queued — connect your phone to send.`,
+      silent: true
+    })
+    toast.on('click', () => showFilesTab())
+    toast.on('close', () => {
+      if (sendToast === toast) sendToast = null
+    })
+    toast.show()
+    sendToast = toast
+  } catch {
+    /* notifications unavailable */
+  }
+}
+
+function closeQueueToast(): void {
+  sendToast?.close()
+  sendToast = null
+  sendToastCount = 0
+}
+
+function scheduleSendDrain(): void {
+  if (sendTimer) clearTimeout(sendTimer)
+  sendTimer = setTimeout(() => {
+    sendTimer = null
+    void drainSendQueue()
+  }, 250)
+}
+
+async function drainSendQueue(): Promise<void> {
+  if (sendDraining || sendQueue.length === 0) return
+  if (!server || !server.hasConnectedPeer()) {
+    showQueueToast()
+    return
+  }
+  sendDraining = true
+  closeQueueToast()
+  const batch = sendQueue
+  sendQueue = []
+  try {
+    await server.sendFiles(batch)
+  } catch (error) {
+    console.error('[send] file transfer failed', error)
+  } finally {
+    sendDraining = false
+    if (sendQueue.length > 0 && server?.hasConnectedPeer()) scheduleSendDrain()
+  }
+}
+
+function handleSendIntent(paths: string[]): void {
+  sendIntentSeen = true
+  const known = new Set(sendQueue.map((file) => file.toLowerCase()))
+  for (const file of paths) {
+    const key = file.toLowerCase()
+    if (known.has(key)) continue
+    known.add(key)
+    sendQueue.push(file)
+    if (sendQueue.length >= MAX_SEND_FILES) break
+  }
+  if (!booted) return
+  showFilesTab()
+  scheduleSendDrain()
 }
 
 function createWindow(): void {
@@ -126,6 +242,9 @@ function createWindow(): void {
     if (!startHidden) win?.show()
   })
   win.on('focus', () => syncLaunchAtLogin())
+  win.webContents.on('did-start-loading', () => {
+    uiReady = false
+  })
   win.on('close', (event) => {
     if (quitting) return
     event.preventDefault()
@@ -176,6 +295,13 @@ function rebuildTrayMenu(): void {
 
 function registerIpc(): void {
   ipcMain.handle('state:get', () => store.snapshot())
+
+  ipcMain.handle('ui:ready', () => {
+    uiReady = true
+    const show = pendingShowFiles
+    pendingShowFiles = false
+    return show
+  })
 
   ipcMain.handle('pair:new', () => {
     store.setPairingCode(newPairCode())
@@ -348,6 +474,9 @@ async function bootstrap(): Promise<void> {
   )
 
   await server.start()
+  server.on('peer-ready', () => {
+    void drainSendQueue()
+  })
   store.setAddresses(localAddresses())
   store.setAddresses6(localLinkLocalIPv6())
 
@@ -402,6 +531,13 @@ async function bootstrap(): Promise<void> {
   createWindow()
   createTray()
   registerIpc()
+  booted = true
+  if (sendIntentSeen || process.argv.includes(SEND_ARG)) {
+    handleSendIntent(parseSendPaths(process.argv))
+  } else if (sendQueue.length > 0) {
+    showFilesTab()
+    scheduleSendDrain()
+  }
   updater.start()
 
   app.on('activate', () => showWindow())
@@ -412,7 +548,11 @@ if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', (_event, argv) => {
-    if (!argv.includes(HIDDEN_ARG)) showWindow()
+    if (argv.includes(SEND_ARG)) {
+      handleSendIntent(parseSendPaths(argv))
+    } else if (!argv.includes(HIDDEN_ARG)) {
+      showWindow()
+    }
   })
 
   void app.whenReady().then(bootstrap)

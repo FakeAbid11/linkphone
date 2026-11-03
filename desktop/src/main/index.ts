@@ -249,6 +249,11 @@ async function bootstrap(): Promise<void> {
   app.setAppUserModelId('dev.linkphone.desktop')
   app.setName('LinkPhone')
 
+  // No File/Edit/View menu on Windows/Linux; macOS keeps its required app menu.
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
+  }
+
   store = new AppStore(app.getPath('userData'), app.getVersion())
   store.setPairingCode(newPairCode())
 

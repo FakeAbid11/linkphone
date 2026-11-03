@@ -1832,3 +1832,67 @@ button {
   flex: 0 0 auto;
   max-width: 140px;
 }
+
+.notif-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.notif-progress {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #2a2a2a;
+}
+
+.notif-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--text);
+  transition: width 0.2s linear;
+}
+
+.notif-progress-indeterminate .notif-progress-fill {
+  width: 35%;
+  animation: notif-progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes notif-progress-slide {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.notif-progress-pct {
+  flex: 0 0 auto;
+  min-width: 34px;
+  text-align: right;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.notif-live {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-progress-indeterminate .notif-progress-fill {
+    animation: none;
+    width: 100%;
+    opacity: 0.45;
+  }
+}

@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket, type RawData } from 'ws'
 import type { AppStore } from './state'
 import { FileReceiver, FileSource } from './files'
 import {
+  CAP_NOTIF_PROGRESS,
   DEFAULT_PORT,
   KIND_CONTROL,
   KIND_FILE,
@@ -321,7 +322,8 @@ export class LinkServer extends EventEmitter {
         serverId: this.store.serverId,
         serverName: this.store.serverName,
         needPair: false,
-        needAuth: true
+        needAuth: true,
+        caps: [CAP_NOTIF_PROGRESS]
       })
       this.send(peer, { t: 'auth.challenge', nonce: peer.nonceB64 })
       return
@@ -336,6 +338,7 @@ export class LinkServer extends EventEmitter {
       serverName: this.store.serverName,
       needPair: true,
       needAuth: false,
+      caps: [CAP_NOTIF_PROGRESS],
       salt: peer.salt.toString('base64')
     })
   }
@@ -499,15 +502,19 @@ export class LinkServer extends EventEmitter {
           when: num(raw.when, Date.now()),
           canReply: bool(raw.canReply),
           actions,
-          deviceId: peer.deviceId
+          deviceId: peer.deviceId,
+          progress: optionalInt(raw.progress),
+          progressMax: optionalInt(raw.progressMax),
+          indeterminate: bool(raw.indeterminate),
+          ongoing: bool(raw.ongoing)
         }
-        this.store.addNotification(item)
-        this.emit('notification', item)
+        const isNew = this.store.addNotification(item)
+        if (isNew) this.emit('notification', item)
         return
       }
 
       case 'notif.dismiss':
-        this.store.dismissNotification(str(msg.key))
+        this.store.phoneNotificationDismissed(str(msg.key))
         this.emit('notificationDismiss', str(msg.key))
         return
 

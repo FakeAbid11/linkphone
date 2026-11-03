@@ -124,7 +124,7 @@ The key used here is the one stored at pairing time, not a fresh PBKDF2 derivati
 
 | `t` | Direction | Fields |
 |---|---|---|
-| `notif.post` | phone → PC | `notif{key,app,pkg,title,text,when,canReply,actions[]}` |
+| `notif.post` | phone → PC | `notif{key,app,pkg,title,text,when,canReply,actions[],progress?,progressMax?,indeterminate?,ongoing?}` |
 | `notif.dismiss` | phone → PC | `key` |
 | `notif.action` | PC → phone | `key`, `actionId`, `replyText?` |
 | `clip.set` | both | `text`, `ts` |
@@ -174,6 +174,11 @@ The key used here is the one stored at pairing time, not a fresh PBKDF2 derivati
 tap intent) or the original zero-based index into the phone notification's action list. `content` is
 present only when a tap intent exists, so the PC can open the source app; `reply: true` marks the
 free-form reply action used by `notif.action.replyText`. Unknown IDs are ignored by older peers.
+
+Progress notifications may include `progress`, `progressMax`, `indeterminate` and `ongoing`.
+`notif.post` with the same `key` updates the existing PC entry in place. The phone only sends
+progress-bearing notifications after the PC advertises the `notif.progress` capability in
+`hello.result.caps`; older PCs therefore receive no progress frames and no update notifications.
 
 ### SMS
 

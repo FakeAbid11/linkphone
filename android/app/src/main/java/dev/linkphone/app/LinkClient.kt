@@ -40,6 +40,8 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
+private const val CAP_NOTIF_PROGRESS = "notif.progress"
+
 enum class LinkState { IDLE, CONNECTING, PAIRING, CONNECTED, ERROR }
 
 data class LinkStatus(
@@ -67,7 +69,11 @@ data class OutgoingNotification(
     val text: String,
     val whenTs: Long,
     val canReply: Boolean,
-    val actions: List<OutgoingAction>
+    val actions: List<OutgoingAction>,
+    val progress: Int? = null,
+    val progressMax: Int? = null,
+    val indeterminate: Boolean = false,
+    val ongoing: Boolean = false
 )
 
 /**
@@ -108,6 +114,10 @@ class LinkClient(context: Context, private val store: PairStore) {
     @Volatile private var ws: WebSocket? = null
     @Volatile private var key: ByteArray? = null
     @Volatile private var ready = false
+
+    @Volatile
+    var supportsLiveProgress = false
+        private set
     @Volatile private var wantConnection = false
     private var sendSeq = 0L
     private var recvSeq = 0L
@@ -178,6 +188,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         runCatching { ws?.cancel() }
         key = null
         ready = false
+        supportsLiveProgress = false
         sendSeq = 0
         recvSeq = 0
         _status.value = LinkStatus(LinkState.CONNECTING)
@@ -238,6 +249,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         ws = null
         key = null
         ready = false
+        supportsLiveProgress = false
         _status.value = LinkStatus(LinkState.IDLE)
     }
 
@@ -286,6 +298,7 @@ class LinkClient(context: Context, private val store: PairStore) {
     private fun fail(detail: String) {
         ready = false
         key = null
+        supportsLiveProgress = false
         val next = hostQueue.poll()
         if (wantConnection && next != null) {
             Log.d("LinkPhone", "first address failed, trying $next")
@@ -341,6 +354,9 @@ class LinkClient(context: Context, private val store: PairStore) {
     private fun onHelloResult(msg: JSONObject) {
         serverName = msg.optString("serverName", "PC")
         pendingServerId = msg.optString("serverId")
+        supportsLiveProgress = msg.optJSONArray("caps")?.let { caps ->
+            (0 until caps.length()).any { caps.optString(it) == CAP_NOTIF_PROGRESS }
+        } ?: false
 
         if (!msg.optBoolean("needPair")) {
             _status.value = LinkStatus(LinkState.CONNECTING, serverName, "Authenticating")
@@ -754,6 +770,10 @@ class LinkClient(context: Context, private val store: PairStore) {
                         put("when", notification.whenTs)
                         put("canReply", notification.canReply)
                         put("actions", actions)
+                        notification.progress?.let { put("progress", it) }
+                        notification.progressMax?.let { put("progressMax", it) }
+                        put("indeterminate", notification.indeterminate)
+                        put("ongoing", notification.ongoing)
                     }
                 )
             }

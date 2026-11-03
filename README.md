@@ -32,14 +32,14 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.6.0** adds dual-SIM support: choose the SIM for texts and calls, with SIM labels everywhere.
+> **v0.6.1** shows live notification progress; v0.6.0 added dual-SIM support.
 
 ## Features
 
 | Feature | Status | Detail |
 |---|---|---|
 | Pairing and discovery | Yes | QR or 8-character code; mDNS, with an IPv6 link-local fallback |
-| Notification mirroring | Yes | Open the source app, run notification actions, dismiss and reply from the PC |
+| Notification mirroring | Yes | Live progress for downloads/updates, quick actions, open, dismiss and reply |
 | SMS | Partial | Existing threads only; no MMS or new conversations |
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
 | Contacts and call history | Yes | Beside the dialer in Calls: search, call back or open an SMS thread |
@@ -68,7 +68,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”).
-3. **PC:** run `LinkPhone.Setup.0.6.0.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.6.1.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
    and point the camera at the PC.

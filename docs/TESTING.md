@@ -69,6 +69,12 @@ yourself a message from another app).
 * ✅ **Reply** does not trigger Open; a notification with four or more actions shows Open plus up to
   three buttons.
 * ✅ Dismissing the phone notification removes its action buttons from the PC.
+* ✅ A download/update notification shows a moving progress bar and percentage; the card updates in
+  place without moving or showing another toast.
+* ✅ An indeterminate “preparing” notification shows an animated bar without a percentage.
+* ✅ Dismissing a live progress card on the PC keeps it hidden while the phone keeps updating it;
+  removing it on the phone allows a later repost.
+* ✅ Ongoing media/navigation notifications without progress remain filtered out.
 * ❌ Quick actions or open do nothing: some OEMs block background activity starts. On HyperOS allow
   LinkPhone to autostart and display pop-up windows while running in the background.
 * ❌ Nothing arrives: notification access not granted, or only "ongoing" notifications were posted

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Icon } from './Icon'
 
 interface Props {
   enabled: boolean
@@ -51,7 +52,7 @@ export function ClipboardPanel({ enabled, onToggle, onSend }: Props): JSX.Elemen
       />
       <div className="clip-actions">
         <button className="btn" onClick={send}>
-          {sent ? 'Sent' : 'Send to phone'}
+          <Icon name={sent ? 'check' : 'send'} size={18} /> {sent ? 'Sent' : 'Send to phone'}
         </button>
         <span className="muted">Ctrl+Enter</span>
       </div>

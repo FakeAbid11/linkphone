@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { NotificationItem } from '@shared/protocol'
+import { Icon } from './Icon'
 
 interface Props {
   notifications: NotificationItem[]
@@ -24,7 +25,7 @@ export function NotificationsPanel({ notifications, onDismiss, onReply }: Props)
   if (notifications.length === 0) {
     return (
       <div className="empty">
-        <div className="empty-art">🔔</div>
+        <div className="empty-art"><Icon name="notifications" size={34} /></div>
         <h2>No notifications yet</h2>
         <p className="muted">
           Once your phone connects and notification access is granted, everything that lands on it
@@ -68,7 +69,7 @@ export function NotificationsPanel({ notifications, onDismiss, onReply }: Props)
                   }}
                 />
                 <button className="btn btn-small" onClick={() => submit(item)}>
-                  Send
+                  <Icon name="send" size={16} /> Send
                 </button>
               </div>
             ) : (
@@ -86,7 +87,7 @@ export function NotificationsPanel({ notifications, onDismiss, onReply }: Props)
             )}
           </div>
           <button className="icon-btn" title="Dismiss" onClick={() => onDismiss(item.key)}>
-            ×
+            <Icon name="close" />
           </button>
         </li>
       ))}

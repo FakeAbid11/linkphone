@@ -302,7 +302,7 @@ private class CallNotifier(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setSmallIcon(R.drawable.ic_stat_linkphone)
             .setContentTitle(call.displayName.ifBlank { call.number })
             .setContentText(call.phase.notificationText())
             .setContentIntent(contentIntent)
@@ -359,7 +359,7 @@ private class CallNotifier(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(context, MISSED_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setSmallIcon(R.drawable.ic_stat_linkphone)
             .setContentTitle("Missed call")
             .setContentText(call.displayName.ifBlank { call.number })
             .setContentIntent(pending)

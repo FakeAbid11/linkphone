@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AppState } from '@shared/protocol'
+import { Icon, type IconName } from './components/Icon'
 import { ClipboardPanel } from './components/ClipboardPanel'
 import { CallsPanel } from './components/CallsPanel'
 import { DevicePanel } from './components/DevicePanel'
@@ -12,14 +13,14 @@ import { UpdatePanel } from './components/UpdatePanel'
 
 type Tab = 'notifications' | 'messages' | 'calls' | 'photos' | 'files' | 'clipboard' | 'settings'
 
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'notifications', label: 'Notifications' },
-  { id: 'messages', label: 'Messages' },
-  { id: 'calls', label: 'Calls' },
-  { id: 'photos', label: 'Photos' },
-  { id: 'files', label: 'Files' },
-  { id: 'clipboard', label: 'Clipboard' },
-  { id: 'settings', label: 'Settings' }
+const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
+  { id: 'notifications', label: 'Notifications', icon: 'notifications' },
+  { id: 'messages', label: 'Messages', icon: 'sms' },
+  { id: 'calls', label: 'Calls', icon: 'call' },
+  { id: 'photos', label: 'Photos', icon: 'photo_library' },
+  { id: 'files', label: 'Files', icon: 'folder' },
+  { id: 'clipboard', label: 'Clipboard', icon: 'content_paste' },
+  { id: 'settings', label: 'Settings', icon: 'settings' }
 ]
 
 export default function App(): JSX.Element {
@@ -57,7 +58,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark" />
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.4.10</div>
+            <div className="brand-sub">Local network · v0.4.11</div>
           </div>
         </div>
 
@@ -74,7 +75,10 @@ export default function App(): JSX.Element {
                 if (t.id === 'photos') void window.linkphone.requestGalleryAlbums()
               }}
             >
-              <span>{t.label}</span>
+              <span className="tab-main">
+                <Icon name={t.icon} />
+                <span>{t.label}</span>
+              </span>
               {t.id === 'notifications' && unread > 0 && <span className="badge">{unread}</span>}
               {t.id === 'calls' && state.phoneCalls.some((call) => call.phase === 'ringing') && (
                 <span className="call-tab-ring" title="Incoming call" />
@@ -114,7 +118,7 @@ export default function App(): JSX.Element {
           <div className="head-actions">
             {tab === 'files' && (
               <button className="btn" onClick={() => void window.linkphone.sendFiles()}>
-                Send file
+                <Icon name="upload" size={18} /> Send file
               </button>
             )}
             {tab === 'notifications' && state.notifications.length > 0 && (
@@ -122,7 +126,7 @@ export default function App(): JSX.Element {
                 className="btn btn-ghost"
                 onClick={() => void window.linkphone.clearNotifications()}
               >
-                Clear all
+                <Icon name="delete_sweep" size={18} /> Clear all
               </button>
             )}
           </div>

@@ -1,4 +1,5 @@
 import type { DesktopUpdateState } from '@shared/protocol'
+import { Icon, type IconName } from './Icon'
 
 interface Props {
   update: DesktopUpdateState
@@ -8,18 +9,28 @@ interface Props {
 }
 
 export function UpdatePanel({ update, onCheck, onDownload, onInstall }: Props): JSX.Element {
-  const action = (): { label: string; run: () => void; disabled?: boolean } => {
+  const action = (): {
+    label: string
+    run: () => void
+    disabled?: boolean
+    icon: IconName
+  } => {
     switch (update.status) {
       case 'available':
-        return { label: `Download v${update.availableVersion ?? ''}`, run: onDownload }
+        return { label: `Download v${update.availableVersion ?? ''}`, run: onDownload, icon: 'download' }
       case 'downloading':
-        return { label: `Downloading ${Math.round(update.progress ?? 0)}%`, run: () => {}, disabled: true }
+        return {
+          label: `Downloading ${Math.round(update.progress ?? 0)}%`,
+          run: () => {},
+          disabled: true,
+          icon: 'sync'
+        }
       case 'ready':
-        return { label: 'Restart & install', run: onInstall }
+        return { label: 'Restart & install', run: onInstall, icon: 'restart_alt' }
       case 'checking':
-        return { label: 'Checking…', run: () => {}, disabled: true }
+        return { label: 'Checking…', run: () => {}, disabled: true, icon: 'sync' }
       default:
-        return { label: 'Check for updates', run: onCheck }
+        return { label: 'Check for updates', run: onCheck, icon: 'system_update' }
     }
   }
 
@@ -64,7 +75,7 @@ export function UpdatePanel({ update, onCheck, onDownload, onInstall }: Props): 
         )}
 
         <button className="btn" onClick={next.run} disabled={next.disabled}>
-          {next.label}
+          <Icon name={next.icon} size={18} /> {next.label}
         </button>
       </div>
 

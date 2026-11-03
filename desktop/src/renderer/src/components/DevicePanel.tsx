@@ -1,4 +1,5 @@
 import type { DeviceInfo } from '@shared/protocol'
+import { Icon } from './Icon'
 
 interface Props {
   devices: DeviceInfo[]
@@ -8,7 +9,7 @@ export function DevicePanel({ devices }: Props): JSX.Element {
   if (devices.length === 0) {
     return (
       <div className="device-card device-empty">
-        <div className="device-icon">📱</div>
+        <div className="device-icon"><Icon name="smartphone" /></div>
         <div>
           <div className="device-name">No phone paired</div>
           <div className="device-meta">Install the LinkPhone app and enter the code below</div>
@@ -21,7 +22,7 @@ export function DevicePanel({ devices }: Props): JSX.Element {
     <div className="device-list">
       {devices.map((device) => (
         <div className="device-card" key={device.deviceId}>
-          <div className="device-icon">📱</div>
+          <div className="device-icon"><Icon name="smartphone" /></div>
           <div className="device-body">
             <div className="device-name">
               {device.name}
@@ -51,7 +52,7 @@ export function DevicePanel({ devices }: Props): JSX.Element {
               title="Forget this phone"
               onClick={() => void window.linkphone.forgetDevice(device.deviceId)}
             >
-              ×
+              <Icon name="close" />
             </button>
           )}
         </div>

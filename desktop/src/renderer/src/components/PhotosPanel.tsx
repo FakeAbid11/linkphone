@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { GalleryAlbum, GalleryPhoto, GalleryPreview } from '@shared/protocol'
+import { Icon } from './Icon'
 import { bytes } from './FilesPanel'
 
 interface Props {
@@ -85,12 +86,12 @@ export function PhotosPanel({
           <div className="gallery-head">
             <div>
               <button className="link-btn" onClick={onCloseAlbum}>
-                ← Albums
+                <Icon name="arrow_back" size={18} /> Albums
               </button>
               <h2>{albumName}</h2>
             </div>
             <button className="link-btn" onClick={() => onOpenAlbum(albumId, albumName)}>
-              Refresh
+              <Icon name="refresh" size={18} /> Refresh
             </button>
           </div>
 
@@ -120,7 +121,7 @@ export function PhotosPanel({
           {hasMore && !loading && (
             <div className="gallery-more">
               <button className="btn btn-ghost" onClick={() => onLoadMore(albumId, nextOffset)}>
-                Load more
+                <Icon name="expand_more" size={18} /> Load more
               </button>
             </div>
           )}
@@ -133,7 +134,13 @@ export function PhotosPanel({
               <p className="muted">Previews stay in memory and travel only over your encrypted LAN link.</p>
             </div>
             <button className="link-btn" onClick={onRefresh} disabled={loading}>
-              {loading ? 'Loading…' : 'Refresh'}
+              {loading ? (
+                'Loading…'
+              ) : (
+                <>
+                  <Icon name="refresh" size={18} /> Refresh
+                </>
+              )}
             </button>
           </div>
 
@@ -172,7 +179,7 @@ export function PhotosPanel({
             <div className="photo-lightbox-head">
               <strong title={preview.name}>{preview.name}</strong>
               <button className="icon-btn" onClick={onClosePreview} aria-label="Close preview">
-                ×
+                <Icon name="close" />
               </button>
             </div>
             <div className="photo-preview-body">
@@ -183,7 +190,7 @@ export function PhotosPanel({
             <div className="photo-lightbox-actions">
               <span className="muted">Original will be saved to Downloads/LinkPhone</span>
               <button className="btn" onClick={() => onDownload(preview.photoId)}>
-                Download original
+                <Icon name="download" size={18} /> Download original
               </button>
             </div>
           </div>
@@ -196,7 +203,7 @@ export function PhotosPanel({
 function GalleryEmpty({ error }: { error: string }): JSX.Element {
   return (
     <div className="empty">
-      <div className="empty-art">🖼️</div>
+      <div className="empty-art"><Icon name="photo_library" size={34} /></div>
       <h2>{error ? 'Photos unavailable' : 'No photos found'}</h2>
       <p className="muted">
         {error || 'On the phone, allow photo access for LinkPhone, then refresh this page.'}

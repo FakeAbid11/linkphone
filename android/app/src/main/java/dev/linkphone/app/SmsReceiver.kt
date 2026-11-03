@@ -59,6 +59,7 @@ class SmsReceiver : BroadcastReceiver() {
                             id = "in-$receivedAt-$address",
                             threadId = threadId,
                             address = address,
+                            name = repository.contactName(address),
                             body = text,
                             date = receivedAt,
                             outgoing = false

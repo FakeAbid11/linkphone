@@ -546,6 +546,7 @@ export class LinkServer extends EventEmitter {
         this.store.openSmsThread({
           threadId: str(msg.threadId),
           address: str(msg.address),
+          name: str(msg.name).slice(0, 200),
           messages: list.filter(isRawMsg).map(parseSmsMessage).sort((a, b) => a.date - b.date)
         })
         return
@@ -777,7 +778,12 @@ export class LinkServer extends EventEmitter {
 
   requestSmsThread(threadId: string, address: string): void {
     if (!this.hasConnectedPeer()) return
-    this.store.openSmsThread({ threadId, address, messages: [] })
+    this.store.openSmsThread({
+      threadId,
+      address,
+      name: this.store.smsThreadName(threadId),
+      messages: []
+    })
     this.broadcast({ t: 'sms.thread.request', threadId })
   }
 
@@ -893,6 +899,7 @@ function parseSmsMessage(raw: RawMsg): SmsMessage {
     id: str(raw.id).slice(0, 256) || crypto.randomUUID(),
     threadId: str(raw.threadId).slice(0, 256),
     address: str(raw.address).slice(0, 256),
+    name: str(raw.name).slice(0, 200),
     body: str(raw.body).slice(0, 20_000),
     date: num(raw.date, Date.now()),
     outgoing: bool(raw.outgoing),
@@ -905,6 +912,7 @@ function parseSmsThread(raw: RawMsg): SmsThread {
   return {
     threadId: str(raw.threadId).slice(0, 256),
     address: str(raw.address).slice(0, 256),
+    name: str(raw.name).slice(0, 200),
     snippet: str(raw.snippet).slice(0, 500),
     date: num(raw.date),
     count: num(raw.count, 1)

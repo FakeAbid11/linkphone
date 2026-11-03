@@ -51,7 +51,7 @@ export function MessagesPanel({
           <button className="link-btn" onClick={onClose}>
             ← All conversations
           </button>
-          <div className="sms-peer">{active.address}</div>
+          <div className="sms-peer">{active.name || active.address}</div>
           <button
             className="link-btn"
             onClick={() => onOpen(active.threadId, active.address)}
@@ -81,7 +81,7 @@ export function MessagesPanel({
           <input
             autoFocus
             value={draft}
-            placeholder={`Message ${active.address}`}
+            placeholder={`Message ${active.name || active.address}`}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') send()
@@ -121,10 +121,16 @@ export function MessagesPanel({
                 className="sms-row"
                 onClick={() => onOpen(thread.threadId, thread.address)}
               >
-                <div className="sms-avatar">{(thread.address || '?').slice(-2)}</div>
+                <div className="sms-avatar">
+                  {thread.name
+                    ? thread.name.slice(0, 2).toUpperCase()
+                    : (thread.address || '?').slice(-2)}
+                </div>
                 <div className="sms-row-body">
                   <div className="sms-row-top">
-                    <span className="sms-address">{thread.address || 'Unknown'}</span>
+                    <span className="sms-address">
+                      {thread.name || thread.address || 'Unknown'}
+                    </span>
                     <span className="muted sms-time">{time(thread.date)}</span>
                   </div>
                   <div className="sms-snippet">{thread.snippet}</div>

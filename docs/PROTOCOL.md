@@ -135,12 +135,12 @@ The key used here is the one stored at pairing time, not a fresh PBKDF2 derivati
 | `file.done` | sender → receiver | `id` |
 | `file.cancel` | both | `id`, `reason?` |
 | `sms.threads.request` | PC → phone | — |
-| `sms.threads` | phone → PC | `threads[{threadId,address,snippet,date,count}]` |
+| `sms.threads` | phone → PC | `threads[{threadId,address,name?,snippet,date,count}]` |
 | `sms.thread.request` | PC → phone | `threadId` |
-| `sms.thread` | phone → PC | `threadId`, `address`, `messages[]` |
+| `sms.thread` | phone → PC | `threadId`, `address`, `name?`, `messages[]` |
 | `sms.send` | PC → phone | `tempId`, `address`, `body` |
 | `sms.sent` | phone → PC | `tempId`, `ok`, `error?` |
-| `sms.new` | phone → PC | `message{id,threadId,address,body,date,outgoing}` |
+| `sms.new` | phone → PC | `message{id,threadId,address,name?,body,date,outgoing}` |
 | `sms.error` | phone → PC | `op`, `error` |
 | `device.status` | phone → PC | `batteryLevel`, `charging` |
 | `gallery.albums.request` | PC → phone | — |
@@ -169,6 +169,10 @@ The phone reads the `Telephony.Sms` provider after runtime `READ_SMS` permission
 the default-SMS-app role and does not write provider rows. Consequently v0.2 supports existing SMS
 threads and replies, not MMS or composing a new conversation. A successful `sms.sent` means Android
 accepted the send request; it is not a carrier delivery receipt.
+
+Thread and message records may include `name`, resolved from the phone's contacts with the optional
+`READ_CONTACTS` permission. The PC displays it instead of the number; the address is still present
+for replies.
 
 ### Photos and albums
 

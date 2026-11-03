@@ -39,6 +39,7 @@ export type TransferStatus = 'pending' | 'active' | 'done' | 'failed' | 'decline
 export interface SmsThread {
   threadId: string
   address: string
+  name?: string
   snippet: string
   date: number
   count: number
@@ -48,6 +49,7 @@ export interface SmsMessage {
   id: string
   threadId: string
   address: string
+  name?: string
   body: string
   date: number
   outgoing: boolean
@@ -58,6 +60,7 @@ export interface SmsMessage {
 export interface SmsActiveThread {
   threadId: string
   address: string
+  name?: string
   messages: SmsMessage[]
 }
 

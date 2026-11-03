@@ -242,7 +242,15 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  smsThreadName(threadId: string): string | undefined {
+    return this.smsThreads.find((thread) => thread.threadId === threadId)?.name
+  }
+
   openSmsThread(active: SmsActiveThread | null): void {
+    if (active && !active.name) {
+      const name = this.smsThreadName(active.threadId)
+      if (name) active = { ...active, name }
+    }
     this.smsActive = active
     if (!active) this.smsLoading = false
     this.changed()
@@ -251,11 +259,12 @@ export class AppStore extends EventEmitter {
   appendSmsMessage(message: SmsMessage): void {
     if (this.smsActive && this.smsActive.threadId === message.threadId) {
       const exists = this.smsActive.messages.some((m) => m.id === message.id)
-      if (!exists) {
-        this.smsActive = {
-          ...this.smsActive,
-          messages: [...this.smsActive.messages, message].sort((a, b) => a.date - b.date)
-        }
+      this.smsActive = {
+        ...this.smsActive,
+        name: this.smsActive.name || message.name,
+        messages: exists
+          ? this.smsActive.messages
+          : [...this.smsActive.messages, message].sort((a, b) => a.date - b.date)
       }
     }
 
@@ -266,7 +275,8 @@ export class AppStore extends EventEmitter {
         snippet: message.body.slice(0, 160),
         date: Math.max(thread.date, message.date),
         count: thread.count,
-        address: thread.address || message.address
+        address: thread.address || message.address,
+        name: thread.name || message.name
       }
       this.smsThreads = [next, ...this.smsThreads.filter((t) => t.threadId !== thread.threadId)]
     } else if (!message.outgoing) {
@@ -274,6 +284,7 @@ export class AppStore extends EventEmitter {
         {
           threadId: message.threadId,
           address: message.address,
+          name: message.name,
           snippet: message.body.slice(0, 160),
           date: message.date,
           count: 1

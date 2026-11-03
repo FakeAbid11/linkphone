@@ -205,10 +205,13 @@ class PhoneCallService : InCallService() {
         val info = details
         val incoming = info.callDirection == Call.Details.DIRECTION_INCOMING || state == Call.STATE_RINGING
         val connectedAt = info.connectTimeMillis.takeIf { it > 0 } ?: fallbackStartedAt
+        val number = info.handle?.schemeSpecificPart.orEmpty().ifBlank { "Unknown" }
+        val resolved = info.callerDisplayName?.toString().orEmpty()
+            .ifBlank { ContactsRepository.get(this@PhoneCallService).nameFor(number).orEmpty() }
         return PhoneCallInfo(
             id = id,
-            number = info.handle?.schemeSpecificPart.orEmpty().ifBlank { "Unknown" },
-            displayName = info.callerDisplayName?.toString().orEmpty(),
+            number = number,
+            displayName = resolved,
             phase = state.toPhase(),
             incoming = incoming,
             startedAt = connectedAt

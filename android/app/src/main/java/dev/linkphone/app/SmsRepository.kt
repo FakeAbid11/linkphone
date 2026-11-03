@@ -25,6 +25,7 @@ class SmsRepository(private val context: Context) {
     data class Thread(
         val threadId: String,
         val address: String,
+        val name: String,
         val snippet: String,
         val date: Long,
         val count: Int
@@ -34,6 +35,7 @@ class SmsRepository(private val context: Context) {
         val id: String,
         val threadId: String,
         val address: String,
+        val name: String = "",
         val body: String,
         val date: Long,
         val outgoing: Boolean,
@@ -41,6 +43,9 @@ class SmsRepository(private val context: Context) {
     )
 
     private val resolver = context.contentResolver
+    private val contacts = ContactsRepository.get(context)
+
+    fun contactName(address: String): String = contacts.nameFor(address).orEmpty()
 
     fun hasPermission(): Boolean =
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
@@ -78,9 +83,11 @@ class SmsRepository(private val context: Context) {
                         continue
                     }
                     if (found.size >= limit) continue
+                    val address = cursor.getString(addressIndex).orEmpty()
                     found[threadId] = Thread(
                         threadId = threadId,
-                        address = cursor.getString(addressIndex).orEmpty(),
+                        address = address,
+                        name = contacts.nameFor(address).orEmpty(),
                         snippet = cursor.getString(bodyIndex).orEmpty().take(160),
                         date = cursor.getLong(dateIndex),
                         count = 1
@@ -149,6 +156,9 @@ class SmsRepository(private val context: Context) {
             )?.use { cursor ->
                 while (cursor.moveToNext()) {
                     val type = cursor.getInt(cursor.getColumnIndexOrThrow(Telephony.Sms.TYPE))
+                    val address = cursor.getString(
+                        cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
+                    ).orEmpty()
                     out.add(
                         Message(
                             id = cursor.getString(cursor.getColumnIndexOrThrow(Telephony.Sms._ID))
@@ -156,9 +166,8 @@ class SmsRepository(private val context: Context) {
                             threadId = cursor.getString(
                                 cursor.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
                             ).orEmpty(),
-                            address = cursor.getString(
-                                cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-                            ).orEmpty(),
+                            address = address,
+                            name = contacts.nameFor(address).orEmpty(),
                             body = cursor.getString(
                                 cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
                             ).orEmpty(),

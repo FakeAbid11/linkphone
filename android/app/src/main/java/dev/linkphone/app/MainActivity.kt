@@ -160,6 +160,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
+    var contactsAccess by remember { mutableStateOf(hasContactsAccess(context)) }
     var dialerRoleHeld by remember { mutableStateOf(CallHub.isDefaultDialer(context)) }
     var callPermissionsGranted by remember { mutableStateOf(hasCallPermissions(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -178,6 +179,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             notifAccess = hasNotificationAccess(context)
             smsAccess = hasSmsAccess(context)
             photoAccess = hasPhotoAccess(context)
+            contactsAccess = hasContactsAccess(context)
             val nextDialer = CallHub.isDefaultDialer(context)
             if (nextDialer != dialerRoleHeld) {
                 dialerRoleHeld = nextDialer
@@ -206,6 +208,17 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         photoAccess = hasPhotoAccess(context)
         if (!photoAccess) {
             notice = "Photo access was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
+        }
+    }
+
+    val contactsPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        contactsAccess = hasContactsAccess(context)
+        ContactsRepository.get(context).invalidate()
+        ContactsRepository.get(context).preload()
+        if (!contactsAccess) {
+            notice = "Contact access was denied. Names will show as numbers."
         }
     }
 
@@ -445,6 +458,22 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             }
         }
 
+        if (!contactsAccess) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Contact names", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Allow contact access to show names instead of numbers in Messages and Calls.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    OutlinedButton(onClick = {
+                        contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                    }) { Text("Allow contact access") }
+                }
+            }
+        }
+
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Calls from your PC", fontWeight = FontWeight.SemiBold)
@@ -635,6 +664,10 @@ private fun photoPermissions(): Array<String> = when {
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
     else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
 }
+
+private fun hasContactsAccess(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
+        PackageManager.PERMISSION_GRANTED
 
 private fun hasCallPermissions(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) ==

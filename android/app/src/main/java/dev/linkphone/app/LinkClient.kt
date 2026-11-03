@@ -828,6 +828,7 @@ class LinkClient(context: Context, private val store: PairStore) {
             JSONObject().apply {
                 put("threadId", thread.threadId)
                 put("address", thread.address)
+                put("name", thread.name)
                 put("snippet", thread.snippet)
                 put("date", thread.date)
                 put("count", thread.count)
@@ -858,6 +859,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("t", "sms.thread")
                 put("threadId", threadId)
                 put("address", address)
+                put("name", sms.contactName(address))
                 put(
                     "messages",
                     JSONArray(messages.map { it.toJson() })
@@ -908,6 +910,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         put("id", id)
         put("threadId", threadId)
         put("address", address)
+        put("name", name)
         put("body", body)
         put("date", date)
         put("outgoing", outgoing)

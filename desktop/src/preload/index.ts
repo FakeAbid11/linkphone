@@ -25,6 +25,10 @@ const api: LinkPhoneApi = {
   sendClipboard: (text) => ipcRenderer.invoke('clipboard:set', text) as Promise<void>,
   clearNotifications: () => ipcRenderer.invoke('notifications:clear') as Promise<void>,
   dismissNotification: (key) => ipcRenderer.invoke('notification:dismiss', key) as Promise<void>,
+  setNotificationMuted: (pkg, app, muted) =>
+    ipcRenderer.invoke('notification:set-muted', pkg, app, muted) as Promise<void>,
+  clearNotificationApp: (pkg, app) =>
+    ipcRenderer.invoke('notifications:clear-app', pkg, app) as Promise<void>,
   sendNotificationReply: (key, actionId, text) =>
     ipcRenderer.invoke('notification:reply', key, actionId, text) as Promise<void>,
   sendNotificationAction: (key, actionId) =>

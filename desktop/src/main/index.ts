@@ -384,6 +384,16 @@ function registerIpc(): void {
     server.sendNotificationAction(key, actionId)
   })
 
+  ipcMain.handle('notification:set-muted', (_event, pkg: unknown, app: unknown, muted: unknown) => {
+    if (typeof pkg !== 'string' || typeof app !== 'string' || typeof muted !== 'boolean') return
+    store.setNotificationMuted(pkg, app, muted)
+  })
+
+  ipcMain.handle('notifications:clear-app', (_event, pkg: unknown, app: unknown) => {
+    if (typeof pkg !== 'string' || typeof app !== 'string') return
+    store.clearNotificationsForApp(pkg, app)
+  })
+
   ipcMain.handle('files:open-downloads', () => shell.openPath(store.downloadsDir))
 
   ipcMain.handle('sms:threads', () => server.requestSmsThreads())

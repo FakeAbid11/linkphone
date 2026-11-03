@@ -508,6 +508,7 @@ export class LinkServer extends EventEmitter {
           indeterminate: bool(raw.indeterminate),
           ongoing: bool(raw.ongoing)
         }
+        if (this.store.isNotificationMuted(item.pkg, item.app)) return
         const isNew = this.store.addNotification(item)
         if (isNew) this.emit('notification', item)
         return

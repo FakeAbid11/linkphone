@@ -75,7 +75,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.6.5</div>
+            <div className="brand-sub">Local network · v0.7.0</div>
           </div>
         </div>
 
@@ -162,12 +162,22 @@ export default function App(): JSX.Element {
           {tab === 'notifications' && (
             <NotificationsPanel
               notifications={state.notifications}
+              muted={state.mutedNotifications}
               onDismiss={(key) => void window.linkphone.dismissNotification(key)}
               onReply={(key, actionId, text) =>
                 void window.linkphone.sendNotificationReply(key, actionId, text)
               }
               onAction={(key, actionId) =>
                 void window.linkphone.sendNotificationAction(key, actionId)
+              }
+              onMuteApp={(pkg, app) =>
+                void window.linkphone.setNotificationMuted(pkg, app, true)
+              }
+              onUnmuteApp={(pkg, app) =>
+                void window.linkphone.setNotificationMuted(pkg, app, false)
+              }
+              onClearApp={(pkg, app) =>
+                void window.linkphone.clearNotificationApp(pkg, app)
               }
             />
           )}

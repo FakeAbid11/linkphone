@@ -12,6 +12,8 @@ export interface LinkPhoneApi {
   sendClipboard: (text: string) => Promise<void>
   clearNotifications: () => Promise<void>
   dismissNotification: (key: string) => Promise<void>
+  setNotificationMuted: (pkg: string, app: string, muted: boolean) => Promise<void>
+  clearNotificationApp: (pkg: string, app: string) => Promise<void>
   sendNotificationReply: (key: string, actionId: string, text: string) => Promise<void>
   sendNotificationAction: (key: string, actionId: string) => Promise<void>
   requestSmsThreads: () => Promise<void>

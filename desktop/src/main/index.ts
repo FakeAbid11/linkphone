@@ -58,7 +58,7 @@ function readLaunchAtLogin(): boolean {
     const settings = app.getLoginItemSettings({
       path: process.execPath,
       args: LOGIN_ITEM_ARGS
-    }) as Electron.LoginItemSettings & { launchItems?: LaunchItem[] }
+    }) as unknown as { launchItems?: LaunchItem[] }
     const expectedPath = path.normalize(process.execPath).toLowerCase()
     const match = (settings.launchItems ?? []).find((item) => {
       if (item.name?.toLowerCase() !== LOGIN_ITEM_NAME.toLowerCase()) return false

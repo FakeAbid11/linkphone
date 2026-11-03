@@ -7,6 +7,9 @@ export const PROTO_VERSION = 1
 export const SERVICE_TYPE = 'linkphone'
 export const DEFAULT_PORT = 8765
 export const MAX_FILE_CHUNK = 64 * 1024
+export const MAX_CONTACTS = 800
+export const MAX_CONTACT_NUMBERS = 5
+export const MAX_CALL_LOG = 200
 
 /** Binary frame plaintext kinds (first byte after decryption). */
 export const KIND_CONTROL = 0x10
@@ -128,6 +131,35 @@ export interface PhoneCallInfo {
   startedAt: number
 }
 
+export interface PhoneContactNumber {
+  number: string
+  label: string
+}
+
+export interface PhoneContact {
+  id: string
+  name: string
+  numbers: PhoneContactNumber[]
+}
+
+export type CallLogType =
+  | 'incoming'
+  | 'outgoing'
+  | 'missed'
+  | 'rejected'
+  | 'blocked'
+  | 'voicemail'
+  | 'unknown'
+
+export interface CallLogEntry {
+  id: string
+  number: string
+  name?: string
+  type: CallLogType
+  date: number
+  duration: number
+}
+
 export interface TransferItem {
   id: string
   name: string
@@ -183,6 +215,12 @@ export interface AppState {
   callSpeaker: boolean
   callMuted: boolean
   callError: string
+  phoneContacts: PhoneContact[]
+  contactsGranted: boolean
+  contactsLoading: boolean
+  callHistory: CallLogEntry[]
+  callLogGranted: boolean
+  callLogLoading: boolean
   launchAtLogin: boolean
   launchAtLoginSupported: boolean
   clipboardEnabled: boolean
@@ -490,6 +528,33 @@ export interface CallErrorMsg {
   error: string
 }
 
+/* Contacts and call history --------------------------------------------- */
+
+/** desktop -> phone */
+export interface ContactsRequestMsg {
+  t: 'contacts.request'
+}
+
+/** phone -> desktop */
+export interface ContactsSyncMsg {
+  t: 'contacts.sync'
+  contacts: PhoneContact[]
+  granted: boolean
+}
+
+/** desktop -> phone */
+export interface CallLogRequestMsg {
+  t: 'calllog.request'
+  limit?: number
+}
+
+/** phone -> desktop */
+export interface CallLogSyncMsg {
+  t: 'calllog.sync'
+  entries: CallLogEntry[]
+  granted: boolean
+}
+
 export type ControlMsg =
   | HelloMsg
   | HelloResultMsg
@@ -537,6 +602,10 @@ export type ControlMsg =
   | CallDisconnectMsg
   | CallSpeakerMsg
   | CallErrorMsg
+  | ContactsRequestMsg
+  | ContactsSyncMsg
+  | CallLogRequestMsg
+  | CallLogSyncMsg
 
 /** Loose view used when reading untrusted input off the wire. */
 export type RawMsg = { t?: unknown; [key: string]: unknown }

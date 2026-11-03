@@ -5,12 +5,14 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import type {
   AppState,
+  CallLogEntry,
   DesktopUpdateState,
   DeviceInfo,
   GalleryAlbum,
   GalleryPhoto,
   NotificationItem,
   PhoneCallInfo,
+  PhoneContact,
   Platform,
   SmsActiveThread,
   SmsMessage,
@@ -62,6 +64,12 @@ export class AppStore extends EventEmitter {
   private callSpeaker = false
   private callMuted = false
   private callError = ''
+  private phoneContacts: PhoneContact[] = []
+  private contactsGranted = false
+  private contactsLoading = false
+  private callHistory: CallLogEntry[] = []
+  private callLogGranted = false
+  private callLogLoading = false
   private live = new Map<string, DeviceInfo>()
   private addresses: string[] = []
   private addresses6: string[] = []
@@ -444,6 +452,54 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  /* ---------------- Contacts and call history ---------------- */
+
+  setContactsLoading(loading: boolean): void {
+    if (this.contactsLoading === loading) return
+    this.contactsLoading = loading
+    this.changed()
+  }
+
+  setPhoneContacts(contacts: PhoneContact[], granted: boolean): void {
+    this.phoneContacts = contacts
+    this.contactsGranted = granted
+    this.contactsLoading = false
+    this.changed()
+  }
+
+  setCallLogLoading(loading: boolean): void {
+    if (this.callLogLoading === loading) return
+    this.callLogLoading = loading
+    this.changed()
+  }
+
+  setCallHistory(entries: CallLogEntry[], granted: boolean): void {
+    this.callHistory = entries
+    this.callLogGranted = granted
+    this.callLogLoading = false
+    this.changed()
+  }
+
+  resetContacts(): void {
+    if (
+      this.phoneContacts.length === 0 &&
+      this.callHistory.length === 0 &&
+      !this.contactsLoading &&
+      !this.callLogLoading &&
+      !this.contactsGranted &&
+      !this.callLogGranted
+    ) {
+      return
+    }
+    this.phoneContacts = []
+    this.callHistory = []
+    this.contactsGranted = false
+    this.callLogGranted = false
+    this.contactsLoading = false
+    this.callLogLoading = false
+    this.changed()
+  }
+
   snapshot(): AppState {
     const devices: DeviceInfo[] = this.persisted.paired.map((d) => {
       const live = this.live.get(d.deviceId)
@@ -493,6 +549,12 @@ export class AppStore extends EventEmitter {
       callSpeaker: this.callSpeaker,
       callMuted: this.callMuted,
       callError: this.callError,
+      phoneContacts: this.phoneContacts,
+      contactsGranted: this.contactsGranted,
+      contactsLoading: this.contactsLoading,
+      callHistory: this.callHistory,
+      callLogGranted: this.callLogGranted,
+      callLogLoading: this.callLogLoading,
       launchAtLogin: this.launchAtLogin,
       launchAtLoginSupported: this.launchAtLoginSupported,
       clipboardEnabled: this.persisted.clipboardEnabled,

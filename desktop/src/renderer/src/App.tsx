@@ -4,6 +4,7 @@ import logo from './assets/logo.png'
 import { Icon, type IconName } from './components/Icon'
 import { ClipboardPanel } from './components/ClipboardPanel'
 import { CallsPanel } from './components/CallsPanel'
+import { ContactsPanel } from './components/ContactsPanel'
 import { DevicePanel } from './components/DevicePanel'
 import { FilesPanel } from './components/FilesPanel'
 import { MessagesPanel } from './components/MessagesPanel'
@@ -13,11 +14,20 @@ import { PhotosPanel } from './components/PhotosPanel'
 import { StartupPanel } from './components/StartupPanel'
 import { UpdatePanel } from './components/UpdatePanel'
 
-type Tab = 'notifications' | 'messages' | 'calls' | 'photos' | 'files' | 'clipboard' | 'settings'
+type Tab =
+  | 'notifications'
+  | 'messages'
+  | 'contacts'
+  | 'calls'
+  | 'photos'
+  | 'files'
+  | 'clipboard'
+  | 'settings'
 
 const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: 'notifications', label: 'Notifications', icon: 'notifications' },
   { id: 'messages', label: 'Messages', icon: 'sms' },
+  { id: 'contacts', label: 'Contacts', icon: 'contacts' },
   { id: 'calls', label: 'Calls', icon: 'call' },
   { id: 'photos', label: 'Photos', icon: 'photo_library' },
   { id: 'files', label: 'Files', icon: 'folder' },
@@ -60,7 +70,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.4.17</div>
+            <div className="brand-sub">Local network · v0.5.0</div>
           </div>
         </div>
 
@@ -74,6 +84,11 @@ export default function App(): JSX.Element {
               onClick={() => {
                 setTab(t.id)
                 if (t.id === 'messages') void window.linkphone.requestSmsThreads()
+                if (t.id === 'contacts') {
+                  void window.linkphone.requestContacts()
+                  void window.linkphone.requestSmsThreads()
+                }
+                if (t.id === 'calls') void window.linkphone.requestCallHistory()
                 if (t.id === 'photos') void window.linkphone.requestGalleryAlbums()
               }}
             >
@@ -169,17 +184,43 @@ export default function App(): JSX.Element {
               }
             />
           )}
+          {tab === 'contacts' && (
+            <ContactsPanel
+              contacts={state.phoneContacts}
+              threads={state.smsThreads}
+              granted={state.contactsGranted}
+              loading={state.contactsLoading}
+              threadsLoading={state.smsLoading}
+              connected={connected.length > 0}
+              dialerReady={state.callDialerReady}
+              onRefresh={() => void window.linkphone.requestContacts()}
+              onCall={(number) => {
+                setTab('calls')
+                void window.linkphone.placeCall(number)
+              }}
+              onMessage={(threadId, address) => {
+                setTab('messages')
+                void window.linkphone.openSmsThread(threadId, address)
+              }}
+            />
+          )}
           {tab === 'calls' && (
             <CallsPanel
               calls={state.phoneCalls}
               dialerReady={state.callDialerReady}
               speaker={state.callSpeaker}
               error={state.callError}
+              connected={connected.length > 0}
+              history={state.callHistory}
+              historyGranted={state.callLogGranted}
+              historyLoading={state.callLogLoading}
               onPlace={(number) => void window.linkphone.placeCall(number)}
               onAnswer={(callId) => void window.linkphone.answerCall(callId)}
               onReject={(callId) => void window.linkphone.rejectCall(callId)}
               onDisconnect={(callId) => void window.linkphone.disconnectCall(callId)}
               onSpeaker={(enabled) => void window.linkphone.setCallSpeaker(enabled)}
+              onRefreshHistory={() => void window.linkphone.requestCallHistory()}
+              onCall={(number) => void window.linkphone.placeCall(number)}
             />
           )}
           {tab === 'photos' && (

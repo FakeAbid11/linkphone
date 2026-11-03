@@ -299,6 +299,9 @@ function registerIpc(): void {
     server.setCallSpeaker(Boolean(enabled))
   })
 
+  ipcMain.handle('contacts:request', () => server.requestContacts())
+  ipcMain.handle('calllog:request', () => server.requestCallHistory())
+
   ipcMain.handle('shell:open', (_event, url: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) return shell.openExternal(url)
     return undefined

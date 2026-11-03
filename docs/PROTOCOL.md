@@ -160,6 +160,10 @@ The key used here is the one stored at pairing time, not a fresh PBKDF2 derivati
 | `call.disconnect` | PC → phone | `callId` |
 | `call.speaker` | PC → phone | `enabled` |
 | `call.error` | phone → PC | `error` |
+| `contacts.request` | PC → phone | — |
+| `contacts.sync` | phone → PC | `contacts[{id,name,numbers[{number,label}]}]`, `granted` |
+| `calllog.request` | PC → phone | `limit?` (1–200) |
+| `calllog.sync` | phone → PC | `entries[{id,number,name?,type,date,duration}]`, `granted` |
 | `ping` / `pong` | both | `ts` |
 
 ### SMS
@@ -202,6 +206,22 @@ Only signaling/control data uses this protocol. LinkPhone does not access, encod
 microphone or call audio; audio remains on the phone earpiece/speaker (or another route selected by
 Android). The phone includes its own minimal call UI and high-priority notification for PC-offline
 operation.
+
+### Contacts and call history
+
+Both lists are pull-only: the PC sends `contacts.request` / `calllog.request` when the Contacts or
+Calls tab opens, and the phone answers with a snapshot. Nothing is pushed on reconnect.
+
+`contacts.sync` requires optional `READ_CONTACTS`; the phone returns at most 800 contacts, each with
+up to 5 numbers and a localized type label. `calllog.sync` requires optional `READ_CALL_LOG` and
+returns at most the requested number of entries (default and maximum 200), newest first. `type` is
+one of `incoming`, `outgoing`, `missed`, `rejected`, `blocked`, `voicemail`, `unknown`; `date` is
+epoch milliseconds and `duration` is seconds.
+
+When a permission is missing, the phone still answers with the same frame, an empty list and
+`granted: false`, so the PC can show an actionable message instead of "no contacts/calls". Both
+readers are read-only; LinkPhone never modifies the provider. The older peer ignores these frames,
+so the protocol version is unchanged.
 
 ### File transfer
 

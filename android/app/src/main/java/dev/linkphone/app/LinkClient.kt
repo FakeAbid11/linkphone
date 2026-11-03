@@ -517,6 +517,8 @@ class LinkClient(context: Context, private val store: PairStore) {
             "call.reject" -> CallHub.reject(msg.optString("callId"))
             "call.disconnect" -> CallHub.disconnect(msg.optString("callId"))
             "call.speaker" -> CallHub.setSpeaker(msg.optBoolean("enabled"))
+            "contacts.request" -> scope.launch { sendContacts() }
+            "calllog.request" -> scope.launch { sendCallLog(msg.optInt("limit", 200)) }
         }
     }
 
@@ -803,6 +805,58 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     private fun sendCallError(detail: String) {
         send(JSONObject().apply { put("t", "call.error"); put("error", detail) })
+    }
+
+    /* ------------------------------------------------------------ */
+    /* Contacts and call history                                     */
+    /* ------------------------------------------------------------ */
+
+    private fun sendContacts() {
+        val repo = ContactsRepository.get(appContext)
+        val granted = repo.hasPermission()
+        val entries = if (granted) repo.list() else emptyList()
+        val contacts = JSONArray(entries.map { contact ->
+            JSONObject().apply {
+                put("id", contact.id)
+                put("name", contact.name)
+                put("numbers", JSONArray(contact.numbers.map { number ->
+                    JSONObject().apply {
+                        put("number", number.number)
+                        put("label", number.label)
+                    }
+                }))
+            }
+        })
+        send(
+            JSONObject().apply {
+                put("t", "contacts.sync")
+                put("contacts", contacts)
+                put("granted", granted)
+            }
+        )
+    }
+
+    private fun sendCallLog(limit: Int) {
+        val repo = CallLogRepository.get(appContext)
+        val granted = repo.hasPermission()
+        val entries = if (granted) repo.list(limit.coerceIn(1, 200)) else emptyList()
+        val callLog = JSONArray(entries.map { entry ->
+            JSONObject().apply {
+                put("id", entry.id)
+                put("number", entry.number)
+                put("name", entry.name)
+                put("type", entry.type)
+                put("date", entry.date)
+                put("duration", entry.duration)
+            }
+        })
+        send(
+            JSONObject().apply {
+                put("t", "calllog.sync")
+                put("entries", callLog)
+                put("granted", granted)
+            }
+        )
     }
 
     /* ------------------------------------------------------------ */

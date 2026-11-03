@@ -8,20 +8,26 @@ import {
   DEFAULT_PORT,
   KIND_CONTROL,
   KIND_FILE,
+  MAX_CALL_LOG,
+  MAX_CONTACTS,
+  MAX_CONTACT_NUMBERS,
   MAX_FILE_CHUNK,
   PROTO_VERSION,
   bool,
   isRawMsg,
   num,
   str,
+  type CallLogEntry,
+  type CallLogType,
   type ControlMsg,
   type FileOfferMsg,
   type GalleryAlbum,
   type GalleryPhoto,
   type NotificationAction,
   type NotificationItem,
-  type Platform,
   type PhoneCallInfo,
+  type PhoneContact,
+  type Platform,
   type RawMsg,
   type SmsMessage,
   type SmsThread,
@@ -44,6 +50,9 @@ type Phase = 'fresh' | 'awaitPair' | 'awaitAuth' | 'ready'
 const WINDOW_BYTES = 8 * MAX_FILE_CHUNK
 const ACK_TIMEOUT_MS = 30_000
 const GALLERY_PAGE_SIZE = 48
+// Gallery previews are base64 JPEGs in control frames, so allow up to 16 MiB;
+// contact and call-log lists are capped far below this.
+const MAX_PLAIN_CONTROL = 16 * 1024 * 1024
 
 class Outbound {
   acked = 0
@@ -241,6 +250,7 @@ export class LinkServer extends EventEmitter {
       if (peer.phase === 'ready') {
         this.ringingCallIds.clear()
         this.store.setCallState({ calls: [], dialerReady: false, speaker: false, muted: false })
+        this.store.resetContacts()
       }
       if (peer.deviceId) {
         this.store.markDisconnected(peer.deviceId)
@@ -426,6 +436,10 @@ export class LinkServer extends EventEmitter {
       plain = openFrame(peer.key, 'c2s', peer.recvSeq, data)
     } catch {
       peer.ws.close(1008, 'bad frame')
+      return
+    }
+    if (plain.length > MAX_PLAIN_CONTROL) {
+      peer.ws.close(1009, 'too large')
       return
     }
     const kind = plain.readUInt8(0)
@@ -641,6 +655,24 @@ export class LinkServer extends EventEmitter {
       case 'call.error':
         this.store.setCallError(str(msg.error, 'Call operation failed').slice(0, 500))
         return
+
+      case 'contacts.sync': {
+        const list = Array.isArray(msg.contacts) ? (msg.contacts as unknown[]) : []
+        this.store.setPhoneContacts(
+          list.filter(isRawMsg).map(parsePhoneContact).slice(0, MAX_CONTACTS),
+          bool(msg.granted)
+        )
+        return
+      }
+
+      case 'calllog.sync': {
+        const list = Array.isArray(msg.entries) ? (msg.entries as unknown[]) : []
+        this.store.setCallHistory(
+          list.filter(isRawMsg).map(parseCallLogEntry).slice(0, MAX_CALL_LOG),
+          bool(msg.granted)
+        )
+        return
+      }
 
       case 'pong':
         return
@@ -892,6 +924,25 @@ export class LinkServer extends EventEmitter {
     this.store.setCallError('')
     this.broadcast({ t: 'call.speaker', enabled })
   }
+
+  /* ---------------------------------------------------------------- */
+  /* Contacts and call history                                         */
+  /* ---------------------------------------------------------------- */
+
+  requestContacts(): void {
+    if (!this.hasConnectedPeer()) return
+    this.store.setContactsLoading(true)
+    this.broadcast({ t: 'contacts.request' })
+  }
+
+  requestCallHistory(limit = MAX_CALL_LOG): void {
+    if (!this.hasConnectedPeer()) return
+    this.store.setCallLogLoading(true)
+    this.broadcast({
+      t: 'calllog.request',
+      limit: Math.max(1, Math.min(MAX_CALL_LOG, Math.floor(limit)))
+    })
+  }
 }
 
 function parseSmsMessage(raw: RawMsg): SmsMessage {
@@ -951,6 +1002,45 @@ function imageData(
   if (!photoId || !/^image\/(?:jpeg|png|webp)$/i.test(mime)) return null
   if (!data || data.length > maxBase64Length || !/^[A-Za-z0-9+/=]+$/.test(data)) return null
   return { photoId, dataUrl: `data:${mime.toLowerCase()};base64,${data}` }
+}
+
+function parsePhoneContact(raw: RawMsg): PhoneContact {
+  const list = Array.isArray(raw.numbers) ? (raw.numbers as unknown[]) : []
+  const numbers = list
+    .filter(isRawMsg)
+    .map((item) => ({
+      number: str(item.number).slice(0, 40),
+      label: str(item.label, 'Phone').slice(0, 24)
+    }))
+    .filter((item) => item.number)
+    .slice(0, MAX_CONTACT_NUMBERS)
+  return {
+    id: str(raw.id).slice(0, 64) || crypto.randomUUID(),
+    name: str(raw.name).slice(0, 120),
+    numbers
+  }
+}
+
+function parseCallLogEntry(raw: RawMsg): CallLogEntry {
+  const allowed: CallLogType[] = [
+    'incoming',
+    'outgoing',
+    'missed',
+    'rejected',
+    'blocked',
+    'voicemail',
+    'unknown'
+  ]
+  const type = str(raw.type)
+  const name = str(raw.name).slice(0, 120)
+  return {
+    id: str(raw.id).slice(0, 64) || crypto.randomUUID(),
+    number: str(raw.number).slice(0, 40),
+    name: name || undefined,
+    type: allowed.includes(type as CallLogType) ? (type as CallLogType) : 'unknown',
+    date: Math.max(0, num(raw.date)),
+    duration: Math.max(0, Math.floor(num(raw.duration)))
+  }
 }
 
 function parsePhoneCall(raw: RawMsg): PhoneCallInfo {

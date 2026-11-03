@@ -236,6 +236,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
     var contactsAccess by remember { mutableStateOf(hasContactsAccess(context)) }
+    var callLogAccess by remember { mutableStateOf(hasCallLogAccess(context)) }
     var dialerRoleHeld by remember { mutableStateOf(CallHub.isDefaultDialer(context)) }
     var callPermissionsGranted by remember { mutableStateOf(hasCallPermissions(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -255,6 +256,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             smsAccess = hasSmsAccess(context)
             photoAccess = hasPhotoAccess(context)
             contactsAccess = hasContactsAccess(context)
+            callLogAccess = hasCallLogAccess(context)
             val nextDialer = CallHub.isDefaultDialer(context)
             if (nextDialer != dialerRoleHeld) {
                 dialerRoleHeld = nextDialer
@@ -304,6 +306,15 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         CallHub.refreshDialerRole(context)
         if (!callPermissionsGranted) {
             notice = "Call permission was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
+        }
+    }
+
+    val callLogPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        callLogAccess = hasCallLogAccess(context)
+        if (!callLogAccess) {
+            notice = "Call-history access was denied. Allow Call logs in Settings → Apps → LinkPhone → Permissions."
         }
     }
 
@@ -549,13 +560,30 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     CardTitle(Symbols.contacts, "Contact names")
                     Text(
-                        "Allow contact access to show names instead of numbers in Messages and Calls.",
+                        "Allow contact access to show names instead of numbers and to browse your " +
+                            "contact list from the PC.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                     OutlinedButton(onClick = {
                         contactsPermission.launch(Manifest.permission.READ_CONTACTS)
                     }) { ButtonLabel(Symbols.contacts, "Allow contact access") }
+                }
+            }
+        }
+
+        if (!callLogAccess) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CardTitle(Symbols.call, "Call history")
+                    Text(
+                        "Allow call-log access to see recent calls and call back from the PC.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    OutlinedButton(onClick = {
+                        callLogPermission.launch(Manifest.permission.READ_CALL_LOG)
+                    }) { ButtonLabel(Symbols.call, "Allow call-history access") }
                 }
             }
         }
@@ -755,6 +783,10 @@ private fun photoPermissions(): Array<String> = when {
 
 private fun hasContactsAccess(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
+        PackageManager.PERMISSION_GRANTED
+
+private fun hasCallLogAccess(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) ==
         PackageManager.PERMISSION_GRANTED
 
 private fun hasCallPermissions(context: Context): Boolean =

@@ -137,6 +137,25 @@ On Windows open **Calls**.
 Do not use LinkPhone call control to test emergency numbers. Restore the previous dialer under
 Android Settings → Apps → Default apps → Phone app if you no longer want LinkPhone handling calls.
 
+## 9b. Contacts and recent calls
+
+On the phone grant **Contact access** and **Call history** (Call logs), then open **Contacts** and
+**Calls** on Windows.
+
+* ✅ Contacts lists names, numbers and labels; search matches both names and digits.
+* ✅ The call button places a call through the phone (it is disabled until the default-phone card is
+  complete).
+* ✅ **Message** opens an existing SMS conversation; a number with no thread shows
+  “No SMS thread yet — start one on the phone.”
+* ✅ Recent calls shows direction, relative time and talk duration; the call button redials.
+* ✅ **Refresh** repopulates both tabs; reopening either tab also refreshes.
+* ✅ Revoke Call logs in Android settings and refresh: the PC explains that call history is off
+  instead of showing an empty list.
+* ❌ Contacts refused → allow Contact access on the phone and refresh.
+* ❌ After upgrading only the PC, the lists stay empty with an update hint; install the matching APK.
+* ✅ A phone book with 500+ contacts scrolls and searches without visible stalls; only the first 200
+  matches render.
+
 ## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.

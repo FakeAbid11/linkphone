@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react'
-import type { PhoneCallInfo } from '@shared/protocol'
+import type { CallLogEntry, PhoneCallInfo } from '@shared/protocol'
 import { Icon } from './Icon'
+import { callDuration, relativeTime } from '../lib/phone'
 
 interface Props {
   calls: PhoneCallInfo[]
   dialerReady: boolean
   speaker: boolean
   error: string
+  connected: boolean
+  history: CallLogEntry[]
+  historyGranted: boolean
+  historyLoading: boolean
   onPlace: (number: string) => void
   onAnswer: (callId: string) => void
   onReject: (callId: string) => void
   onDisconnect: (callId: string) => void
   onSpeaker: (enabled: boolean) => void
+  onRefreshHistory: () => void
+  onCall: (number: string) => void
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
@@ -21,11 +28,17 @@ export function CallsPanel({
   dialerReady,
   speaker,
   error,
+  connected,
+  history,
+  historyGranted,
+  historyLoading,
   onPlace,
   onAnswer,
   onReject,
   onDisconnect,
-  onSpeaker
+  onSpeaker,
+  onRefreshHistory,
+  onCall
 }: Props): JSX.Element {
   const [number, setNumber] = useState('')
   const [now, setNow] = useState(Date.now())
@@ -106,6 +119,74 @@ export function CallsPanel({
           </button>
         </div>
       )}
+
+      <div className="recent-calls">
+        <div className="files-head">
+          <h2>Recent calls</h2>
+          <button
+            className="link-btn"
+            onClick={onRefreshHistory}
+            disabled={!connected}
+          >
+            {historyLoading ? (
+              'Loading…'
+            ) : (
+              <>
+                <Icon name="refresh" size={18} /> Refresh
+              </>
+            )}
+          </button>
+        </div>
+
+        {!connected ? (
+          <p className="muted recent-empty">Connect your phone to see recent calls.</p>
+        ) : !historyGranted && !historyLoading ? (
+          <p className="muted recent-empty">
+            Call history is off. Allow Call history in LinkPhone on your phone.
+          </p>
+        ) : historyLoading && history.length === 0 ? (
+          <p className="muted recent-empty">Loading recent calls…</p>
+        ) : history.length === 0 ? (
+          <p className="muted recent-empty">No recent calls.</p>
+        ) : (
+          <ul className="recent-list">
+            {history.map((entry) => {
+              const missed =
+                entry.type === 'missed' || entry.type === 'rejected' || entry.type === 'blocked'
+              return (
+                <li key={`${entry.id}-${entry.date}`} className="recent-row">
+                  <div className={`recent-icon ${missed ? 'recent-missed' : ''}`}>
+                    <Icon name={missed ? 'call_end' : 'call'} size={18} />
+                  </div>
+                  <div className="recent-body">
+                    <div className="recent-top">
+                      <span className="recent-name">{entry.name || entry.number || 'Unknown'}</span>
+                      <span className="muted recent-time">{relativeTime(entry.date)}</span>
+                    </div>
+                    <div className="recent-meta">
+                      <span>{logLabel(entry.type)}</span>
+                      {entry.duration > 0 && !missed && (
+                        <span> · {callDuration(entry.duration)}</span>
+                      )}
+                      {entry.name && entry.number && (
+                        <span className="muted"> · {entry.number}</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    className="icon-btn"
+                    title={dialerReady ? `Call ${entry.number}` : 'Calling needs the default phone app'}
+                    disabled={!dialerReady || !entry.number}
+                    onClick={() => onCall(entry.number)}
+                  >
+                    <Icon name="call" size={18} />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }
@@ -168,6 +249,25 @@ function CallCard({
       )}
     </div>
   )
+}
+
+function logLabel(type: CallLogEntry['type']): string {
+  switch (type) {
+    case 'incoming':
+      return 'Incoming'
+    case 'outgoing':
+      return 'Outgoing'
+    case 'missed':
+      return 'Missed'
+    case 'rejected':
+      return 'Declined'
+    case 'blocked':
+      return 'Blocked'
+    case 'voicemail':
+      return 'Voicemail'
+    default:
+      return 'Call'
+  }
 }
 
 function phaseLabel(phase: PhoneCallInfo['phase']): string {

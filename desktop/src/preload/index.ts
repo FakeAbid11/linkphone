@@ -18,6 +18,8 @@ const api: LinkPhoneApi = {
   dismissNotification: (key) => ipcRenderer.invoke('notification:dismiss', key) as Promise<void>,
   sendNotificationReply: (key, actionId, text) =>
     ipcRenderer.invoke('notification:reply', key, actionId, text) as Promise<void>,
+  sendNotificationAction: (key, actionId) =>
+    ipcRenderer.invoke('notification:action', key, actionId) as Promise<void>,
   requestSmsThreads: () => ipcRenderer.invoke('sms:threads') as Promise<void>,
   openSmsThread: (threadId, address) =>
     ipcRenderer.invoke('sms:thread', threadId, address) as Promise<void>,

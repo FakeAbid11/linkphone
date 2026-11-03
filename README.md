@@ -32,14 +32,14 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.5.0** adds a searchable contacts list and recent-call history with click-to-call on the PC.
+> **v0.5.1** adds notification quick actions and opens the source app from the PC.
 
 ## Features
 
 | Feature | Status | Detail |
 |---|---|---|
 | Pairing and discovery | Yes | QR or 8-character code; mDNS, with an IPv6 link-local fallback |
-| Notification mirroring | Yes | Tap-to-open, dismiss sync and inline reply from the PC |
+| Notification mirroring | Yes | Open the source app, run notification actions, dismiss and reply from the PC |
 | SMS | Partial | Existing threads only; no MMS or new conversations |
 | Contacts and call history | Yes | Search, call back and open an existing SMS thread |
 | Phone calls | Partial | Dial, answer, decline and hang up; audio stays on the phone |
@@ -67,7 +67,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”).
-3. **PC:** run `LinkPhone.Setup.0.5.0.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.5.1.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
    and point the camera at the PC.
@@ -187,6 +187,15 @@ on the phone, then pair again.
 Since v0.4.9 the QR also embeds the PC's link-local IPv6 address, tried after the IPv4 addresses, so
 pairing can work without a router change. USB tethering and the phone hotspot remain fallbacks for
 networks that block both families.
+
+</details>
+
+<details>
+<summary><strong>Notification actions or open do nothing</strong></summary>
+
+The phone's OEM may block background activity starts. On HyperOS, allow LinkPhone to autostart and
+to display pop-up windows while running in the background; then retry the action. Inline reply still
+works without those permissions.
 
 </details>
 

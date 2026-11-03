@@ -166,6 +166,13 @@ The key used here is the one stored at pairing time, not a fresh PBKDF2 derivati
 | `calllog.sync` | phone → PC | `entries[{id,number,name?,type,date,duration}]`, `granted` |
 | `ping` / `pong` | both | `ts` |
 
+### Notifications
+
+`notif.post.actions` is a list of `{id, label, reply}`. `id` is either `content` (the notification's
+tap intent) or the original zero-based index into the phone notification's action list. `content` is
+present only when a tap intent exists, so the PC can open the source app; `reply: true` marks the
+free-form reply action used by `notif.action.replyText`. Unknown IDs are ignored by older peers.
+
 ### SMS
 
 The phone reads the `Telephony.Sms` provider after runtime `READ_SMS` permission and sends through

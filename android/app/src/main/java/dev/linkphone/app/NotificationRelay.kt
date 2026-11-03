@@ -47,14 +47,23 @@ class NotificationRelay : NotificationListenerService() {
             packageManager.getApplicationLabel(info).toString()
         }.getOrDefault(sbn.packageName)
 
-        val actions = mutableListOf<Pair<String, Boolean>>()
-        var canReply = false
-        notification.actions?.forEach { action ->
-            val label = action.title?.toString() ?: return@forEach
-            val isReply = action.remoteInputs?.any { it.allowFreeFormInput } == true
-            if (isReply) canReply = true
-            actions.add(label to isReply)
+        val actions = mutableListOf<OutgoingAction>()
+        if (notification.contentIntent != null) {
+            actions.add(OutgoingAction("content", "Open", false))
         }
+        notification.actions?.forEachIndexed { index, action ->
+            if (actions.size >= MAX_ACTIONS) return@forEachIndexed
+            if (action.actionIntent == null) return@forEachIndexed
+            val label = action.title?.toString()
+                ?.replace(Regex("[\\r\\n\\t]+"), " ")
+                ?.trim()
+                ?.take(24)
+                ?.takeIf { it.isNotEmpty() }
+                ?: return@forEachIndexed
+            val isReply = action.remoteInputs?.any { it.allowFreeFormInput } == true
+            actions.add(OutgoingAction(index.toString(), label, isReply))
+        }
+        val canReply = actions.any { it.reply }
 
         client.sendNotification(
             OutgoingNotification(
@@ -65,7 +74,7 @@ class NotificationRelay : NotificationListenerService() {
                 text = text,
                 whenTs = sbn.postTime,
                 canReply = canReply,
-                actions = actions.take(4)
+                actions = actions
             )
         )
     }
@@ -77,6 +86,17 @@ class NotificationRelay : NotificationListenerService() {
 
     private fun handleAction(key: String, actionId: String, replyText: String) {
         val sbn = activeNotifications?.firstOrNull { it.key == key } ?: return
+        if (actionId == "content") {
+            val content = sbn.notification.contentIntent ?: return
+            try {
+                content.send()
+            } catch (e: PendingIntent.CanceledException) {
+                Log.w("LinkPhone", "notification content intent canceled", e)
+            } catch (e: SecurityException) {
+                Log.w("LinkPhone", "notification content intent denied", e)
+            }
+            return
+        }
         val index = actionId.toIntOrNull() ?: return
         val action = sbn.notification.actions?.getOrNull(index) ?: return
 
@@ -97,6 +117,8 @@ class NotificationRelay : NotificationListenerService() {
     }
 
     companion object {
+        private const val MAX_ACTIONS = 4
+
         @Volatile private var instance: NotificationRelay? = null
 
         fun deliver(key: String, actionId: String, replyText: String) {

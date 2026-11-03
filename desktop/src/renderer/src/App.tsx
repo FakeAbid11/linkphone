@@ -70,7 +70,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.5.0</div>
+            <div className="brand-sub">Local network · v0.5.1</div>
           </div>
         </div>
 
@@ -156,6 +156,9 @@ export default function App(): JSX.Element {
               onDismiss={(key) => void window.linkphone.dismissNotification(key)}
               onReply={(key, actionId, text) =>
                 void window.linkphone.sendNotificationReply(key, actionId, text)
+              }
+              onAction={(key, actionId) =>
+                void window.linkphone.sendNotificationAction(key, actionId)
               }
             />
           )}

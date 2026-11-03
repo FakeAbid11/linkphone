@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import type { SmsActiveThread, SmsThread } from '@shared/protocol'
+import type { SimInfo, SmsActiveThread, SmsThread } from '@shared/protocol'
 import { Icon } from './Icon'
 
 interface Props {
   threads: SmsThread[]
   active: SmsActiveThread | null
   loading: boolean
+  sims: SimInfo[]
   onRefresh: () => void
   onOpen: (threadId: string, address: string) => void
   onClose: () => void
-  onSend: (threadId: string, address: string, body: string) => void
+  onSend: (threadId: string, address: string, body: string, subscriptionId?: number) => void
 }
 
 function time(ts: number): string {
@@ -26,23 +27,45 @@ export function MessagesPanel({
   threads,
   active,
   loading,
+  sims,
   onRefresh,
   onOpen,
   onClose,
   onSend
 }: Props): JSX.Element {
   const [draft, setDraft] = useState('')
+  const [simId, setSimId] = useState('')
   const endRef = useRef<HTMLDivElement | null>(null)
+  const defaultSimId = sims.find((sim) => sim.isDefault)?.id ?? sims[0]?.id ?? ''
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' })
   }, [active?.messages.length])
 
+  useEffect(() => {
+    if (!active) return
+    const newest = [...active.messages]
+      .reverse()
+      .find((message) => message.subscriptionId !== undefined)
+    setSimId(
+      newest?.subscriptionId !== undefined ? String(newest.subscriptionId) : defaultSimId
+    )
+  }, [active?.threadId, defaultSimId])
+
+  useEffect(() => {
+    if (simId && !sims.some((sim) => sim.id === simId)) setSimId(defaultSimId)
+  }, [sims, simId, defaultSimId])
+
   if (active) {
     const send = (): void => {
       const body = draft.trim()
       if (!body) return
-      onSend(active.threadId, active.address, body)
+      onSend(
+        active.threadId,
+        active.address,
+        body,
+        simId ? Number(simId) : undefined
+      )
       setDraft('')
     }
 
@@ -71,6 +94,7 @@ export function MessagesPanel({
                   {time(m.date)}
                   {m.pending ? ' · sending' : ''}
                   {m.failed ? ' · failed' : ''}
+                  {m.simLabel ? ` · ${m.simLabel}` : ''}
                 </div>
               </div>
             </div>
@@ -79,6 +103,22 @@ export function MessagesPanel({
         </div>
 
         <div className="sms-compose">
+          {sims.length > 0 && (
+            <select
+              className="sim-select"
+              value={simId}
+              title="Send using"
+              onChange={(e) => setSimId(e.target.value)}
+            >
+              <option value="">Phone default</option>
+              {sims.map((sim) => (
+                <option key={sim.id} value={sim.id}>
+                  {sim.label}
+                  {sim.isDefault ? ' (default)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             autoFocus
             value={draft}

@@ -237,6 +237,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
     var contactsAccess by remember { mutableStateOf(hasContactsAccess(context)) }
     var callLogAccess by remember { mutableStateOf(hasCallLogAccess(context)) }
+    var simAccess by remember { mutableStateOf(hasSimAccess(context)) }
     var dialerRoleHeld by remember { mutableStateOf(CallHub.isDefaultDialer(context)) }
     var callPermissionsGranted by remember { mutableStateOf(hasCallPermissions(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -257,6 +258,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             photoAccess = hasPhotoAccess(context)
             contactsAccess = hasContactsAccess(context)
             callLogAccess = hasCallLogAccess(context)
+            simAccess = hasSimAccess(context)
             val nextDialer = CallHub.isDefaultDialer(context)
             if (nextDialer != dialerRoleHeld) {
                 dialerRoleHeld = nextDialer
@@ -315,6 +317,16 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         callLogAccess = hasCallLogAccess(context)
         if (!callLogAccess) {
             notice = "Call-history access was denied. Allow Call logs in Settings → Apps → LinkPhone → Permissions."
+        }
+    }
+
+    val simPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        simAccess = hasSimAccess(context)
+        SimRepository.get(context).reload()
+        if (!simAccess) {
+            notice = "Phone access was denied. SIM selection stays on the default SIM."
         }
     }
 
@@ -588,6 +600,22 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             }
         }
 
+        if (smsAccess && !simAccess) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CardTitle(Symbols.smartphone, "Choose a SIM")
+                    Text(
+                        "Allow phone access to label texts and calls by SIM and pick a SIM from the PC.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    OutlinedButton(onClick = {
+                        simPermission.launch(Manifest.permission.READ_PHONE_STATE)
+                    }) { ButtonLabel(Symbols.smartphone, "Allow phone access") }
+                }
+            }
+        }
+
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 CardTitle(Symbols.call, "Calls from your PC")
@@ -787,6 +815,10 @@ private fun hasContactsAccess(context: Context): Boolean =
 
 private fun hasCallLogAccess(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) ==
+        PackageManager.PERMISSION_GRANTED
+
+private fun hasSimAccess(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
         PackageManager.PERMISSION_GRANTED
 
 private fun hasCallPermissions(context: Context): Boolean =

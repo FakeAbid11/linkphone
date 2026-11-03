@@ -24,8 +24,8 @@ const api: LinkPhoneApi = {
   openSmsThread: (threadId, address) =>
     ipcRenderer.invoke('sms:thread', threadId, address) as Promise<void>,
   closeSmsThread: () => ipcRenderer.invoke('sms:close') as Promise<void>,
-  sendSms: (threadId, address, body) =>
-    ipcRenderer.invoke('sms:send', threadId, address, body) as Promise<void>,
+  sendSms: (threadId, address, body, subscriptionId) =>
+    ipcRenderer.invoke('sms:send', threadId, address, body, subscriptionId) as Promise<void>,
   requestGalleryAlbums: () => ipcRenderer.invoke('gallery:albums') as Promise<void>,
   openGalleryAlbum: (albumId, name) =>
     ipcRenderer.invoke('gallery:album', albumId, name) as Promise<void>,
@@ -42,13 +42,15 @@ const api: LinkPhoneApi = {
   checkDesktopUpdate: () => ipcRenderer.invoke('update:check') as Promise<void>,
   downloadDesktopUpdate: () => ipcRenderer.invoke('update:download') as Promise<void>,
   installDesktopUpdate: () => ipcRenderer.send('update:install'),
-  placeCall: (number) => ipcRenderer.invoke('call:place', number) as Promise<void>,
+  placeCall: (number, accountId) =>
+    ipcRenderer.invoke('call:place', number, accountId) as Promise<void>,
   answerCall: (callId) => ipcRenderer.invoke('call:answer', callId) as Promise<void>,
   rejectCall: (callId) => ipcRenderer.invoke('call:reject', callId) as Promise<void>,
   disconnectCall: (callId) => ipcRenderer.invoke('call:disconnect', callId) as Promise<void>,
   setCallSpeaker: (enabled) => ipcRenderer.invoke('call:speaker', enabled) as Promise<void>,
   requestContacts: () => ipcRenderer.invoke('contacts:request') as Promise<void>,
   requestCallHistory: () => ipcRenderer.invoke('calllog:request') as Promise<void>,
+  requestSims: () => ipcRenderer.invoke('sims:request') as Promise<void>,
   setClipboardEnabled: (enabled) =>
     ipcRenderer.invoke('clipboard:enable', enabled) as Promise<void>,
   setLaunchAtLogin: (enabled) =>

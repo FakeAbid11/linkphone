@@ -1,9 +1,11 @@
 package dev.linkphone.app
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.CallLog
+import android.telecom.PhoneAccountHandle
 import android.util.Log
 import androidx.core.content.ContextCompat
 
@@ -13,7 +15,8 @@ data class CallLogEntry(
     val name: String,
     val type: String,
     val date: Long,
-    val duration: Long
+    val duration: Long,
+    val simLabel: String = ""
 )
 
 /** Reads the phone's recent call log for the PC hub; requires READ_CALL_LOG. */
@@ -38,7 +41,9 @@ class CallLogRepository private constructor(private val context: Context) {
                     CallLog.Calls.CACHED_NAME,
                     CallLog.Calls.TYPE,
                     CallLog.Calls.DATE,
-                    CallLog.Calls.DURATION
+                    CallLog.Calls.DURATION,
+                    CallLog.Calls.PHONE_ACCOUNT_ID,
+                    CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME
                 ),
                 null,
                 null,
@@ -50,12 +55,33 @@ class CallLogRepository private constructor(private val context: Context) {
                 val typeIndex = cursor.getColumnIndex(CallLog.Calls.TYPE)
                 val dateIndex = cursor.getColumnIndex(CallLog.Calls.DATE)
                 val durationIndex = cursor.getColumnIndex(CallLog.Calls.DURATION)
+                val accountIndex = cursor.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
+                val componentIndex = cursor.getColumnIndex(
+                    CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME
+                )
                 if (idIndex < 0 || numberIndex < 0 || typeIndex < 0 || dateIndex < 0) return@use
 
                 while (cursor.moveToNext() && entries.size < capped) {
                     val number = cursor.getString(numberIndex)?.trim().orEmpty()
                     val cached = if (nameIndex >= 0) {
                         cursor.getString(nameIndex)?.trim().orEmpty()
+                    } else {
+                        ""
+                    }
+                    val accountId = if (accountIndex >= 0) {
+                        cursor.getString(accountIndex)
+                    } else {
+                        null
+                    }
+                    val component = if (componentIndex >= 0) {
+                        cursor.getString(componentIndex)
+                    } else {
+                        null
+                    }
+                    val simLabel = if (!accountId.isNullOrBlank() && !component.isNullOrBlank()) {
+                        val name = ComponentName.unflattenFromString(component)
+                        val handle = name?.let { PhoneAccountHandle(it, accountId) }
+                        handle?.let { SimRepository.get(context).labelForAccount(it) }.orEmpty()
                     } else {
                         ""
                     }
@@ -70,7 +96,8 @@ class CallLogRepository private constructor(private val context: Context) {
                                 cursor.getLong(durationIndex)
                             } else {
                                 0L
-                            }
+                            },
+                            simLabel = simLabel
                         )
                     )
                 }

@@ -1795,3 +1795,40 @@ button {
 .notif-action:hover {
   background: rgba(255, 255, 255, 0.07);
 }
+
+.sim-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sim-row label {
+  display: block;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.sim-select {
+  min-width: 0;
+  max-width: 230px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.sim-select:focus {
+  border-color: var(--accent-dim);
+}
+
+.sms-compose .sim-select {
+  flex: 0 0 auto;
+  max-width: 140px;
+}

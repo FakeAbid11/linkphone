@@ -155,6 +155,9 @@ private fun PhoneCallScreen(
         if (call.displayName.isNotBlank() && call.number.isNotBlank()) {
             Text(call.number, color = Color(0xFFB3B3B3), fontSize = 14.sp)
         }
+        call.simLabel?.takeIf { it.isNotBlank() }?.let {
+            Text(it, color = Color(0xFFB3B3B3), fontSize = 12.sp)
+        }
         Text(
             call.phase.label(),
             modifier = Modifier.padding(top = 6.dp, bottom = 24.dp),

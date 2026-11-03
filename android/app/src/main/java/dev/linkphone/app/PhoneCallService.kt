@@ -38,7 +38,8 @@ data class PhoneCallInfo(
     val displayName: String,
     val phase: PhoneCallPhase,
     val incoming: Boolean,
-    val startedAt: Long
+    val startedAt: Long,
+    val simLabel: String? = null
 )
 
 data class PhoneCallSnapshot(
@@ -75,7 +76,7 @@ object CallHub {
             ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
             PackageManager.PERMISSION_GRANTED
 
-    fun placeCall(context: Context, rawNumber: String): Result<Unit> = runCatching {
+    fun placeCall(context: Context, rawNumber: String, accountId: String? = null): Result<Unit> = runCatching {
         if (!isDefaultDialer(context)) error("Set LinkPhone as the default phone app first")
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) !=
             PackageManager.PERMISSION_GRANTED
@@ -86,7 +87,15 @@ object CallHub {
         if (number.length > 64) error("Phone number is too long")
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
-        telecom.placeCall(Uri.fromParts("tel", number, null), Bundle())
+        val extras = Bundle()
+        if (!accountId.isNullOrBlank()) {
+            val sims = SimRepository.get(context)
+            if (!sims.hasPermission()) error("Phone access is needed to choose a SIM")
+            val handle = sims.accountHandle(accountId)
+                ?: error("That SIM is no longer available")
+            extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, handle)
+        }
+        telecom.placeCall(Uri.fromParts("tel", number, null), extras)
     }
 
     fun answer(callId: String) = main.post { runCatching { PhoneCallService.instance?.answer(callId) } }
@@ -208,13 +217,17 @@ class PhoneCallService : InCallService() {
         val number = info.handle?.schemeSpecificPart.orEmpty().ifBlank { "Unknown" }
         val resolved = info.callerDisplayName?.toString().orEmpty()
             .ifBlank { ContactsRepository.get(this@PhoneCallService).nameFor(number).orEmpty() }
+        val simLabel = info.accountHandle?.let {
+            SimRepository.get(this@PhoneCallService).labelForAccount(it)
+        }
         return PhoneCallInfo(
             id = id,
             number = number,
             displayName = resolved,
             phase = state.toPhase(),
             incoming = incoming,
-            startedAt = connectedAt
+            startedAt = connectedAt,
+            simLabel = simLabel
         )
     }
 

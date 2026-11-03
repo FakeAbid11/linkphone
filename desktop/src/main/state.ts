@@ -5,6 +5,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import type {
   AppState,
+  CallAccountInfo,
   CallLogEntry,
   DesktopUpdateState,
   DeviceInfo,
@@ -17,6 +18,7 @@ import type {
   SmsActiveThread,
   SmsMessage,
   SmsThread,
+  SimInfo,
   TransferItem
 } from '../shared/protocol'
 
@@ -67,6 +69,10 @@ export class AppStore extends EventEmitter {
   private phoneContacts: PhoneContact[] = []
   private contactsGranted = false
   private contactsLoading = false
+  private phoneSims: SimInfo[] = []
+  private callAccounts: CallAccountInfo[] = []
+  private simsGranted = false
+  private simsLoading = false
   private callHistory: CallLogEntry[] = []
   private callLogGranted = false
   private callLogLoading = false
@@ -480,6 +486,40 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  setSimsLoading(loading: boolean): void {
+    if (this.simsLoading === loading) return
+    this.simsLoading = loading
+    this.changed()
+  }
+
+  setSims(sms: SimInfo[], call: CallAccountInfo[], granted: boolean): void {
+    this.phoneSims = sms
+    this.callAccounts = call
+    this.simsGranted = granted
+    this.simsLoading = false
+    this.changed()
+  }
+
+  simLabelFor(subscriptionId: number): string | undefined {
+    return this.phoneSims.find((sim) => sim.id === String(subscriptionId))?.label
+  }
+
+  resetSims(): void {
+    if (
+      this.phoneSims.length === 0 &&
+      this.callAccounts.length === 0 &&
+      !this.simsGranted &&
+      !this.simsLoading
+    ) {
+      return
+    }
+    this.phoneSims = []
+    this.callAccounts = []
+    this.simsGranted = false
+    this.simsLoading = false
+    this.changed()
+  }
+
   resetContacts(): void {
     if (
       this.phoneContacts.length === 0 &&
@@ -552,6 +592,10 @@ export class AppStore extends EventEmitter {
       phoneContacts: this.phoneContacts,
       contactsGranted: this.contactsGranted,
       contactsLoading: this.contactsLoading,
+      phoneSims: this.phoneSims,
+      callAccounts: this.callAccounts,
+      simsGranted: this.simsGranted,
+      simsLoading: this.simsLoading,
       callHistory: this.callHistory,
       callLogGranted: this.callLogGranted,
       callLogLoading: this.callLogLoading,

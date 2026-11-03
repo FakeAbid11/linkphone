@@ -28,7 +28,8 @@ class SmsRepository(private val context: Context) {
         val name: String,
         val snippet: String,
         val date: Long,
-        val count: Int
+        val count: Int,
+        val subscriptionId: Int? = null
     )
 
     data class Message(
@@ -39,7 +40,8 @@ class SmsRepository(private val context: Context) {
         val body: String,
         val date: Long,
         val outgoing: Boolean,
-        val failed: Boolean = false
+        val failed: Boolean = false,
+        val subscriptionId: Int? = null
     )
 
     private val resolver = context.contentResolver
@@ -73,6 +75,7 @@ class SmsRepository(private val context: Context) {
                 val addressIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
                 val bodyIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
                 val dateIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
+                val subIndex = cursor.getColumnIndex(Telephony.Sms.SUBSCRIPTION_ID)
 
                 while (cursor.moveToNext() && scanned < MAX_SCAN) {
                     scanned += 1
@@ -90,7 +93,12 @@ class SmsRepository(private val context: Context) {
                         name = contacts.nameFor(address).orEmpty(),
                         snippet = cursor.getString(bodyIndex).orEmpty().take(160),
                         date = cursor.getLong(dateIndex),
-                        count = 1
+                        count = 1,
+                        subscriptionId = if (subIndex >= 0) {
+                            cursor.getInt(subIndex).takeIf { it >= 0 }
+                        } else {
+                            null
+                        }
                     )
                 }
             }
@@ -126,8 +134,8 @@ class SmsRepository(private val context: Context) {
         return threadId
     }
 
-    fun send(address: String, body: String): Result<Unit> = runCatching {
-        val manager = smsManager() ?: error("SMS is not available on this device")
+    fun send(address: String, body: String, subscriptionId: Int? = null): Result<Unit> = runCatching {
+        val manager = smsManager(subscriptionId) ?: error("SMS is not available on this device")
         val parts = manager.divideMessage(body)
         if (parts.size > 1) {
             manager.sendMultipartTextMessage(address, null, parts, null, null)
@@ -136,13 +144,23 @@ class SmsRepository(private val context: Context) {
         }
     }
 
-    private fun smsManager(): SmsManager? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    private fun smsManager(subscriptionId: Int? = null): SmsManager? {
+        if (subscriptionId != null && subscriptionId >= 0) {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                context.getSystemService(SmsManager::class.java)
+                    ?.createForSubscriptionId(subscriptionId)
+            } else {
+                @Suppress("DEPRECATION")
+                SmsManager.getSmsManagerForSubscriptionId(subscriptionId)
+            }
+        }
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             context.getSystemService(SmsManager::class.java)
         } else {
             @Suppress("DEPRECATION")
             SmsManager.getDefault()
         }
+    }
 
     private fun query(selection: String, args: Array<String>): List<Message> {
         val out = ArrayList<Message>()
@@ -159,6 +177,7 @@ class SmsRepository(private val context: Context) {
                     val address = cursor.getString(
                         cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
                     ).orEmpty()
+                    val subIndex = cursor.getColumnIndex(Telephony.Sms.SUBSCRIPTION_ID)
                     out.add(
                         Message(
                             id = cursor.getString(cursor.getColumnIndexOrThrow(Telephony.Sms._ID))
@@ -175,7 +194,12 @@ class SmsRepository(private val context: Context) {
                             outgoing = type == Telephony.Sms.MESSAGE_TYPE_SENT ||
                                 type == Telephony.Sms.MESSAGE_TYPE_OUTBOX ||
                                 type == Telephony.Sms.MESSAGE_TYPE_QUEUED,
-                            failed = type == Telephony.Sms.MESSAGE_TYPE_FAILED
+                            failed = type == Telephony.Sms.MESSAGE_TYPE_FAILED,
+                            subscriptionId = if (subIndex >= 0) {
+                                cursor.getInt(subIndex).takeIf { it >= 0 }
+                            } else {
+                                null
+                            }
                         )
                     )
                 }
@@ -196,7 +220,8 @@ class SmsRepository(private val context: Context) {
             Telephony.Sms.THREAD_ID,
             Telephony.Sms.ADDRESS,
             Telephony.Sms.BODY,
-            Telephony.Sms.DATE
+            Telephony.Sms.DATE,
+            Telephony.Sms.SUBSCRIPTION_ID
         )
 
         private val MESSAGE_PROJECTION = arrayOf(
@@ -205,7 +230,8 @@ class SmsRepository(private val context: Context) {
             Telephony.Sms.ADDRESS,
             Telephony.Sms.BODY,
             Telephony.Sms.DATE,
-            Telephony.Sms.TYPE
+            Telephony.Sms.TYPE,
+            Telephony.Sms.SUBSCRIPTION_ID
         )
     }
 }

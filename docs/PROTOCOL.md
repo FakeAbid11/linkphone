@@ -143,6 +143,8 @@ The key used here is the one stored at pairing time, not a fresh PBKDF2 derivati
 | `sms.new` | phone → PC | `message{id,threadId,address,name?,body,date,outgoing}` |
 | `sms.error` | phone → PC | `op`, `error` |
 | `device.status` | phone → PC | `batteryLevel`, `charging` |
+| `sims.request` | PC → phone | — |
+| `sims.sync` | phone → PC | `sms[{id,label,carrier?,slot?,isDefault?}]`, `call[{id,label,isDefault?}]`, `granted` |
 | `gallery.albums.request` | PC → phone | — |
 | `gallery.albums` | phone → PC | `albums[{id,name,count,coverPhotoId}]` |
 | `gallery.photos.request` | PC → phone | `albumId`, `offset`, `limit` |
@@ -201,6 +203,15 @@ LinkPhone never modifies or deletes the phone's MediaStore rows.
 The Android foreground service watches the sticky `ACTION_BATTERY_CHANGED` broadcast. It sends an
 initial `device.status` after authentication and another only when percentage or charging state
 changes. No Android permission is required.
+
+### SIM selection
+
+The PC sends `sims.request` when Messages or Calls opens. The phone answers with `sims.sync`:
+`sms` lists `SubscriptionManager` SIMs, `call` lists SIM-capable Telecom accounts, and `granted`
+reflects the optional `READ_PHONE_STATE` permission. IDs are opaque and valid only while the SIM or
+account exists. `sms.send` may include `subscriptionId`; `call.place` may include `accountId`.
+Omitting either field uses the phone's default. Messages, threads, active calls and call-log rows may
+include `simLabel` so the PC can show which SIM was used, even after a SIM is removed.
 
 ### Call control
 

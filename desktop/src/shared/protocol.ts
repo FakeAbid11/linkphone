@@ -46,6 +46,8 @@ export interface SmsThread {
   snippet: string
   date: number
   count: number
+  subscriptionId?: number
+  simLabel?: string
 }
 
 export interface SmsMessage {
@@ -58,6 +60,8 @@ export interface SmsMessage {
   outgoing: boolean
   pending?: boolean
   failed?: boolean
+  subscriptionId?: number
+  simLabel?: string
 }
 
 export interface SmsActiveThread {
@@ -129,6 +133,7 @@ export interface PhoneCallInfo {
   phase: PhoneCallPhase
   incoming: boolean
   startedAt: number
+  simLabel?: string
 }
 
 export interface PhoneContactNumber {
@@ -140,6 +145,20 @@ export interface PhoneContact {
   id: string
   name: string
   numbers: PhoneContactNumber[]
+}
+
+export interface SimInfo {
+  id: string
+  label: string
+  carrier?: string
+  slot?: number
+  isDefault?: boolean
+}
+
+export interface CallAccountInfo {
+  id: string
+  label: string
+  isDefault?: boolean
 }
 
 export type CallLogType =
@@ -158,6 +177,7 @@ export interface CallLogEntry {
   type: CallLogType
   date: number
   duration: number
+  simLabel?: string
 }
 
 export interface TransferItem {
@@ -218,6 +238,10 @@ export interface AppState {
   phoneContacts: PhoneContact[]
   contactsGranted: boolean
   contactsLoading: boolean
+  phoneSims: SimInfo[]
+  callAccounts: CallAccountInfo[]
+  simsGranted: boolean
+  simsLoading: boolean
   callHistory: CallLogEntry[]
   callLogGranted: boolean
   callLogLoading: boolean
@@ -392,6 +416,7 @@ export interface SmsSendMsg {
   tempId: string
   address: string
   body: string
+  subscriptionId?: number
 }
 
 /** phone -> desktop */
@@ -501,6 +526,7 @@ export interface CallStateMsg {
 export interface CallPlaceMsg {
   t: 'call.place'
   number: string
+  accountId?: string
 }
 
 export interface CallAnswerMsg {
@@ -526,6 +552,21 @@ export interface CallSpeakerMsg {
 export interface CallErrorMsg {
   t: 'call.error'
   error: string
+}
+
+/* SIMs ------------------------------------------------------------------ */
+
+/** desktop -> phone */
+export interface SimsRequestMsg {
+  t: 'sims.request'
+}
+
+/** phone -> desktop */
+export interface SimsSyncMsg {
+  t: 'sims.sync'
+  sms: SimInfo[]
+  call: CallAccountInfo[]
+  granted: boolean
 }
 
 /* Contacts and call history --------------------------------------------- */
@@ -602,6 +643,8 @@ export type ControlMsg =
   | CallDisconnectMsg
   | CallSpeakerMsg
   | CallErrorMsg
+  | SimsRequestMsg
+  | SimsSyncMsg
   | ContactsRequestMsg
   | ContactsSyncMsg
   | CallLogRequestMsg

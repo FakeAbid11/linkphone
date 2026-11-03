@@ -11,8 +11,10 @@ from PIL import Image, ImageDraw, ImageFilter
 DESKTOP = Path(__file__).resolve().parents[1]
 ROOT = DESKTOP.parent
 SRC = DESKTOP / "resources" / "logo-source.png"
-ANDROID_DRAWABLE = ROOT / "android" / "app" / "src" / "main" / "res" / "drawable-nodpi"
+ANDROID_RES = ROOT / "android" / "app" / "src" / "main" / "res"
+ANDROID_DRAWABLE = ANDROID_RES / "drawable-nodpi"
 BLACK = (0, 0, 0)
+NOTIFICATION_SIZES = {"mdpi": 24, "hdpi": 36, "xhdpi": 48, "xxhdpi": 72, "xxxhdpi": 96}
 
 
 def glyph_alpha(image: Image.Image) -> tuple[Image.Image, Image.Image, tuple[int, int, int, int]]:
@@ -95,6 +97,58 @@ def write_android(transparent: Image.Image) -> None:
     mark.save(ANDROID_DRAWABLE / "logo_mark.png")
 
 
+def write_notification_icon() -> None:
+    # Notification small icons are alpha masks: the full trio turns to mush at
+    # 24 dp, so keep the phone and chain link and drop the laptop.
+    units = 24
+    scale = 40
+    size = units * scale
+
+    def u(value: float) -> int:
+        return round(value * scale)
+
+    mask = Image.new("L", (size, size), 0)
+    draw = ImageDraw.Draw(mask)
+
+    draw.rounded_rectangle(
+        [u(3.2), u(3.0), u(9.4), u(21.0)],
+        radius=u(1.8),
+        outline=255,
+        width=u(1.9),
+    )
+    draw.rounded_rectangle(
+        [u(5.25), u(5.8), u(7.35), u(6.5)],
+        radius=u(0.35),
+        fill=255,
+    )
+    for left in (10.2, 14.8):
+        draw.rounded_rectangle(
+            [u(left), u(9.7), u(left + 6.0), u(14.3)],
+            radius=u(2.1),
+            outline=255,
+            width=u(1.5),
+        )
+
+    for density, px in NOTIFICATION_SIZES.items():
+        alpha = mask.resize((px, px), Image.LANCZOS)
+        icon = Image.new("RGBA", (px, px), (255, 255, 255, 0))
+        icon.putalpha(alpha)
+        folder = ANDROID_RES / f"drawable-{density}"
+        folder.mkdir(parents=True, exist_ok=True)
+        icon.save(folder / "ic_stat_logo.png")
+
+    preview = mask.resize((24, 24), Image.LANCZOS)
+    visible = preview.point(lambda value: 255 if value > 8 else 0)
+    alpha_sum = sum(index * count for index, count in enumerate(preview.histogram()))
+    print(
+        "notification icon",
+        "bbox",
+        visible.getbbox(),
+        "coverage",
+        round(alpha_sum / (255 * 24 * 24), 3),
+    )
+
+
 def main() -> None:
     source = Image.open(SRC).convert("RGB")
     glyph, transparent, bbox = glyph_alpha(source)
@@ -110,8 +164,9 @@ def main() -> None:
     write_tray(master)
     write_renderer(transparent)
     write_android(transparent)
+    write_notification_icon()
     print("wrote desktop/build/icon.png, icon.ico, resources/icon.png, resources/tray.png")
-    print("wrote renderer logo and Android adaptive/header marks")
+    print("wrote renderer logo, Android adaptive/header marks, and notification icon")
 
 
 if __name__ == "__main__":

@@ -93,8 +93,8 @@ Phone → **Allow contact access**. Open **Messages** and **Calls**.
 - ✅ The sidebar brand mark is aligned with the "LinkPhone" title and looks crisp on the black sidebar.
 - ✅ Android launcher icon is not clipped under circle or squircle masks; the Android 13 themed icon
   uses the same mark.
-- ✅ The in-app header logo aligns with the title; the notification shade still shows the simple phone
-  icon, which stays legible at 24 dp.
+- ✅ The in-app header logo aligns with the title; the connection, ringing/in-call, and missed-call
+  notifications show the gray phone + link mark at 24 dp.
 
 ## 7. Photos and albums
 

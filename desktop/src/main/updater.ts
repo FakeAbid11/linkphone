@@ -3,16 +3,19 @@ import type { AppStore } from './state'
 
 const FIRST_CHECK_MS = 20_000
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000
+const AUTO_CHECK_MIN_MS = 60 * 60 * 1000
 
 /** GitHub Releases updater for the packaged NSIS application. */
 export class DesktopUpdater {
   private firstTimer: NodeJS.Timeout | null = null
   private interval: NodeJS.Timeout | null = null
   private checking = false
+  private lastCheckStartedAt = 0
 
   constructor(
     private readonly store: AppStore,
-    private readonly packaged: boolean
+    private readonly packaged: boolean,
+    private readonly onUpdateAvailable?: (version: string) => void
   ) {
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
@@ -30,6 +33,7 @@ export class DesktopUpdater {
         checkedAt: Date.now(),
         message: undefined
       })
+      this.onUpdateAvailable?.(info.version)
     })
     autoUpdater.on('update-not-available', () => {
       this.checking = false
@@ -91,6 +95,8 @@ export class DesktopUpdater {
       return
     }
     if (this.checking) return
+    if (!manual && Date.now() - this.lastCheckStartedAt < AUTO_CHECK_MIN_MS) return
+    this.lastCheckStartedAt = Date.now()
     this.checking = true
     try {
       await autoUpdater.checkForUpdates()

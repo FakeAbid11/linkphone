@@ -204,7 +204,7 @@ flight, the receiver acks every 512 KiB.
 
 ## 10b. Send to from Explorer
 
-Install v0.6.2, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+Install v0.6.5, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
 **Show more options**).
 
 * ✅ The SendTo menu lists LinkPhone with the app icon.
@@ -233,6 +233,19 @@ v0.4 is the first updater-enabled build. Use it to test the v0.4.5 update:
   Android installer confirmation.
 * ❌ Android opens “Install unknown apps” first → allow LinkPhone and tap **Install** again. This is
   required once by Android and cannot be skipped by the app.
+
+Automatic scans (v0.6.5+):
+
+* ✅ Windows shows one update notification after an automatic check finds a newer release; clicking
+  it opens Settings, and a second check of the same version does not notify again.
+* ✅ A manual check from a focused Settings window updates the panel without an extra toast.
+* ✅ Android posts one update notification from the background worker, tapping it opens LinkPhone,
+  and repeated worker runs for the same version do not re-post it.
+* ✅ Denying Android notification permission does not crash; the in-app card still checks on open.
+* ✅ The update card’s **Check**, **Download** and **Install** paths are unchanged; neither platform
+  auto-downloads.
+* ❌ No background notification within six hours → some OEM battery managers delay WorkManager; open
+  LinkPhone to check immediately.
 
 ## 13. Resilience
 

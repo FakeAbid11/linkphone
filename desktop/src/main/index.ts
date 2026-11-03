@@ -9,6 +9,7 @@ import {
   Menu,
   nativeImage,
   Notification,
+  powerMonitor,
   shell,
   Tray
 } from 'electron'
@@ -96,7 +97,8 @@ let updater: DesktopUpdater
 let quitting = false
 let booted = false
 let uiReady = false
-let pendingShowFiles = false
+let pendingTab: 'files' | 'settings' | null = null
+let lastUpdateNoticeVersion = ''
 let sendQueue: string[] = []
 let sendDraining = false
 let sendTimer: NodeJS.Timeout | null = null
@@ -137,13 +139,32 @@ function parseSendPaths(argv: string[]): string[] {
   return files
 }
 
-function showFilesTab(): void {
+function navigateTo(tab: 'files' | 'settings'): void {
   if (!booted || !win) return
-  pendingShowFiles = true
+  pendingTab = tab
   showWindow()
   if (uiReady && !win.isDestroyed()) {
-    win.webContents.send('ui:show-files')
-    pendingShowFiles = false
+    win.webContents.send('ui:navigate', tab)
+    pendingTab = null
+  }
+}
+
+function notifyUpdateAvailable(version: string): void {
+  if (!version || version === lastUpdateNoticeVersion) return
+  if (win?.isFocused()) return
+  if (!Notification.isSupported()) return
+  try {
+    const toast = new Notification({
+      title: 'LinkPhone update available',
+      body: `v${version} is available. Open Settings to download it.`,
+      icon: appIcon('icon.png'),
+      silent: true
+    })
+    toast.on('click', () => navigateTo('settings'))
+    toast.show()
+    lastUpdateNoticeVersion = version
+  } catch {
+    /* notifications unavailable */
   }
 }
 
@@ -159,7 +180,7 @@ function showQueueToast(): void {
       body: `${sendQueue.length} file${sendQueue.length === 1 ? '' : 's'} queued — connect your phone to send.`,
       silent: true
     })
-    toast.on('click', () => showFilesTab())
+    toast.on('click', () => navigateTo('files'))
     toast.on('close', () => {
       if (sendToast === toast) sendToast = null
     })
@@ -215,7 +236,7 @@ function handleSendIntent(paths: string[]): void {
     if (sendQueue.length >= MAX_SEND_FILES) break
   }
   if (!booted) return
-  showFilesTab()
+  navigateTo('files')
   scheduleSendDrain()
 }
 
@@ -298,9 +319,9 @@ function registerIpc(): void {
 
   ipcMain.handle('ui:ready', () => {
     uiReady = true
-    const show = pendingShowFiles
-    pendingShowFiles = false
-    return show
+    const tab = pendingTab
+    pendingTab = null
+    return tab
   })
 
   ipcMain.handle('pair:new', () => {
@@ -467,7 +488,10 @@ async function bootstrap(): Promise<void> {
   syncLaunchAtLogin()
 
   server = new LinkServer(store)
-  updater = new DesktopUpdater(store, app.isPackaged)
+  updater = new DesktopUpdater(store, app.isPackaged, notifyUpdateAvailable)
+  powerMonitor.on('resume', () => {
+    void updater.check(false)
+  })
   watcher = new ClipboardWatcher(
     (text) => server.sendClipboard(text),
     () => store.clipboardEnabled
@@ -535,7 +559,7 @@ async function bootstrap(): Promise<void> {
   if (sendIntentSeen || process.argv.includes(SEND_ARG)) {
     handleSendIntent(parseSendPaths(process.argv))
   } else if (sendQueue.length > 0) {
-    showFilesTab()
+    navigateTo('files')
     scheduleSendDrain()
   }
   updater.start()

@@ -69,7 +69,7 @@ class Outbound {
   failed = false
   deviceId = ''
   path = ''
-  target: 'downloads' | 'pictures' = 'downloads'
+  target: 'downloads' | 'pictures' | 'videos' = 'downloads'
   mtimeMs = 0
   private acceptResolve: ((ok: boolean) => void) | null = null
   private dataResolve: (() => void) | null = null
@@ -870,7 +870,10 @@ export class LinkServer extends EventEmitter {
   /* desktop -> phone                                                  */
   /* ---------------------------------------------------------------- */
 
-  async sendFiles(paths: string[], target: 'downloads' | 'pictures' = 'downloads'): Promise<void> {
+  async sendFiles(
+    paths: string[],
+    target: 'downloads' | 'pictures' | 'videos' = 'downloads'
+  ): Promise<void> {
     const peers = [...this.peers].filter((p) => p.phase === 'ready')
     for (const peer of peers) {
       for (const filePath of paths) {
@@ -898,7 +901,7 @@ export class LinkServer extends EventEmitter {
   private async sendFileTo(
     peer: Peer,
     filePath: string,
-    target: 'downloads' | 'pictures' = 'downloads',
+    target: 'downloads' | 'pictures' | 'videos' = 'downloads',
     existingId?: string,
     resumeFrom?: number
   ): Promise<void> {

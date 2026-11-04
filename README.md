@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.13** is a reliability pass for calls, notifications and contacts.
-> v0.7.12 made Windows updates install silently.
+> **v0.7.14** polishes the UI: connection-aware actions, confirmations and persistent Calls state.
+> v0.7.13 was a reliability pass for calls, notifications and contacts.
 
 ## Features
 
@@ -73,7 +73,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.7.13.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.7.14.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -165,7 +165,9 @@ accounts, so eSIM profiles and carrier labels follow what the phone reports.
 
 Right-click one or more files → **Send to → LinkPhone**, or drag them onto the LinkPhone window. The
 app opens the Files tab and sends them. If the phone is not connected, the files wait in memory and
-are sent when it connects; quitting LinkPhone discards them. Folders are not supported.
+are sent when it connects; quitting LinkPhone discards them. Folders are not supported. On the phone,
+**Send file** stays disabled until the phone is connected, and **Forget** asks before removing the
+pairing.
 
 </details>
 

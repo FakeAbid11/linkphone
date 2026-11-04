@@ -144,11 +144,26 @@ button {
 .device-card {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--bg-soft);
+}
+
+.device-forget-confirm {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.device-forget-confirm span {
+  flex: 1;
 }
 
 .device-empty {
@@ -1451,6 +1466,18 @@ button {
 .call-error {
   border-color: rgba(255, 255, 255, 0.24);
   color: var(--danger);
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.call-error-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.calls-side-hidden {
+  display: none;
 }
 
 .dialer-card,

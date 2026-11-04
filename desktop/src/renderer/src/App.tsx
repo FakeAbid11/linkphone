@@ -169,7 +169,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.7.13</div>
+            <div className="brand-sub">Local network · v0.7.14</div>
           </div>
         </div>
 
@@ -336,6 +336,7 @@ export default function App(): JSX.Element {
                 void window.linkphone.openSmsThread(threadId, address)
               }}
               onDismissPlaced={() => void window.linkphone.dismissCallPlaced()}
+              onDismissError={() => void window.linkphone.dismissCallError()}
             />
           )}
           {tab === 'photos' && (

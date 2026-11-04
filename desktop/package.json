@@ -1,7 +1,7 @@
 {
   "name": "linkphone-desktop",
   "productName": "LinkPhone",
-  "version": "0.7.13",
+  "version": "0.7.14",
   "private": true,
   "description": "LinkPhone - your Android phone, on your PC. LAN only.",
   "author": "LinkPhone",

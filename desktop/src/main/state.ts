@@ -592,6 +592,12 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  dismissCallError(): void {
+    if (!this.callError) return
+    this.callError = ''
+    this.changed()
+  }
+
   setCallPlaced(number: string | null): void {
     if (this.phoneCalls.length > 0) return
     this.callPlaced = number ? { number, at: Date.now() } : null

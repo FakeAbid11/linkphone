@@ -39,6 +39,7 @@ export interface LinkPhoneApi {
   disconnectCall: (callId: string) => Promise<void>
   setCallSpeaker: (enabled: boolean) => Promise<void>
   dismissCallPlaced: () => Promise<void>
+  dismissCallError: () => Promise<void>
   requestContacts: () => Promise<void>
   requestCallHistory: () => Promise<void>
   requestSims: () => Promise<void>

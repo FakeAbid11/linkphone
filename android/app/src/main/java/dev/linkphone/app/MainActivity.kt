@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -252,6 +253,7 @@ private fun Screen(modifier: Modifier = Modifier) {
     var callPermissionsGranted by remember { mutableStateOf(hasCallPermissions(context)) }
     var outgoingReady by remember { mutableStateOf(CallHub.isOutgoingReady(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var confirmForget by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         updater.check(false)
@@ -440,7 +442,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                             client.connectSaved()
                         }) { ButtonLabel(Symbols.refresh, "Reconnect") }
                         OutlinedButton(onClick = {
-                            client.forget()
+                            confirmForget = true
                         }) { ButtonLabel(Symbols.close, "Forget") }
                     }
                 }
@@ -647,13 +649,20 @@ private fun Screen(modifier: Modifier = Modifier) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     CardTitle(Symbols.folder, "Files")
-                    Button(onClick = { filePicker.launch(arrayOf("*/*")) }) {
+                    Button(
+                        onClick = { filePicker.launch(arrayOf("*/*")) },
+                        enabled = status.state == LinkState.CONNECTED
+                    ) {
                         ButtonLabel(Symbols.upload, "Send file")
                     }
                 }
                 if (transfers.isEmpty()) {
                     Text(
-                        "Files you send land in your PC's Downloads/LinkPhone folder.",
+                        if (status.state == LinkState.CONNECTED) {
+                            "Files you send land in your PC's Downloads/LinkPhone folder."
+                        } else {
+                            "Connect your phone to send files."
+                        },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
@@ -693,6 +702,24 @@ private fun Screen(modifier: Modifier = Modifier) {
             "Clipboard sync is on while this screen is open (Android only allows clipboard reads to the app in the foreground).",
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    if (confirmForget) {
+        AlertDialog(
+            onDismissRequest = { confirmForget = false },
+            title = { Text("Forget this PC?") },
+            text = { Text("You'll need to scan a new QR code to pair again.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmForget = false
+                    client.forget()
+                    context.stopService(Intent(context, LinkService::class.java))
+                }) { Text("Forget") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmForget = false }) { Text("Cancel") }
+            }
         )
     }
 }

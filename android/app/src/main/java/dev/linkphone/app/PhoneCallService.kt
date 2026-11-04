@@ -63,6 +63,7 @@ object CallHub {
 
     private var appContext: Context? = null
     private var systemCall: PhoneCallInfo? = null
+    private var telephonyPhase: PhoneCallPhase? = null
     private var systemSpeaker = false
 
     fun attach(context: Context) {
@@ -95,17 +96,55 @@ object CallHub {
 
     fun updateSystemCall(call: PhoneCallInfo) {
         if (PhoneCallService.instance != null) return
-        val startedAt = if (systemCall?.id == call.id) {
-            systemCall?.startedAt ?: call.startedAt
+        val startedAt = systemCall?.startedAt ?: call.startedAt
+        val phase = telephonyPhase ?: call.phase
+        systemCall = call.copy(
+            phase = phase,
+            incoming = phase == PhoneCallPhase.RINGING,
+            startedAt = startedAt
+        )
+        publishSystemState()
+    }
+
+    fun updateTelephonyCall(phase: PhoneCallPhase) {
+        if (PhoneCallService.instance != null) return
+        if (phase != PhoneCallPhase.RINGING && phase != PhoneCallPhase.ACTIVE) return
+        telephonyPhase = phase
+        val existing = systemCall
+        systemCall = if (existing != null) {
+            existing.copy(
+                phase = phase,
+                incoming = phase == PhoneCallPhase.RINGING
+            )
         } else {
-            call.startedAt
+            PhoneCallInfo(
+                id = "system:telephony",
+                number = "",
+                displayName = if (phase == PhoneCallPhase.RINGING) {
+                    "Incoming call"
+                } else {
+                    "Phone call"
+                },
+                phase = phase,
+                incoming = phase == PhoneCallPhase.RINGING,
+                startedAt = System.currentTimeMillis()
+            )
         }
-        systemCall = call.copy(startedAt = startedAt)
+        publishSystemState()
+    }
+
+    fun clearTelephonyCall() {
+        if (PhoneCallService.instance != null) return
+        telephonyPhase = null
+        systemCall = null
+        systemSpeaker = false
         publishSystemState()
     }
 
     fun clearSystemCall() {
         if (PhoneCallService.instance != null) return
+        // The dialer notification can disappear while telephony still reports a live call.
+        if (telephonyPhase != null) return
         systemCall = null
         systemSpeaker = false
         publishSystemState()

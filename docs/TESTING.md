@@ -181,8 +181,15 @@ Best-effort no-role control:
   state. If routing is blocked, the call stays controllable on the phone and an error is shown.
 * ✅ Deny `ANSWER_PHONE_CALLS` → the live card shows disabled Answer/Decline/Hang up/Speaker controls
   with “Allow call access on your phone”; dialing still works.
-* ✅ Turn notification access off → no synthetic live card; the “Call sent to your phone”
-  confirmation remains until dismissed.
+* ✅ Turn notification access off → the live card still appears from the phone’s call state
+  (caller may show “Phone call”); Answer/Decline/Hang up/Speaker use the fallback.
+* ✅ Revoke `READ_PHONE_STATE` and turn notification access off → no synthetic live card; the
+  “Call sent to your phone” confirmation remains until dismissed.
+* ✅ Hide or disable the dialer’s call notification while keeping notification access → the
+  telephony fallback still creates the card.
+* ✅ End the call → the phone call state returns to idle and the PC card clears.
+* ✅ `adb logcat -s LinkPhone` shows `call notification …` and `telephony call state=…` lines for
+  diagnostics.
 * ✅ `CALL_PHONE` denied → the PC call buttons disable and the phone card asks for call access.
 * ✅ No “Set as default phone app” text appears on the PC or phone.
 * ✅ Regression: if LinkPhone already holds the default-phone role, the real InCallService card and

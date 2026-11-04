@@ -20,6 +20,7 @@ import type {
   SmsMessage,
   SmsThread,
   SimInfo,
+  StorageEntry,
   TransferItem
 } from '../shared/protocol'
 
@@ -83,6 +84,14 @@ export class AppStore extends EventEmitter {
   private smsLocalMessages: Record<string, SmsMessage[]> = {}
   private smsSaveTimer: NodeJS.Timeout | null = null
   private transfers: TransferItem[] = []
+  private readonly transfersFile: string
+  private transfersSaveTimer: NodeJS.Timeout | null = null
+  private storageFiles: StorageEntry[] = []
+  private storageLoading = false
+  private storageError = ''
+  private storageCursor: string | undefined
+  private storageLimited = false
+  private storageGranted = true
   private smsThreads: SmsThread[] = []
   private smsActive: SmsActiveThread | null = null
   private smsLoading = false
@@ -130,10 +139,12 @@ export class AppStore extends EventEmitter {
     this.file = path.join(dir, 'config.json')
     this.historyFile = path.join(dir, 'notification-history.json')
     this.smsLocalFile = path.join(dir, 'sms-local.json')
+    this.transfersFile = path.join(dir, 'transfers.json')
     this.downloadsDir = path.join(os.homedir(), 'Downloads', 'LinkPhone')
     fs.mkdirSync(this.downloadsDir, { recursive: true })
     this.persisted = this.load(dir)
     this.notificationHistory = this.loadNotificationHistory()
+    this.transfers = this.loadTransfers()
     const smsLocal = this.loadSmsLocal()
     this.smsLocalThreads = smsLocal.threads
     this.smsLocalMessages = smsLocal.messages
@@ -443,6 +454,12 @@ export class AppStore extends EventEmitter {
 
   markDisconnected(deviceId: string): void {
     this.clearRingTimer(deviceId)
+    this.storageFiles = []
+    this.storageLoading = false
+    this.storageError = ''
+    this.storageCursor = undefined
+    this.storageLimited = false
+    this.storageGranted = true
     const current = this.live.get(deviceId)
     if (current) {
       this.live.set(deviceId, {
@@ -572,6 +589,7 @@ export class AppStore extends EventEmitter {
     const idx = this.transfers.findIndex((t) => t.id === item.id)
     if (idx >= 0) this.transfers[idx] = item
     else this.transfers = [item, ...this.transfers].slice(0, MAX_TRANSFERS)
+    this.saveTransfers()
     this.changed()
   }
 
@@ -579,7 +597,147 @@ export class AppStore extends EventEmitter {
     const idx = this.transfers.findIndex((t) => t.id === id)
     if (idx < 0) return
     this.transfers[idx] = { ...this.transfers[idx], ...patch }
+    this.saveTransfers()
     this.changed()
+  }
+
+  getTransfer(id: string): TransferItem | undefined {
+    return this.transfers.find((item) => item.id === id)
+  }
+
+  interruptTransfersForDevice(deviceId: string): void {
+    let touched = false
+    this.transfers = this.transfers.map((item) => {
+      if (
+        item.deviceId !== deviceId ||
+        item.direction !== 'out' ||
+        (item.status !== 'active' && item.status !== 'pending')
+      ) {
+        return item
+      }
+      touched = true
+      return {
+        ...item,
+        status: 'interrupted',
+        error: 'connection lost',
+        resumeOffset: item.received
+      }
+    })
+    if (touched) {
+      this.saveTransfers()
+      this.changed()
+    }
+  }
+
+  setStorageLoading(loading: boolean): void {
+    this.storageLoading = loading
+    if (loading) this.storageError = ''
+    this.changed()
+  }
+
+  setStorageFiles(
+    entries: StorageEntry[],
+    limited: boolean,
+    granted: boolean,
+    nextCursor?: string
+  ): void {
+    this.storageFiles = entries
+    this.storageLimited = limited
+    this.storageGranted = granted
+    this.storageCursor = nextCursor
+    this.storageLoading = false
+    this.storageError = ''
+    this.changed()
+  }
+
+  setStorageError(error: string): void {
+    this.storageError = error
+    this.storageLoading = false
+    this.changed()
+  }
+
+  isStorageLoading(): boolean {
+    return this.storageLoading
+  }
+
+  resetStorage(): void {
+    this.storageFiles = []
+    this.storageLoading = false
+    this.storageError = ''
+    this.storageCursor = undefined
+    this.storageLimited = false
+    this.storageGranted = true
+    this.changed()
+  }
+
+  private loadTransfers(): TransferItem[] {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(this.transfersFile, 'utf8')) as unknown
+      const items =
+        parsed && typeof parsed === 'object' && Array.isArray((parsed as { items?: unknown }).items)
+          ? ((parsed as { items: unknown[] }).items)
+          : []
+      const out: TransferItem[] = []
+      for (const raw of items.slice(0, MAX_TRANSFERS)) {
+        if (!raw || typeof raw !== 'object') continue
+        const item = raw as Partial<TransferItem>
+        if (typeof item.id !== 'string' || !item.id) continue
+        const status: TransferItem['status'] =
+          item.status === 'done'
+            ? 'done'
+            : item.status === 'failed'
+              ? 'failed'
+              : item.status === 'declined'
+                ? 'declined'
+                : item.status === 'canceled'
+                  ? 'canceled'
+                  : 'interrupted'
+        out.push({
+          id: item.id,
+          name: typeof item.name === 'string' ? item.name.slice(0, 240) : 'file',
+          size: Math.max(0, Number(item.size) || 0),
+          received: Math.max(0, Number(item.received) || 0),
+          direction: item.direction === 'out' ? 'out' : 'in',
+          status,
+          path: typeof item.path === 'string' ? item.path : undefined,
+          error:
+            status === 'interrupted'
+              ? 'LinkPhone closed'
+              : typeof item.error === 'string'
+                ? item.error
+                : undefined,
+          deviceId: typeof item.deviceId === 'string' ? item.deviceId : '',
+          startedAt: Number(item.startedAt) || Date.now(),
+          target:
+            item.target === 'pictures'
+              ? 'pictures'
+              : item.target === 'downloads'
+                ? 'downloads'
+                : undefined,
+          sourcePath: typeof item.sourcePath === 'string' ? item.sourcePath : undefined,
+          resumeOffset: Number(item.resumeOffset) || undefined,
+          mtimeMs: Number(item.mtimeMs) || undefined
+        })
+      }
+      return out
+    } catch {
+      return []
+    }
+  }
+
+  private saveTransfers(): void {
+    if (this.transfersSaveTimer) clearTimeout(this.transfersSaveTimer)
+    this.transfersSaveTimer = setTimeout(() => {
+      this.transfersSaveTimer = null
+      try {
+        fs.writeFileSync(
+          this.transfersFile,
+          JSON.stringify({ version: 1, items: this.transfers })
+        )
+      } catch {
+        /* ignore */
+      }
+    }, 1000)
   }
 
   /* ---------------- SMS ---------------- */
@@ -951,6 +1109,12 @@ export class AppStore extends EventEmitter {
       notifications: this.notifications,
       mutedNotifications: this.persisted.mutedNotifications,
       transfers: this.transfers,
+      storageFiles: this.storageFiles,
+      storageLoading: this.storageLoading,
+      storageError: this.storageError,
+      storageCursor: this.storageCursor,
+      storageLimited: this.storageLimited,
+      storageGranted: this.storageGranted,
       smsThreads: this.smsThreads,
       smsActive: this.smsActive,
       smsLoading: this.smsLoading,

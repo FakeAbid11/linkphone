@@ -167,6 +167,12 @@ export default function App(): JSX.Element {
 
   const connected = state.devices.filter((d) => d.connected)
   const unread = state.notifications.length
+  const pictureUploads = state.transfers.filter(
+    (t) =>
+      t.direction === 'out' &&
+      t.target === 'pictures' &&
+      (t.status === 'pending' || t.status === 'active')
+  ).length
 
   return (
     <div className="app">
@@ -175,7 +181,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.8.3</div>
+            <div className="brand-sub">Local network · v0.9.0</div>
           </div>
         </div>
 
@@ -200,6 +206,7 @@ export default function App(): JSX.Element {
                   void window.linkphone.requestSims()
                 }
                 if (t.id === 'photos') void window.linkphone.requestGalleryAlbums()
+                if (t.id === 'files') void window.linkphone.requestStorageList()
               }}
             >
               <span className="tab-main">
@@ -296,8 +303,18 @@ export default function App(): JSX.Element {
               transfers={state.transfers}
               downloadsDir={state.downloadsDir}
               connected={connected.length > 0}
+              storageFiles={state.storageFiles}
+              storageLoading={state.storageLoading}
+              storageError={state.storageError}
+              storageLimited={state.storageLimited}
+              storageGranted={state.storageGranted}
               onSend={() => void window.linkphone.sendFiles()}
               onOpenFolder={() => void window.linkphone.openDownloads()}
+              onRefreshStorage={() => void window.linkphone.requestStorageList()}
+              onPull={(entry) =>
+                void window.linkphone.pullStorageFile(entry.id, entry.name, entry.mime)
+              }
+              onRetry={(id) => void window.linkphone.retryTransfer(id)}
             />
           )}
           {tab === 'messages' && (
@@ -371,7 +388,10 @@ export default function App(): JSX.Element {
               thumbs={state.galleryThumbs}
               preview={state.galleryPreview}
               error={state.galleryError}
+              connected={connected.length > 0}
+              uploading={pictureUploads}
               onRefresh={() => void window.linkphone.requestGalleryAlbums()}
+              onSendPhotos={() => void window.linkphone.sendPhotosToPhone()}
               onOpenAlbum={(albumId, name) =>
                 void window.linkphone.openGalleryAlbum(albumId, name)
               }

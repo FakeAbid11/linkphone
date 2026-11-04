@@ -725,7 +725,8 @@ button {
 
 .pill-failed,
 .pill-declined,
-.pill-canceled {
+.pill-canceled,
+.pill-interrupted {
   background: rgba(255, 255, 255, 0.08);
   color: var(--danger);
 }
@@ -2310,4 +2311,65 @@ button.dropzone {
 :is(button, [role='button'], input, textarea, select, .tab):focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.45);
   outline-offset: 2px;
+}
+
+.gallery-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gallery-uploading {
+  margin: 6px 0 12px;
+  font-size: 12px;
+}
+
+.storage-head {
+  margin-top: 28px;
+}
+
+.storage-note {
+  margin: 4px 0 10px;
+  font-size: 12px;
+}
+
+.storage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.storage-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.storage-icon {
+  display: flex;
+  color: var(--muted);
+}
+
+.storage-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.storage-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.storage-meta {
+  font-size: 11.5px;
+  margin-top: 2px;
 }

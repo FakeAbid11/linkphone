@@ -1,12 +1,39 @@
-import type { TransferItem } from '@shared/protocol'
+import type { StorageEntry, TransferItem } from '@shared/protocol'
 import { Icon } from './Icon'
 
 interface Props {
   transfers: TransferItem[]
   downloadsDir: string
   connected: boolean
+  storageFiles: StorageEntry[]
+  storageLoading: boolean
+  storageError: string
+  storageLimited: boolean
+  storageGranted: boolean
   onSend: () => void
   onOpenFolder: () => void
+  onRefreshStorage: () => void
+  onPull: (entry: StorageEntry) => void
+  onRetry: (id: string) => void
+}
+
+function statusLabel(item: TransferItem): string {
+  switch (item.status) {
+    case 'pending':
+      return 'Waiting'
+    case 'active':
+      return item.direction === 'out' ? 'Sending' : 'Receiving'
+    case 'interrupted':
+      return 'Interrupted'
+    case 'declined':
+      return 'Declined'
+    case 'canceled':
+      return 'Canceled'
+    case 'done':
+      return 'Done'
+    default:
+      return 'Failed'
+  }
 }
 
 export function bytes(value: number): string {
@@ -25,8 +52,16 @@ export function FilesPanel({
   transfers,
   downloadsDir,
   connected,
+  storageFiles,
+  storageLoading,
+  storageError,
+  storageLimited,
+  storageGranted,
   onSend,
-  onOpenFolder
+  onOpenFolder,
+  onRefreshStorage,
+  onPull,
+  onRetry
 }: Props): JSX.Element {
   return (
     <div className="files">
@@ -68,7 +103,14 @@ export function FilesPanel({
                   <span className="transfer-name" title={t.name}>
                     {t.direction === 'in' ? '↓' : '↑'} {t.name}
                   </span>
-                  <span className={`pill pill-${t.status}`}>{t.status}</span>
+                  <span className={`pill pill-${t.status}`}>{statusLabel(t)}</span>
+                  {t.direction === 'out' &&
+                    connected &&
+                    (t.status === 'failed' || t.status === 'interrupted') && (
+                      <button className="link-btn" onClick={() => onRetry(t.id)}>
+                        Retry
+                      </button>
+                    )}
                 </div>
                 <div className="progress">
                   <div className="progress-fill" style={{ width: `${pct}%` }} />
@@ -80,6 +122,49 @@ export function FilesPanel({
               </li>
             )
           })}
+        </ul>
+      )}
+
+      <div className="files-head storage-head">
+        <h2>On your phone</h2>
+        <button className="link-btn" onClick={onRefreshStorage} disabled={storageLoading}>
+          {storageLoading ? (
+            'Reading…'
+          ) : (
+            <>
+              <Icon name="refresh" size={18} /> Refresh
+            </>
+          )}
+        </button>
+      </div>
+      <p className="muted storage-note">
+        {storageLimited
+          ? 'Android 13+ shows only files LinkPhone created. Share a file from the phone for anything else.'
+          : 'Files LinkPhone can access in your phone Downloads.'}
+      </p>
+      {storageError ? (
+        <p className="muted">{storageError}</p>
+      ) : !storageGranted ? (
+        <p className="muted">Allow storage access on the phone to list downloads.</p>
+      ) : storageFiles.length === 0 ? (
+        <p className="muted">No phone downloads found.</p>
+      ) : (
+        <ul className="storage-list">
+          {storageFiles.map((entry) => (
+            <li className="storage-row" key={entry.id}>
+              <div className="storage-icon"><Icon name="description" size={20} /></div>
+              <div className="storage-body">
+                <div className="storage-name" title={entry.name}>{entry.name}</div>
+                <div className="muted storage-meta">
+                  {bytes(entry.size)}
+                  {entry.modified ? ` · ${new Date(entry.modified).toLocaleDateString()}` : ''}
+                </div>
+              </div>
+              <button className="link-btn" onClick={() => onPull(entry)}>
+                <Icon name="download" size={18} /> Download
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </div>

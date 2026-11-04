@@ -47,7 +47,14 @@ export interface MutedApp {
   app: string
 }
 
-export type TransferStatus = 'pending' | 'active' | 'done' | 'failed' | 'declined' | 'canceled'
+export type TransferStatus =
+  | 'pending'
+  | 'active'
+  | 'done'
+  | 'failed'
+  | 'declined'
+  | 'canceled'
+  | 'interrupted'
 
 export interface SmsThread {
   threadId: string
@@ -201,6 +208,20 @@ export interface TransferItem {
   error?: string
   deviceId: string
   startedAt: number
+  target?: 'downloads' | 'pictures'
+  /** Desktop-only source path, used to retry an interrupted outgoing transfer. */
+  sourcePath?: string
+  /** Last acknowledged byte offset, used to resume after a reconnect. */
+  resumeOffset?: number
+  mtimeMs?: number
+}
+
+export interface StorageEntry {
+  id: string
+  name: string
+  size: number
+  mime: string
+  modified: number
 }
 
 export interface DeviceInfo {
@@ -228,6 +249,12 @@ export interface AppState {
   notifications: NotificationItem[]
   mutedNotifications: MutedApp[]
   transfers: TransferItem[]
+  storageFiles: StorageEntry[]
+  storageLoading: boolean
+  storageError: string
+  storageCursor?: string
+  storageLimited: boolean
+  storageGranted: boolean
   smsThreads: SmsThread[]
   smsActive: SmsActiveThread | null
   smsLoading: boolean
@@ -366,11 +393,17 @@ export interface FileOfferMsg {
   name: string
   size: number
   mime: string
+  target?: 'downloads' | 'pictures'
+  /** Present when the sender can resume; the receiver may reply with an offset. */
+  resumeFrom?: number
+  mtimeMs?: number
 }
 
 export interface FileAcceptMsg {
   t: 'file.accept'
   id: string
+  /** Bytes already received by the receiver; absent means zero. */
+  offset?: number
 }
 
 export interface FileDeclineMsg {
@@ -394,6 +427,35 @@ export interface FileCancelMsg {
   t: 'file.cancel'
   id: string
   reason?: string
+}
+
+export interface StorageListRequestMsg {
+  t: 'storage.list.request'
+  reqId: string
+  cursor?: string
+}
+
+export interface StorageListMsg {
+  t: 'storage.list'
+  reqId: string
+  entries: StorageEntry[]
+  nextCursor?: string
+  scanLimited: boolean
+  granted: boolean
+}
+
+export interface StoragePullMsg {
+  t: 'storage.pull'
+  id: string
+  name?: string
+  mime?: string
+}
+
+export interface StorageErrorMsg {
+  t: 'storage.error'
+  op: string
+  id?: string
+  message: string
 }
 
 export interface PingMsg {
@@ -678,6 +740,10 @@ export type ControlMsg =
   | FileAckMsg
   | FileDoneMsg
   | FileCancelMsg
+  | StorageListRequestMsg
+  | StorageListMsg
+  | StoragePullMsg
+  | StorageErrorMsg
   | PingMsg
   | PongMsg
   | SmsThreadsRequestMsg

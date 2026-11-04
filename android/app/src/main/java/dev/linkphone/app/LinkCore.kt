@@ -23,6 +23,16 @@ object LinkCore {
             CallHub.attach(app)
             UpdateScheduler.schedule(app)
             ContactsRepository.get(app).preload()
+            sweepShareCache(app)
+        }
+    }
+
+    private fun sweepShareCache(context: Context) {
+        runCatching {
+            val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000
+            context.cacheDir.resolve("share").listFiles()?.forEach { file ->
+                if (file.lastModified() < cutoff) file.delete()
+            }
         }
     }
 

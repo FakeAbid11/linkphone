@@ -358,6 +358,51 @@ function registerIpc(): void {
     return result.filePaths.length
   })
 
+  ipcMain.handle('files:send-photos', async () => {
+    if (!server.hasConnectedPeer()) return 0
+    const result = await dialog.showOpenDialog({
+      title: 'Send photos to phone',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        {
+          name: 'Images',
+          extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp']
+        }
+      ]
+    })
+    if (result.canceled || result.filePaths.length === 0) return 0
+    server.uploadPhotos(result.filePaths)
+    return result.filePaths.length
+  })
+
+  ipcMain.handle('files:retry', (_event, id: unknown) => {
+    if (typeof id === 'string') server.retryTransfer(id)
+  })
+
+  ipcMain.handle('storage:list', (_event, cursor: unknown) => {
+    const requested = server.requestStorageList(
+      typeof cursor === 'string' ? cursor : undefined
+    )
+    if (!requested) return
+    setTimeout(() => {
+      if (store.isStorageLoading()) {
+        store.setStorageError(
+          'No answer from the phone. Update the LinkPhone app to browse its files.'
+        )
+      }
+    }, 6000)
+  })
+
+  ipcMain.handle('storage:pull', (_event, id: unknown, name: unknown, mime: unknown) => {
+    if (typeof id === 'string') {
+      server.pullStorageFile(
+        id,
+        typeof name === 'string' ? name : '',
+        typeof mime === 'string' ? mime : ''
+      )
+    }
+  })
+
   ipcMain.handle('files:send-paths', (event, paths: unknown) => {
     if (event.sender !== win?.webContents) return 0
     if (!server.hasConnectedPeer()) return 0

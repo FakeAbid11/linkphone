@@ -14,6 +14,8 @@ interface Props {
   thumbs: Record<string, string>
   preview: GalleryPreview | null
   error: string
+  connected: boolean
+  uploading: number
   onRefresh: () => void
   onOpenAlbum: (albumId: string, name: string) => void
   onCloseAlbum: () => void
@@ -44,6 +46,8 @@ export function PhotosPanel({
   thumbs,
   preview,
   error,
+  connected,
+  uploading,
   onRefresh,
   onOpenAlbum,
   onCloseAlbum,
@@ -133,16 +137,31 @@ export function PhotosPanel({
               <h2>Albums on your phone</h2>
               <p className="muted">Previews stay in memory and travel only over your encrypted LAN link.</p>
             </div>
-            <button className="link-btn" onClick={onRefresh} disabled={loading}>
-              {loading ? (
-                'Loading…'
-              ) : (
-                <>
-                  <Icon name="refresh" size={18} /> Refresh
-                </>
-              )}
-            </button>
+            <div className="gallery-actions">
+              <button
+                className="link-btn"
+                onClick={onSendPhotos}
+                disabled={!connected}
+                title={connected ? 'Choose photos to send to the phone' : 'Connect your phone first'}
+              >
+                <Icon name="upload" size={18} /> Send photos
+              </button>
+              <button className="link-btn" onClick={onRefresh} disabled={loading}>
+                {loading ? (
+                  'Loading…'
+                ) : (
+                  <>
+                    <Icon name="refresh" size={18} /> Refresh
+                  </>
+                )}
+              </button>
+            </div>
           </div>
+          {uploading > 0 && (
+            <p className="muted gallery-uploading">
+              Uploading {uploading} photo{uploading === 1 ? '' : 's'} to your phone…
+            </p>
+          )}
 
           {albums.length === 0 && !loading ? (
             <GalleryEmpty error={error} />

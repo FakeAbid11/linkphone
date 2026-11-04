@@ -255,6 +255,7 @@ export class LinkServer extends EventEmitter {
         this.ringingCallIds.clear()
         this.store.setCallState({ calls: [], dialerReady: false, outgoingReady: false, controlReady: false, speaker: false, muted: false })
         this.store.setCallPlaced(null)
+        this.store.setMedia(null)
         this.store.resetContacts()
         this.store.resetSims()
       }
@@ -678,6 +679,16 @@ export class LinkServer extends EventEmitter {
         return
       }
 
+      case 'media.state': {
+        this.store.setMedia({
+          title: str(msg.title).slice(0, 200),
+          artist: str(msg.artist).slice(0, 200),
+          playing: bool(msg.playing),
+          app: str(msg.app).slice(0, 64)
+        })
+        return
+      }
+
       case 'call.error':
         this.store.setCallError(str(msg.error, 'Call operation failed').slice(0, 500))
         return
@@ -842,6 +853,18 @@ export class LinkServer extends EventEmitter {
     this.broadcast({ t: 'notif.cancel', keys: unique })
   }
 
+  ringPhone(deviceId: string): void {
+    const peer = [...this.peers].find(
+      (candidate) => candidate.deviceId === deviceId && candidate.phase === 'ready'
+    )
+    if (!peer) return
+    this.send(peer, { t: 'phone.ring', durationMs: 15_000 })
+  }
+
+  sendMediaAction(action: 'play' | 'pause' | 'next' | 'previous'): void {
+    this.broadcast({ t: 'media.action', action })
+  }
+
   /* ---------------------------------------------------------------- */
   /* SMS                                                               */
   /* ---------------------------------------------------------------- */
@@ -882,6 +905,22 @@ export class LinkServer extends EventEmitter {
       simLabel
     })
     this.send(peer, { t: 'sms.send', tempId, address, body, subscriptionId })
+  }
+
+  startSmsConversation(address: string, body: string, subscriptionId?: number): void {
+    const normalized = address.trim().slice(0, 64)
+    const text = body.trim()
+    if (!/^[+]?[0-9][0-9\s()-]{1,}$/.test(normalized) || text.length === 0) return
+    if (!this.hasConnectedPeer()) return
+    const threadId = `addr:${normalized}`
+    this.store.openSmsThread({
+      threadId,
+      address: normalized,
+      name: '',
+      messages: this.store.localSmsMessages(normalized)
+    })
+    this.broadcast({ t: 'sms.thread.request', threadId })
+    this.sendSms(threadId, normalized, text, subscriptionId)
   }
 
   /* ---------------------------------------------------------------- */

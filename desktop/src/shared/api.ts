@@ -1,4 +1,4 @@
-import type { AppState, TransferItem } from './protocol'
+import type { AppState, NotificationItem, TransferItem } from './protocol'
 
 export interface LinkPhoneApi {
   getState: () => Promise<AppState>
@@ -13,6 +13,8 @@ export interface LinkPhoneApi {
   sendFilesFromPaths: (paths: string[]) => Promise<number>
   sendClipboard: (text: string) => Promise<void>
   clearNotifications: () => Promise<void>
+  getNotificationHistory: () => Promise<NotificationItem[]>
+  clearNotificationHistory: () => Promise<void>
   dismissNotification: (key: string) => Promise<void>
   setNotificationMuted: (pkg: string, app: string, muted: boolean) => Promise<void>
   clearNotificationApp: (pkg: string, app: string) => Promise<void>
@@ -22,6 +24,11 @@ export interface LinkPhoneApi {
   openSmsThread: (threadId: string, address: string) => Promise<void>
   closeSmsThread: () => Promise<void>
   sendSms: (threadId: string, address: string, body: string, subscriptionId?: number) => Promise<void>
+  startSmsConversation: (
+    address: string,
+    body: string,
+    subscriptionId?: number
+  ) => Promise<void>
   requestGalleryAlbums: () => Promise<void>
   openGalleryAlbum: (albumId: string, name: string) => Promise<void>
   closeGalleryAlbum: () => Promise<void>
@@ -40,6 +47,8 @@ export interface LinkPhoneApi {
   setCallSpeaker: (enabled: boolean) => Promise<void>
   dismissCallPlaced: () => Promise<void>
   dismissCallError: () => Promise<void>
+  ringPhone: (deviceId: string) => Promise<void>
+  sendMediaAction: (action: 'play' | 'pause' | 'next' | 'previous') => Promise<void>
   requestContacts: () => Promise<void>
   requestCallHistory: () => Promise<void>
   requestSims: () => Promise<void>

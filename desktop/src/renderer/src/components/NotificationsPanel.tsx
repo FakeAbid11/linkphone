@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { MutedApp, NotificationItem } from '@shared/protocol'
 import { Icon } from './Icon'
 
@@ -11,6 +11,10 @@ interface Props {
   onMuteApp: (pkg: string, app: string) => void
   onUnmuteApp: (pkg: string, app: string) => void
   onClearApp: (pkg: string, app: string) => void
+  onLoadHistory: () => Promise<NotificationItem[]>
+  onClearHistory: () => Promise<void>
+  media: { title: string; artist: string; playing: boolean; app: string } | null
+  onMediaAction: (action: 'play' | 'pause' | 'next' | 'previous') => void
 }
 
 type ViewMode = 'newest' | 'app'
@@ -33,20 +37,42 @@ export function NotificationsPanel({
   onAction,
   onMuteApp,
   onUnmuteApp,
-  onClearApp
+  onClearApp,
+  onLoadHistory,
+  onClearHistory,
+  media,
+  onMediaAction
 }: Props): JSX.Element {
   const [replying, setReplying] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [query, setQuery] = useState('')
   const [view, setView] = useState<ViewMode>('newest')
+  const [mode, setMode] = useState<'live' | 'history'>('live')
+  const [history, setHistory] = useState<NotificationItem[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [confirmClearHistory, setConfirmClearHistory] = useState(false)
+
+  const loadHistory = (): void => {
+    setHistoryLoading(true)
+    void onLoadHistory()
+      .then((items) => setHistory(items))
+      .catch(() => setHistory([]))
+      .finally(() => setHistoryLoading(false))
+  }
+
+  useEffect(() => {
+    if (mode === 'history') loadHistory()
+  }, [mode])
+
+  const source = mode === 'history' ? history : notifications
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    if (!needle) return notifications
-    return notifications.filter((item) =>
+    if (!needle) return source
+    return source.filter((item) =>
       `${item.app} ${item.title} ${item.text}`.toLowerCase().includes(needle)
     )
-  }, [notifications, query])
+  }, [source, query])
 
   const groups = useMemo(() => {
     const map = new Map<
@@ -107,54 +133,141 @@ export function NotificationsPanel({
     />
   )
 
-  if (notifications.length === 0 && muted.length === 0) {
-    return (
-      <div className="empty">
-        <div className="empty-art"><Icon name="notifications" size={34} /></div>
-        <h2>No notifications yet</h2>
-        <p className="muted">
-          Once your phone connects and notification access is granted, everything that lands on it
-          shows up here.
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div className="notif-center">
-      {notifications.length > 0 && (
-        <div className="notif-toolbar">
-          <div className="notif-search">
-            <Icon name="search" size={18} />
-            <input
-              value={query}
-              placeholder="Search notifications"
-              aria-label="Search notifications"
-              onChange={(event) => setQuery(event.target.value.slice(0, 80))}
-            />
+      {media && (
+        <div className="media-card">
+          <div className="media-icon"><Icon name="volume_up" size={22} /></div>
+          <div className="media-body">
+            <strong>{media.title}</strong>
+            <span>{media.artist || media.app}</span>
           </div>
-          <div className="notif-view" role="group" aria-label="Notification view">
+          <div className="media-actions">
             <button
               type="button"
-              className={view === 'newest' ? 'notif-view-active' : ''}
-              aria-pressed={view === 'newest'}
-              onClick={() => setView('newest')}
+              className="icon-btn"
+              title="Previous"
+              aria-label="Previous track"
+              onClick={() => onMediaAction('previous')}
             >
-              Newest
+              <Icon name="skip_previous" size={20} />
             </button>
             <button
               type="button"
-              className={view === 'app' ? 'notif-view-active' : ''}
-              aria-pressed={view === 'app'}
-              onClick={() => setView('app')}
+              className="icon-btn"
+              title={media.playing ? 'Pause' : 'Play'}
+              aria-label={media.playing ? 'Pause' : 'Play'}
+              onClick={() => onMediaAction(media.playing ? 'pause' : 'play')}
             >
-              By app
+              <Icon name={media.playing ? 'pause' : 'play_arrow'} size={22} />
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title="Next"
+              aria-label="Next track"
+              onClick={() => onMediaAction('next')}
+            >
+              <Icon name="skip_next" size={20} />
             </button>
           </div>
         </div>
       )}
 
-      {muted.length > 0 && (
+      <div className="notif-toolbar">
+        <div className="notif-view" role="group" aria-label="Notification source">
+          <button
+            type="button"
+            className={mode === 'live' ? 'notif-view-active' : ''}
+            aria-pressed={mode === 'live'}
+            onClick={() => setMode('live')}
+          >
+            Live
+          </button>
+          <button
+            type="button"
+            className={mode === 'history' ? 'notif-view-active' : ''}
+            aria-pressed={mode === 'history'}
+            onClick={() => setMode('history')}
+          >
+            History
+          </button>
+        </div>
+        {mode === 'history' && (
+          <div className="notif-history-actions">
+            <button type="button" className="link-btn" onClick={loadHistory} disabled={historyLoading}>
+              {historyLoading ? 'Loading…' : (<><Icon name="refresh" size={18} /> Refresh</>)}
+            </button>
+            {confirmClearHistory ? (
+              <>
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => {
+                    void onClearHistory().then(() => {
+                      setHistory([])
+                      setConfirmClearHistory(false)
+                    })
+                  }}
+                >
+                  Confirm clear
+                </button>
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => setConfirmClearHistory(false)}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => setConfirmClearHistory(true)}
+              >
+                Clear history
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {(source.length > 0 || query.length > 0) && (
+        <div className="notif-toolbar">
+          <div className="notif-search">
+            <Icon name="search" size={18} />
+            <input
+              value={query}
+              placeholder={mode === 'history' ? 'Search history' : 'Search notifications'}
+              aria-label={mode === 'history' ? 'Search history' : 'Search notifications'}
+              onChange={(event) => setQuery(event.target.value.slice(0, 80))}
+            />
+          </div>
+          {mode === 'live' && (
+            <div className="notif-view" role="group" aria-label="Notification view">
+              <button
+                type="button"
+                className={view === 'newest' ? 'notif-view-active' : ''}
+                aria-pressed={view === 'newest'}
+                onClick={() => setView('newest')}
+              >
+                Newest
+              </button>
+              <button
+                type="button"
+                className={view === 'app' ? 'notif-view-active' : ''}
+                aria-pressed={view === 'app'}
+                onClick={() => setView('app')}
+              >
+                By app
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {mode === 'live' && muted.length > 0 && (
         <div className="notif-muted-row">
           <span className="notif-muted-label">Muted</span>
           {muted.map((entry) => (
@@ -172,7 +285,32 @@ export function NotificationsPanel({
         </div>
       )}
 
-      {notifications.length === 0 ? (
+      {mode === 'history' ? (
+        historyLoading && history.length === 0 ? (
+          <div className="empty">
+            <div className="empty-art"><Icon name="notifications" size={34} /></div>
+            <h2>Loading history…</h2>
+          </div>
+        ) : history.length === 0 ? (
+          <div className="empty">
+            <div className="empty-art"><Icon name="notifications" size={34} /></div>
+            <h2>No history yet</h2>
+            <p className="muted">Notifications you receive will be kept here, even after they are dismissed.</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="empty">
+            <div className="empty-art"><Icon name="search" size={34} /></div>
+            <h2>No history matches</h2>
+            <p className="muted">Try a different app name, title or message.</p>
+          </div>
+        ) : (
+          <ul className="notif-list">
+            {filtered.map((item) => (
+              <HistoryRow key={`${item.deviceId}:${item.key}`} item={item} />
+            ))}
+          </ul>
+        )
+      ) : notifications.length === 0 ? (
         <div className="empty">
           <div className="empty-art"><Icon name="notifications" size={34} /></div>
           <h2>No notifications from unmuted apps</h2>
@@ -221,6 +359,22 @@ export function NotificationsPanel({
         </div>
       )}
     </div>
+  )
+}
+
+function HistoryRow({ item }: { item: NotificationItem }): JSX.Element {
+  return (
+    <li className="notif notif-history-row">
+      <div className="notif-avatar">{item.app.slice(0, 2).toUpperCase()}</div>
+      <div className="notif-body">
+        <div className="notif-top">
+          <span className="notif-app">{item.app}</span>
+          <span className="muted notif-time">{ago(item.when)}</span>
+        </div>
+        {item.title && <div className="notif-title">{item.title}</div>}
+        {item.text && <div className="notif-text">{item.text}</div>}
+      </div>
+    </li>
   )
 }
 

@@ -49,6 +49,16 @@ export function DevicePanel({ devices }: Props): JSX.Element {
               </div>
             )}
           </div>
+          {device.connected && (
+            <button
+              className="icon-btn"
+              title="Ring phone"
+              aria-label={`Ring ${device.name}`}
+              onClick={() => void window.linkphone.ringPhone(device.deviceId)}
+            >
+              <Icon name="volume_up" />
+            </button>
+          )}
           {device.paired && confirmId !== device.deviceId && (
             <button
               className="icon-btn"

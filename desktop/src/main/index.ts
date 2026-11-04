@@ -392,6 +392,8 @@ function registerIpc(): void {
     const keys = store.clearNotifications()
     server.sendNotificationCancel(keys)
   })
+  ipcMain.handle('notifications:history', () => store.getNotificationHistory())
+  ipcMain.handle('notifications:history-clear', () => store.clearNotificationHistory())
 
   ipcMain.handle('notification:dismiss', (_event, key: unknown) => {
     if (typeof key === 'string') dismissNotificationEverywhere(key)
@@ -493,10 +495,34 @@ function registerIpc(): void {
   })
   ipcMain.handle('call:placed-dismiss', () => store.dismissCallPlaced())
   ipcMain.handle('call:error-dismiss', () => store.dismissCallError())
+  ipcMain.handle('phone:ring', (_event, deviceId: unknown) => {
+    if (typeof deviceId === 'string') server.ringPhone(deviceId)
+  })
+  ipcMain.handle('media:action', (_event, action: unknown) => {
+    if (
+      action === 'play' ||
+      action === 'pause' ||
+      action === 'next' ||
+      action === 'previous'
+    ) {
+      server.sendMediaAction(action)
+    }
+  })
 
   ipcMain.handle('contacts:request', () => server.requestContacts())
   ipcMain.handle('calllog:request', () => server.requestCallHistory())
   ipcMain.handle('sims:request', () => server.requestSims())
+  ipcMain.handle(
+    'sms:start',
+    (_event, address: unknown, body: unknown, subscriptionId: unknown) => {
+      if (typeof address !== 'string' || typeof body !== 'string') return
+      server.startSmsConversation(
+        address,
+        body,
+        typeof subscriptionId === 'number' ? subscriptionId : undefined
+      )
+    }
+  )
 
   ipcMain.handle('shell:open', (_event, url: unknown) => {
     if (typeof url === 'string' && /^https?:\/\//i.test(url)) return shell.openExternal(url)

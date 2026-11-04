@@ -170,7 +170,7 @@ export default function App(): JSX.Element {
   const pictureUploads = state.transfers.filter(
     (t) =>
       t.direction === 'out' &&
-      t.target === 'pictures' &&
+      (t.target === 'pictures' || t.target === 'videos') &&
       (t.status === 'pending' || t.status === 'active')
   ).length
 
@@ -181,7 +181,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.9.0</div>
+            <div className="brand-sub">Local network · v0.10.0</div>
           </div>
         </div>
 
@@ -205,7 +205,9 @@ export default function App(): JSX.Element {
                   void window.linkphone.requestSmsThreads()
                   void window.linkphone.requestSims()
                 }
-                if (t.id === 'photos') void window.linkphone.requestGalleryAlbums()
+                if (t.id === 'photos') {
+                  void window.linkphone.requestGalleryAlbums(state.galleryKind)
+                }
                 if (t.id === 'files') void window.linkphone.requestStorageList()
               }}
             >
@@ -390,23 +392,32 @@ export default function App(): JSX.Element {
               error={state.galleryError}
               connected={connected.length > 0}
               uploading={pictureUploads}
-              onRefresh={() => void window.linkphone.requestGalleryAlbums()}
+              kind={state.galleryKind}
+              kinds={state.galleryKinds}
+              downloads={state.galleryDownloads}
+              transfers={state.transfers}
+              onRefresh={() => void window.linkphone.requestGalleryAlbums(state.galleryKind)}
               onSendPhotos={() => void window.linkphone.sendPhotosToPhone()}
+              onSelectKind={(kind) => {
+                void window.linkphone.requestGalleryAlbums(kind)
+              }}
               onOpenAlbum={(albumId, name) =>
-                void window.linkphone.openGalleryAlbum(albumId, name)
+                void window.linkphone.openGalleryAlbum(state.galleryKind, albumId, name)
               }
               onCloseAlbum={() => void window.linkphone.closeGalleryAlbum()}
               onLoadMore={(albumId, offset) =>
-                void window.linkphone.loadMoreGallery(albumId, offset)
+                void window.linkphone.loadMoreGallery(state.galleryKind, albumId, offset)
               }
               onRequestThumbs={(photoIds) =>
-                void window.linkphone.requestGalleryThumbnails(photoIds)
+                void window.linkphone.requestGalleryThumbnails(state.galleryKind, photoIds)
               }
               onPreview={(photoId, name) =>
-                void window.linkphone.requestGalleryPreview(photoId, name)
+                void window.linkphone.requestGalleryPreview(state.galleryKind, photoId, name)
               }
               onClosePreview={() => void window.linkphone.closeGalleryPreview()}
-              onDownload={(photoId) => void window.linkphone.downloadGalleryPhoto(photoId)}
+              onDownload={(photoId) =>
+                void window.linkphone.downloadGalleryPhoto(state.galleryKind, photoId)
+              }
             />
           )}
           {tab === 'clipboard' && (

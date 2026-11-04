@@ -331,6 +331,19 @@ Ring the phone from its device card, then use the phone.
 * ✅ New PC with an old APK: pictures fall back to Downloads and the phone-files section shows an
   update hint; ordinary transfers still work.
 
+## 9g. Photos and videos (v0.10.0+)
+
+* ✅ The Photos tab still lists images; the Videos selector appears because the phone advertises it.
+* ✅ Videos show a poster and duration; opening one offers Play.
+* ✅ Play downloads the clip, then plays inline; seek to the middle and end.
+* ✅ A 1 GB clip plays without high memory use and closes cleanly.
+* ✅ Deny video permission: Videos shows the access hint. Grant it and refresh: clips appear.
+* ✅ Partial media access (selected images only) shows an empty Videos state, not a crash.
+* ✅ Old APK with the new PC: the Videos selector is hidden and photos still work.
+* ✅ Send a video from the PC: it lands in Movies/LinkPhone and the Videos tab refreshes.
+* ✅ Close the player or switch Photo/Video during playback: no stuck file handle.
+* ✅ Delete the downloaded file, then press Play: a clean error appears.
+
 ## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.

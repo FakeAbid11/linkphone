@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { Readable } from 'node:stream'
 import {
   app,
   BrowserWindow,
@@ -10,10 +11,12 @@ import {
   nativeImage,
   Notification,
   powerMonitor,
+  protocol,
   shell,
   Tray
 } from 'electron'
 import type { AppState, PhoneCallInfo } from '../shared/protocol'
+import { mimeForPath } from '../shared/mime'
 import { ClipboardWatcher } from './clipboard'
 import { newPairCode } from './crypto'
 import { advertise, localAddresses, localLinkLocalIPv6, type Advertisement } from './discovery'
@@ -365,13 +368,27 @@ function registerIpc(): void {
       properties: ['openFile', 'multiSelections'],
       filters: [
         {
-          name: 'Images',
-          extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp']
+          name: 'Photos and videos',
+          extensions: [
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'webp',
+            'heic',
+            'heif',
+            'bmp',
+            'mp4',
+            'mov',
+            'mkv',
+            'webm',
+            'avi'
+          ]
         }
       ]
     })
     if (result.canceled || result.filePaths.length === 0) return 0
-    server.uploadPhotos(result.filePaths)
+    server.uploadMedia(result.filePaths)
     return result.filePaths.length
   })
 
@@ -488,34 +505,42 @@ function registerIpc(): void {
     return server.sendSms(threadId, address, body, subId)
   })
 
-  ipcMain.handle('gallery:albums', () => server.requestGalleryAlbums())
+  const galleryKind = (value: unknown): 'image' | 'video' =>
+    value === 'video' ? 'video' : 'image'
 
-  ipcMain.handle('gallery:album', (_event, albumId: unknown, name: unknown) => {
+  ipcMain.handle('gallery:albums', (_event, kind: unknown) =>
+    server.requestGalleryAlbums(galleryKind(kind))
+  )
+
+  ipcMain.handle('gallery:album', (_event, kind: unknown, albumId: unknown, name: unknown) => {
     if (typeof albumId !== 'string' || typeof name !== 'string') return
-    server.openGalleryAlbum(albumId, name)
+    server.openGalleryAlbum(galleryKind(kind), albumId, name)
   })
 
   ipcMain.handle('gallery:close-album', () => server.closeGalleryAlbum())
 
-  ipcMain.handle('gallery:more', (_event, albumId: unknown, offset: unknown) => {
+  ipcMain.handle('gallery:more', (_event, kind: unknown, albumId: unknown, offset: unknown) => {
     if (typeof albumId !== 'string' || typeof offset !== 'number') return
-    server.loadMoreGallery(albumId, offset)
+    server.loadMoreGallery(galleryKind(kind), albumId, offset)
   })
 
-  ipcMain.handle('gallery:thumbnails', (_event, photoIds: unknown) => {
+  ipcMain.handle('gallery:thumbnails', (_event, kind: unknown, photoIds: unknown) => {
     if (!Array.isArray(photoIds)) return
-    server.requestGalleryThumbnails(photoIds.filter((id): id is string => typeof id === 'string'))
+    server.requestGalleryThumbnails(
+      galleryKind(kind),
+      photoIds.filter((id): id is string => typeof id === 'string')
+    )
   })
 
-  ipcMain.handle('gallery:preview', (_event, photoId: unknown, name: unknown) => {
+  ipcMain.handle('gallery:preview', (_event, kind: unknown, photoId: unknown, name: unknown) => {
     if (typeof photoId !== 'string' || typeof name !== 'string') return
-    server.requestGalleryPreview(photoId, name)
+    server.requestGalleryPreview(galleryKind(kind), photoId, name)
   })
 
   ipcMain.handle('gallery:close-preview', () => server.closeGalleryPreview())
 
-  ipcMain.handle('gallery:download', (_event, photoId: unknown) => {
-    if (typeof photoId === 'string') server.downloadGalleryPhoto(photoId)
+  ipcMain.handle('gallery:download', (_event, kind: unknown, photoId: unknown) => {
+    if (typeof photoId === 'string') server.downloadGalleryPhoto(galleryKind(kind), photoId)
   })
 
   ipcMain.handle('update:check', () => updater.check(true))
@@ -610,6 +635,7 @@ async function bootstrap(): Promise<void> {
   )
 
   await server.start()
+  registerMediaProtocol(store)
   server.on('peer-ready', () => {
     void drainSendQueue()
   })
@@ -680,8 +706,88 @@ async function bootstrap(): Promise<void> {
   app.on('activate', () => showWindow())
 }
 
-const gotLock = app.requestSingleInstanceLock()
-if (!gotLock) {
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'linkphone-media',
+    privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true }
+  }
+])
+
+function registerMediaProtocol(store: AppStore): void {
+  protocol.handle('linkphone-media', (request) => {
+    try {
+      const url = new URL(request.url)
+      if (url.host !== 'media') return new Response('Not found', { status: 404 })
+      const id = decodeURIComponent(url.pathname.replace(/^\/+/, ''))
+      const item = store.getTransfer(id)
+      if (!item || item.direction !== 'in' || item.status !== 'done' || !item.path) {
+        return new Response('Not found', { status: 404 })
+      }
+      const root = `${path.resolve(store.downloadsDir)}${path.sep}`
+      const real = fs.realpathSync(item.path)
+      if (!real.startsWith(root)) return new Response('Forbidden', { status: 403 })
+      const stat = fs.statSync(real)
+      if (!stat.isFile()) return new Response('Not found', { status: 404 })
+
+      const type = mimeForPath(real)
+      const headers: Record<string, string> = {
+        'Content-Type': type,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'no-store'
+      }
+      const range = request.headers.get('Range')
+      if (!range) {
+        return new Response(Readable.toWeb(fs.createReadStream(real)) as ReadableStream, {
+          status: 200,
+          headers: { ...headers, 'Content-Length': String(stat.size) }
+        })
+      }
+
+      const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim())
+      if (!match) {
+        return new Response('Bad range', {
+          status: 416,
+          headers: { 'Content-Range': `bytes */${stat.size}` }
+        })
+      }
+      let start = match[1] ? Number(match[1]) : 0
+      let end = match[2] ? Number(match[2]) : stat.size - 1
+      if (!match[1] && match[2]) {
+        const suffix = Number(match[2])
+        start = Math.max(0, stat.size - suffix)
+        end = stat.size - 1
+      }
+      if (
+        !Number.isFinite(start) ||
+        !Number.isFinite(end) ||
+        start < 0 ||
+        end < start ||
+        start >= stat.size
+      ) {
+        return new Response('Bad range', {
+          status: 416,
+          headers: { 'Content-Range': `bytes */${stat.size}` }
+        })
+      }
+      end = Math.min(end, stat.size - 1)
+      return new Response(
+        Readable.toWeb(fs.createReadStream(real, { start, end })) as ReadableStream,
+        {
+          status: 206,
+          headers: {
+            ...headers,
+            'Content-Length': String(end - start + 1),
+            'Content-Range': `bytes ${start}-${end}/${stat.size}`
+          }
+        }
+      )
+    } catch {
+      return new Response('Not found', { status: 404 })
+    }
+  })
+}
+
+const gotLock = app.requestSingleInstanceLock()if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', (_event, argv) => {

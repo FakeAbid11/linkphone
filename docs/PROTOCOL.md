@@ -136,7 +136,7 @@ the socket; the frames above are unchanged.
 | `notif.action` | PC → phone | `key`, `actionId`, `replyText?` |
 | `notif.cancel` | PC → phone | `keys[]` — dismiss these notifications in the phone shade (best effort) |
 | `clip.set` | both | `text`, `ts` |
-| `file.offer` | both | `id`, `name`, `size`, `mime`, `target?` (`downloads`/`pictures`), `resumeFrom?`, `mtimeMs?` |
+| `file.offer` | both | `id`, `name`, `size`, `mime`, `target?` (`downloads`/`pictures`/`videos`), `resumeFrom?`, `mtimeMs?`, `photoId?`, `mediaKind?` |
 | `file.accept` | both | `id`, `offset?` (bytes already received; absent means 0) |
 | `file.decline` | both | `id`, `reason?` |
 | `file.ack` | receiver → sender | `id`, `offset` |
@@ -162,15 +162,15 @@ the socket; the frames above are unchanged.
 | `device.status` | phone → PC | `batteryLevel`, `charging` |
 | `sims.request` | PC → phone | — |
 | `sims.sync` | phone → PC | `sms[{id,label,carrier?,slot?,isDefault?}]`, `call[{id,label,isDefault?}]`, `granted` |
-| `gallery.albums.request` | PC → phone | — |
-| `gallery.albums` | phone → PC | `albums[{id,name,count,coverPhotoId}]` |
-| `gallery.photos.request` | PC → phone | `albumId`, `offset`, `limit` |
-| `gallery.photos` | phone → PC | `albumId`, `offset`, `photos[]`, `hasMore` |
+| `gallery.albums.request` | PC → phone | `kind?` (`image`/`video`) |
+| `gallery.albums` | phone → PC | `albums[{id,name,count,coverPhotoId,kind}]`, `kinds[]` |
+| `gallery.photos.request` | PC → phone | `albumId`, `offset`, `limit`, `kind?` |
+| `gallery.photos` | phone → PC | `albumId`, `offset`, `photos[{...,kind,durationMs?}]`, `hasMore` |
 | `gallery.thumbnails.request` | PC → phone | `photoIds[]` (maximum 24) |
 | `gallery.thumbnails` | phone → PC | `items[{photoId,mime,data}]` |
 | `gallery.preview.request` | PC → phone | `photoId` |
 | `gallery.preview` | phone → PC | `photoId`, `mime`, `data` |
-| `gallery.download` | PC → phone | `photoId` |
+| `gallery.download` | PC → phone | `photoId`, `kind?` — the phone replies with a `file.offer` carrying `photoId` |
 | `gallery.error` | phone → PC | `op`, `error` |
 | `call.state` | phone → PC | `calls[]`, `dialerReady`, `speaker`, `muted` |
 | `call.place` | PC → phone | `number` |
@@ -187,6 +187,10 @@ the socket; the frames above are unchanged.
 
 ### Files, resume and phone storage
 
+- Gallery requests carry `kind` (`image` or `video`); `gallery.albums` advertises `kinds` so a new PC
+  can hide Videos for an older phone. Video items include `durationMs`.
+- `gallery.download` passes the kind; the resulting `file.offer` includes `photoId` and `mediaKind`
+  so the PC can correlate the download with the video and enable inline playback.
 - A receiver keeps a partial file and replies to a resumed `file.offer` with `file.accept.offset`.
   A sender includes `resumeFrom` only when it can resume, so an older receiver can start at zero
   without breaking the offset check.
@@ -195,6 +199,12 @@ the socket; the frames above are unchanged.
 - `storage.list` lists only MediaStore Downloads. On Android 13+ that means files owned by
   LinkPhone; `scanLimited` tells the PC to show that limitation. `storage.pull` asks the phone to
   send the file through the normal `file.offer` pipeline.
+
+### Inline media
+
+Downloaded videos are served to the renderer through the read-only `linkphone-media://media/<id>`
+scheme. The main process accepts transfer ids only, requires a completed incoming transfer under the
+downloads folder, and answers with byte-range responses for seeking.
 
 ### Notifications
 

@@ -66,19 +66,20 @@ const api: LinkPhoneApi = {
     ipcRenderer.invoke('sms:start', address, body, subscriptionId) as Promise<
       'queued' | 'invalid' | 'no-peer'
     >,
-  requestGalleryAlbums: () => ipcRenderer.invoke('gallery:albums') as Promise<void>,
-  openGalleryAlbum: (albumId, name) =>
-    ipcRenderer.invoke('gallery:album', albumId, name) as Promise<void>,
+  requestGalleryAlbums: (kind) =>
+    ipcRenderer.invoke('gallery:albums', kind) as Promise<void>,
+  openGalleryAlbum: (kind, albumId, name) =>
+    ipcRenderer.invoke('gallery:album', kind, albumId, name) as Promise<void>,
   closeGalleryAlbum: () => ipcRenderer.invoke('gallery:close-album') as Promise<void>,
-  loadMoreGallery: (albumId, offset) =>
-    ipcRenderer.invoke('gallery:more', albumId, offset) as Promise<void>,
-  requestGalleryThumbnails: (photoIds) =>
-    ipcRenderer.invoke('gallery:thumbnails', photoIds) as Promise<void>,
-  requestGalleryPreview: (photoId, name) =>
-    ipcRenderer.invoke('gallery:preview', photoId, name) as Promise<void>,
+  loadMoreGallery: (kind, albumId, offset) =>
+    ipcRenderer.invoke('gallery:more', kind, albumId, offset) as Promise<void>,
+  requestGalleryThumbnails: (kind, photoIds) =>
+    ipcRenderer.invoke('gallery:thumbnails', kind, photoIds) as Promise<void>,
+  requestGalleryPreview: (kind, photoId, name) =>
+    ipcRenderer.invoke('gallery:preview', kind, photoId, name) as Promise<void>,
   closeGalleryPreview: () => ipcRenderer.invoke('gallery:close-preview') as Promise<void>,
-  downloadGalleryPhoto: (photoId) =>
-    ipcRenderer.invoke('gallery:download', photoId) as Promise<void>,
+  downloadGalleryPhoto: (kind, photoId) =>
+    ipcRenderer.invoke('gallery:download', kind, photoId) as Promise<void>,
   checkDesktopUpdate: () => ipcRenderer.invoke('update:check') as Promise<void>,
   downloadDesktopUpdate: () => ipcRenderer.invoke('update:download') as Promise<void>,
   installDesktopUpdate: () => ipcRenderer.send('update:install'),

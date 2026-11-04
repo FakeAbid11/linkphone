@@ -660,11 +660,16 @@ class LinkClient(context: Context, private val store: PairStore) {
                 if (threadId.isNotEmpty()) scope.launch { sendSmsThread(threadId) }
             }
             "sms.send" -> scope.launch { handleSmsSend(msg) }
-            "gallery.albums.request" -> scope.launch { sendGalleryAlbums() }
+            "gallery.albums.request" -> scope.launch { sendGalleryAlbums(msg.optString("kind", "image")) }
             "gallery.photos.request" -> scope.launch { sendGalleryPhotos(msg) }
             "gallery.thumbnails.request" -> scope.launch { sendGalleryThumbnails(msg) }
-            "gallery.preview.request" -> scope.launch { sendGalleryPreview(msg.optString("photoId")) }
-            "gallery.download" -> scope.launch { downloadGalleryPhoto(msg.optString("photoId")) }
+            "gallery.preview.request" -> scope.launch {
+                sendGalleryPreview(
+                    msg.optString("kind", "image"),
+                    msg.optString("photoId")
+                )
+            }
+            "gallery.download" -> scope.launch { downloadGalleryPhoto(msg) }
             "storage.list.request" -> scope.launch { sendStorageList(msg.optString("reqId")) }
             "storage.pull" -> scope.launch { sendStoredFile(msg.optString("id")) }
             "call.place" -> {
@@ -717,7 +722,9 @@ class LinkClient(context: Context, private val store: PairStore) {
         val name: String,
         val size: Long,
         val mime: String,
-        val target: String
+        val target: String,
+        val photoId: String?,
+        val mediaKind: String?
     ) {
         @Volatile var acked = 0L
         @Volatile var attempt: CompletableDeferred<Long>? = null
@@ -749,18 +756,21 @@ class LinkClient(context: Context, private val store: PairStore) {
         }
         try {
             val pictures = target == "pictures" && mime.startsWith("image/")
-            val collection = if (pictures) {
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-            } else {
-                MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            val videos = target == "videos" && mime.startsWith("video/")
+            val collection = when {
+                pictures -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                videos -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                else -> MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            }
+            val relativePath = when {
+                pictures -> "Pictures/LinkPhone"
+                videos -> "Movies/LinkPhone"
+                else -> "Download/LinkPhone"
             }
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, name)
                 put(MediaStore.MediaColumns.MIME_TYPE, mime)
-                put(
-                    MediaStore.MediaColumns.RELATIVE_PATH,
-                    if (pictures) "Pictures/LinkPhone" else "Download/LinkPhone"
-                )
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
             val uri = resolver.insert(collection, values)
@@ -854,15 +864,25 @@ class LinkClient(context: Context, private val store: PairStore) {
     /* outgoing files                                                */
     /* ------------------------------------------------------------ */
 
-    fun sendFile(uri: Uri, target: String = "downloads") {
+    fun sendFile(
+        uri: Uri,
+        target: String = "downloads",
+        photoId: String? = null,
+        mediaKind: String? = null
+    ) {
         scope.launch {
-            val out = prepareSend(uri, target) ?: return@launch
+            val out = prepareSend(uri, target, photoId, mediaKind) ?: return@launch
             startSend(out, 0L)
         }
     }
 
-    suspend fun sendFileAndWait(uri: Uri, target: String = "downloads"): Boolean {
-        val out = prepareSend(uri, target) ?: return false
+    suspend fun sendFileAndWait(
+        uri: Uri,
+        target: String = "downloads",
+        photoId: String? = null,
+        mediaKind: String? = null
+    ): Boolean {
+        val out = prepareSend(uri, target, photoId, mediaKind) ?: return false
         return startSend(out, 0L)
     }
 
@@ -872,10 +892,24 @@ class LinkClient(context: Context, private val store: PairStore) {
         scope.launch { startSend(out, out.acked) }
     }
 
-    private fun prepareSend(uri: Uri, target: String): Outgoing? = try {
+    private fun prepareSend(
+        uri: Uri,
+        target: String,
+        photoId: String?,
+        mediaKind: String?
+    ): Outgoing? = try {
         val (name, size) = queryMeta(uri)
         val mime = resolver.getType(uri) ?: "application/octet-stream"
-        val out = Outgoing(UUID.randomUUID().toString(), uri, name, size, mime, target)
+        val out = Outgoing(
+            UUID.randomUUID().toString(),
+            uri,
+            name,
+            size,
+            mime,
+            target,
+            photoId,
+            mediaKind
+        )
         outgoing[out.id] = out
         out
     } catch (e: Exception) {
@@ -898,6 +932,8 @@ class LinkClient(context: Context, private val store: PairStore) {
             put("mime", out.mime)
             put("target", out.target)
             if (resumeFrom > 0) put("resumeFrom", resumeFrom)
+            if (!out.photoId.isNullOrEmpty()) put("photoId", out.photoId)
+            if (!out.mediaKind.isNullOrEmpty()) put("mediaKind", out.mediaKind)
         }
         if (!send(offer)) {
             upsertTransfer(
@@ -1473,37 +1509,50 @@ class LinkClient(context: Context, private val store: PairStore) {
     /* Gallery                                                       */
     /* ------------------------------------------------------------ */
 
-    private fun sendGalleryAlbums() {
-        if (!media.hasPermission()) {
-            sendGalleryError("albums", "Photo permission not granted on the phone")
+    private fun kindOf(value: String): MediaRepository.Kind =
+        if (value == "video") MediaRepository.Kind.VIDEO else MediaRepository.Kind.IMAGE
+
+    private fun sendGalleryAlbums(kindName: String) {
+        val kind = kindOf(kindName)
+        if (!media.hasPermission(kind)) {
+            sendGalleryError("albums", "Photo/video permission not granted on the phone")
             return
         }
         runCatching {
-            JSONArray(media.albums().map { album ->
+            JSONArray(media.albums(kind).map { album ->
                 JSONObject().apply {
                     put("id", album.id)
                     put("name", album.name)
                     put("count", album.count)
                     put("coverPhotoId", album.coverPhotoId)
+                    put("kind", kindName)
                 }
             })
         }.onSuccess { albums ->
-            send(JSONObject().apply { put("t", "gallery.albums"); put("albums", albums) })
+            send(
+                JSONObject().apply {
+                    put("t", "gallery.albums")
+                    put("albums", albums)
+                    put("kinds", JSONArray(listOf("image", "video")))
+                }
+            )
         }.onFailure { error ->
             Log.w("LinkPhone", "gallery albums", error)
-            sendGalleryError("albums", error.message ?: "Could not read photo albums")
+            sendGalleryError("albums", error.message ?: "Could not read albums")
         }
     }
 
     private fun sendGalleryPhotos(msg: JSONObject) {
-        if (!media.hasPermission()) {
-            sendGalleryError("photos", "Photo permission not granted on the phone")
+        val kindName = msg.optString("kind", "image")
+        val kind = kindOf(kindName)
+        if (!media.hasPermission(kind)) {
+            sendGalleryError("photos", "Photo/video permission not granted on the phone")
             return
         }
         val albumId = msg.optString("albumId")
         val offset = msg.optInt("offset", 0).coerceAtLeast(0)
         val limit = msg.optInt("limit", 48).coerceIn(1, 60)
-        runCatching { media.photos(albumId, offset, limit) }
+        runCatching { media.photos(kind, albumId, offset, limit) }
             .onSuccess { page ->
                 val photos = JSONArray(page.photos.map { it.toJson() })
                 send(
@@ -1513,18 +1562,21 @@ class LinkClient(context: Context, private val store: PairStore) {
                         put("offset", offset)
                         put("photos", photos)
                         put("hasMore", page.hasMore)
+                        put("kind", kindName)
                     }
                 )
             }
             .onFailure { error ->
                 Log.w("LinkPhone", "gallery photos", error)
-                sendGalleryError("photos", error.message ?: "Could not read photos")
+                sendGalleryError("photos", error.message ?: "Could not read media")
             }
     }
 
     private fun sendGalleryThumbnails(msg: JSONObject) {
-        if (!media.hasPermission()) {
-            sendGalleryError("thumbnails", "Photo permission not granted on the phone")
+        val kindName = msg.optString("kind", "image")
+        val kind = kindOf(kindName)
+        if (!media.hasPermission(kind)) {
+            sendGalleryError("thumbnails", "Photo/video permission not granted on the phone")
             return
         }
         val ids = msg.optJSONArray("photoIds") ?: JSONArray()
@@ -1532,23 +1584,24 @@ class LinkClient(context: Context, private val store: PairStore) {
         for (index in 0 until minOf(ids.length(), 24)) {
             val photoId = ids.optString(index)
             if (photoId.isEmpty()) continue
-            runCatching { media.thumbnail(photoId) }.getOrNull()?.let { image ->
+            runCatching { media.thumbnail(kind, photoId) }.getOrNull()?.let { image ->
                 items.put(image.toJson(photoId))
             }
         }
         send(JSONObject().apply { put("t", "gallery.thumbnails"); put("items", items) })
     }
 
-    private fun sendGalleryPreview(photoId: String) {
-        if (!media.hasPermission()) {
-            sendGalleryError("preview", "Photo permission not granted on the phone")
+    private fun sendGalleryPreview(kindName: String, photoId: String) {
+        val kind = kindOf(kindName)
+        if (!media.hasPermission(kind)) {
+            sendGalleryError("preview", "Photo/video permission not granted on the phone")
             return
         }
-        val image = runCatching { media.preview(photoId) }
+        val image = runCatching { media.preview(kind, photoId) }
             .onFailure { Log.w("LinkPhone", "gallery preview", it) }
             .getOrNull()
         if (image == null) {
-            sendGalleryError("preview", "Could not load that photo")
+            sendGalleryError("preview", "Could not load that media")
             return
         }
         send(
@@ -1561,17 +1614,20 @@ class LinkClient(context: Context, private val store: PairStore) {
         )
     }
 
-    private fun downloadGalleryPhoto(photoId: String) {
-        if (!media.hasPermission()) {
-            sendGalleryError("download", "Photo permission not granted on the phone")
+    private fun downloadGalleryPhoto(msg: JSONObject) {
+        val kindName = msg.optString("kind", "image")
+        val kind = kindOf(kindName)
+        val photoId = msg.optString("photoId")
+        if (!media.hasPermission(kind)) {
+            sendGalleryError("download", "Photo/video permission not granted on the phone")
             return
         }
-        val uri = media.uri(photoId)
+        val uri = media.uri(kind, photoId)
         if (uri == null) {
-            sendGalleryError("download", "That photo no longer exists")
+            sendGalleryError("download", "That item no longer exists")
             return
         }
-        sendFile(uri)
+        sendFile(uri, "downloads", photoId, kindName)
     }
 
     private fun sendGalleryError(op: String, detail: String) {
@@ -1593,6 +1649,8 @@ class LinkClient(context: Context, private val store: PairStore) {
         put("dateTaken", dateTaken)
         put("width", width)
         put("height", height)
+        put("kind", if (kind == MediaRepository.Kind.VIDEO) "video" else "image")
+        if (kind == MediaRepository.Kind.VIDEO) put("durationMs", durationMs)
     }
 
     private fun MediaRepository.EncodedImage.toJson(photoId: String): JSONObject =

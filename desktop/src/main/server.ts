@@ -572,17 +572,53 @@ export class LinkServer extends EventEmitter {
           name: str(msg.name, 'file'),
           size: num(msg.size),
           mime: str(msg.mime, 'application/octet-stream'),
-          target: msg.target === 'pictures' ? 'pictures' : 'downloads'
+          target:
+            msg.target === 'pictures'
+              ? 'pictures'
+              : msg.target === 'videos'
+                ? 'videos'
+                : 'downloads'
         }
         if (typeof msg.resumeFrom === 'number') offer.resumeFrom = num(msg.resumeFrom)
         if (typeof msg.mtimeMs === 'number') offer.mtimeMs = num(msg.mtimeMs)
+        if (typeof msg.photoId === 'string' && msg.photoId) offer.photoId = str(msg.photoId).slice(0, 64)
+        if (msg.mediaKind === 'video' || msg.mediaKind === 'image') {
+          offer.mediaKind = msg.mediaKind
+        }
+        this.store.ensureIncomingTransfer({
+          id: offer.id,
+          name: offer.name,
+          size: offer.size,
+          received: 0,
+          direction: 'in',
+          status: 'active',
+          deviceId: peer.deviceId,
+          startedAt: Date.now(),
+          target: offer.target,
+          photoId: offer.photoId,
+          mediaKind: offer.mediaKind
+        })
         this.receiver.offer(offer, peer.deviceId)
         return
       }
 
-      case 'file.done':
-        this.receiver.finish(str(msg.id))
+      case 'file.done': {
+        const id = str(msg.id)
+        this.receiver.finish(id)
+        const item = this.store.getTransfer(id)
+        if (item?.photoId) {
+          const key = `${item.mediaKind ?? 'image'}:${item.photoId}`
+          this.store.setGalleryDownload(key, {
+            transferId: id,
+            status: item.status === 'done' ? 'done' : 'failed',
+            received: item.received,
+            size: item.size,
+            path: item.path,
+            error: item.error
+          })
+        }
         return
+      }
 
       case 'storage.list': {
         const list = Array.isArray(msg.entries) ? (msg.entries as unknown[]) : []
@@ -677,6 +713,11 @@ export class LinkServer extends EventEmitter {
 
       case 'gallery.albums': {
         const list = Array.isArray(msg.albums) ? (msg.albums as unknown[]) : []
+        const kinds = Array.isArray(msg.kinds)
+          ? (msg.kinds as unknown[])
+              .filter((kind): kind is 'image' | 'video' => kind === 'image' || kind === 'video')
+          : []
+        this.store.setGalleryKinds(kinds.length > 0 ? kinds : ['image'])
         this.store.setGalleryAlbums(list.filter(isRawMsg).map(parseGalleryAlbum).slice(0, 200))
         return
       }
@@ -954,7 +995,8 @@ export class LinkServer extends EventEmitter {
         received: source.size,
         resumeOffset: 0
       })
-      if (target === 'pictures') this.requestGalleryAlbums()
+      if (target === 'pictures') this.requestGalleryAlbums('image')
+      else if (target === 'videos') this.requestGalleryAlbums('video')
     } catch (err) {
       const message = (err as Error).message
       const interrupted = message === 'connection lost'
@@ -1114,21 +1156,29 @@ export class LinkServer extends EventEmitter {
     })
   }
 
-  uploadPhotos(paths: string[]): void {
-    void this.sendFiles(paths, 'pictures')
+  uploadMedia(paths: string[]): void {
+    const images = paths.filter((filePath) => mimeForPath(filePath).startsWith('image/'))
+    const videos = paths.filter((filePath) => mimeForPath(filePath).startsWith('video/'))
+    const other = paths.filter((filePath) => {
+      const mime = mimeForPath(filePath)
+      return !mime.startsWith('image/') && !mime.startsWith('video/')
+    })
+    if (images.length > 0) void this.sendFiles(images, 'pictures')
+    if (videos.length > 0) void this.sendFiles(videos, 'videos')
+    if (other.length > 0) void this.sendFiles(other, 'downloads')
   }
 
   /* ---------------------------------------------------------------- */
   /* Gallery                                                           */
   /* ---------------------------------------------------------------- */
 
-  requestGalleryAlbums(): void {
+  requestGalleryAlbums(kind: 'image' | 'video' = 'image'): void {
     if (!this.hasConnectedPeer()) return
-    this.store.requestGalleryAlbums()
-    this.broadcast({ t: 'gallery.albums.request' })
+    this.store.requestGalleryAlbums(kind)
+    this.broadcast({ t: 'gallery.albums.request', kind })
   }
 
-  openGalleryAlbum(albumId: string, name: string): void {
+  openGalleryAlbum(kind: 'image' | 'video', albumId: string, name: string): void {
     if (!this.hasConnectedPeer()) return
     const safeId = albumId.slice(0, 256)
     this.store.openGalleryAlbum(safeId, name.slice(0, 200))
@@ -1136,7 +1186,8 @@ export class LinkServer extends EventEmitter {
       t: 'gallery.photos.request',
       albumId: safeId,
       offset: 0,
-      limit: GALLERY_PAGE_SIZE
+      limit: GALLERY_PAGE_SIZE,
+      kind
     })
   }
 
@@ -1144,38 +1195,39 @@ export class LinkServer extends EventEmitter {
     this.store.closeGalleryAlbum()
   }
 
-  loadMoreGallery(albumId: string, offset: number): void {
+  loadMoreGallery(kind: 'image' | 'video', albumId: string, offset: number): void {
     if (!this.hasConnectedPeer()) return
     this.store.setGalleryLoading(true)
     this.broadcast({
       t: 'gallery.photos.request',
       albumId: albumId.slice(0, 256),
       offset: Math.max(0, Math.floor(offset)),
-      limit: GALLERY_PAGE_SIZE
+      limit: GALLERY_PAGE_SIZE,
+      kind
     })
   }
 
-  requestGalleryThumbnails(photoIds: string[]): void {
+  requestGalleryThumbnails(kind: 'image' | 'video', photoIds: string[]): void {
     if (!this.hasConnectedPeer()) return
     const ids = [...new Set(photoIds.map((id) => id.slice(0, 64)).filter(Boolean))].slice(0, 24)
     if (ids.length === 0) return
-    this.broadcast({ t: 'gallery.thumbnails.request', photoIds: ids })
+    this.broadcast({ t: 'gallery.thumbnails.request', photoIds: ids, kind })
   }
 
-  requestGalleryPreview(photoId: string, name: string): void {
+  requestGalleryPreview(kind: 'image' | 'video', photoId: string, name: string): void {
     if (!this.hasConnectedPeer()) return
     const safeId = photoId.slice(0, 64)
     this.store.openGalleryPreview(safeId, name.slice(0, 240))
-    this.broadcast({ t: 'gallery.preview.request', photoId: safeId })
+    this.broadcast({ t: 'gallery.preview.request', photoId: safeId, kind })
   }
 
   closeGalleryPreview(): void {
     this.store.closeGalleryPreview()
   }
 
-  downloadGalleryPhoto(photoId: string): void {
+  downloadGalleryPhoto(kind: 'image' | 'video', photoId: string): void {
     if (!this.hasConnectedPeer()) return
-    this.broadcast({ t: 'gallery.download', photoId: photoId.slice(0, 64) })
+    this.broadcast({ t: 'gallery.download', photoId: photoId.slice(0, 64), kind })
   }
 
   /* ---------------------------------------------------------------- */
@@ -1272,7 +1324,8 @@ function parseGalleryAlbum(raw: RawMsg): GalleryAlbum {
     id: str(raw.id).slice(0, 256),
     name: str(raw.name, 'Album').slice(0, 200),
     count: Math.max(0, Math.floor(num(raw.count))),
-    coverPhotoId: str(raw.coverPhotoId).slice(0, 64)
+    coverPhotoId: str(raw.coverPhotoId).slice(0, 64),
+    kind: raw.kind === 'video' ? 'video' : 'image'
   }
 }
 
@@ -1287,15 +1340,18 @@ function parseStorageEntry(raw: RawMsg): StorageEntry {
 }
 
 function parseGalleryPhoto(raw: RawMsg): GalleryPhoto {
+  const kind = raw.kind === 'video' ? 'video' : 'image'
   return {
     id: str(raw.id).slice(0, 64),
     albumId: str(raw.albumId).slice(0, 256),
-    name: str(raw.name, 'Photo').slice(0, 240),
-    mime: str(raw.mime, 'image/jpeg').slice(0, 100),
+    name: str(raw.name, kind === 'video' ? 'Video' : 'Photo').slice(0, 240),
+    mime: str(raw.mime, kind === 'video' ? 'video/mp4' : 'image/jpeg').slice(0, 100),
     size: Math.max(0, num(raw.size)),
     dateTaken: Math.max(0, num(raw.dateTaken)),
     width: Math.max(0, Math.floor(num(raw.width))),
-    height: Math.max(0, Math.floor(num(raw.height)))
+    height: Math.max(0, Math.floor(num(raw.height))),
+    kind,
+    durationMs: kind === 'video' ? Math.max(0, num(raw.durationMs)) : undefined
   }
 }
 

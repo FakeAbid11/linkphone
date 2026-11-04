@@ -12,14 +12,17 @@ import android.util.Size
 import androidx.core.content.ContextCompat
 import java.io.ByteArrayOutputStream
 
-/** Read-only access to the phone's MediaStore photo collection. */
+/** Read-only access to the MediaStore images and videos. */
 class MediaRepository(private val context: Context) {
+
+    enum class Kind { IMAGE, VIDEO }
 
     data class Album(
         val id: String,
         val name: String,
         val count: Int,
-        val coverPhotoId: String
+        val coverPhotoId: String,
+        val kind: Kind
     )
 
     data class Photo(
@@ -30,7 +33,9 @@ class MediaRepository(private val context: Context) {
         val size: Long,
         val dateTaken: Long,
         val width: Int,
-        val height: Int
+        val height: Int,
+        val kind: Kind,
+        val durationMs: Long = 0L
     )
 
     data class Page(val photos: List<Photo>, val hasMore: Boolean)
@@ -38,18 +43,17 @@ class MediaRepository(private val context: Context) {
     data class EncodedImage(val mime: String, val bytes: ByteArray)
 
     private val resolver = context.contentResolver
-    private val collection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
 
-    fun hasPermission(): Boolean = when {
+    fun hasPermission(kind: Kind): Boolean = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
-            granted(Manifest.permission.READ_MEDIA_IMAGES) ||
+            granted(kind.mediaPermission) ||
                 granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
-            granted(Manifest.permission.READ_MEDIA_IMAGES)
+            granted(kind.mediaPermission)
         else -> granted(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
-    fun albums(): List<Album> {
+    fun albums(kind: Kind): List<Album> {
         data class MutableAlbum(
             val id: String,
             val name: String,
@@ -62,19 +66,20 @@ class MediaRepository(private val context: Context) {
         var allCover = ""
 
         resolver.query(
-            collection,
+            collection(kind),
             arrayOf(
-                MediaStore.Images.Media._ID,
-                MediaStore.Images.Media.BUCKET_ID,
-                MediaStore.Images.Media.BUCKET_DISPLAY_NAME
+                MediaStore.MediaColumns._ID,
+                MediaStore.MediaColumns.BUCKET_ID,
+                MediaStore.MediaColumns.BUCKET_DISPLAY_NAME
             ),
             null,
             null,
-            SORT_ORDER
+            sortOrder()
         )?.use { cursor ->
-            val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
-            val bucketIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_ID)
-            val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+            val idIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val bucketIndex = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.BUCKET_ID)
+            val nameIndex =
+                cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.BUCKET_DISPLAY_NAME)
             var scanned = 0
 
             while (cursor.moveToNext() && scanned < MAX_ALBUM_SCAN) {
@@ -95,41 +100,49 @@ class MediaRepository(private val context: Context) {
         }
 
         if (allCount == 0) return emptyList()
-        return listOf(Album(ALL_PHOTOS, "All photos", allCount, allCover)) +
-            found.values.map { Album(it.id, it.name, it.count, it.coverPhotoId) }
+        val allName = if (kind == Kind.VIDEO) "All videos" else "All photos"
+        return listOf(Album(ALL_PHOTOS, allName, allCount, allCover, kind)) +
+            found.values.map { Album(it.id, it.name, it.count, it.coverPhotoId, kind) }
     }
 
-    fun photos(albumId: String, offset: Int, limit: Int): Page {
+    fun photos(kind: Kind, albumId: String, offset: Int, limit: Int): Page {
         val safeOffset = offset.coerceAtLeast(0)
         val safeLimit = limit.coerceIn(1, MAX_PAGE_SIZE)
-        val selection = if (albumId == ALL_PHOTOS) null else "${MediaStore.Images.Media.BUCKET_ID} = ?"
+        val selection =
+            if (albumId == ALL_PHOTOS) null else "${MediaStore.MediaColumns.BUCKET_ID} = ?"
         val args = if (selection == null) null else arrayOf(albumId)
         val out = ArrayList<Photo>(safeLimit + 1)
 
-        resolver.query(collection, PHOTO_PROJECTION, selection, args, SORT_ORDER)?.use { cursor ->
+        resolver.query(collection(kind), projection(kind), selection, args, sortOrder())?.use { cursor ->
             if (safeOffset > 0 && !cursor.moveToPosition(safeOffset - 1)) return@use
 
             while (cursor.moveToNext() && out.size <= safeLimit) {
-                val id = cursor.string(MediaStore.Images.Media._ID)
+                val id = cursor.string(MediaStore.MediaColumns._ID)
                 if (id.isEmpty()) continue
-                val bucketId = cursor.string(MediaStore.Images.Media.BUCKET_ID).ifBlank { "other" }
-                val taken = cursor.long(MediaStore.Images.Media.DATE_TAKEN)
+                val bucketId = cursor.string(MediaStore.MediaColumns.BUCKET_ID).ifBlank { "other" }
+                val taken = cursor.long(MediaStore.MediaColumns.DATE_TAKEN)
                     .takeIf { it > 0 }
-                    ?: (cursor.long(MediaStore.Images.Media.DATE_ADDED) * 1000L)
+                    ?: (cursor.long(MediaStore.MediaColumns.DATE_ADDED) * 1000L)
                 out.add(
                     Photo(
                         id = id,
                         albumId = bucketId,
-                        name = cursor.string(MediaStore.Images.Media.DISPLAY_NAME).ifBlank {
-                            "Photo-$id"
+                        name = cursor.string(MediaStore.MediaColumns.DISPLAY_NAME).ifBlank {
+                            if (kind == Kind.VIDEO) "Video-$id" else "Photo-$id"
                         },
-                        mime = cursor.string(MediaStore.Images.Media.MIME_TYPE).ifBlank {
-                            "image/jpeg"
+                        mime = cursor.string(MediaStore.MediaColumns.MIME_TYPE).ifBlank {
+                            if (kind == Kind.VIDEO) "video/mp4" else "image/jpeg"
                         },
-                        size = cursor.long(MediaStore.Images.Media.SIZE).coerceAtLeast(0),
+                        size = cursor.long(MediaStore.MediaColumns.SIZE).coerceAtLeast(0),
                         dateTaken = taken.coerceAtLeast(0),
-                        width = cursor.int(MediaStore.Images.Media.WIDTH).coerceAtLeast(0),
-                        height = cursor.int(MediaStore.Images.Media.HEIGHT).coerceAtLeast(0)
+                        width = cursor.int(MediaStore.MediaColumns.WIDTH).coerceAtLeast(0),
+                        height = cursor.int(MediaStore.MediaColumns.HEIGHT).coerceAtLeast(0),
+                        kind = kind,
+                        durationMs = if (kind == Kind.VIDEO) {
+                            cursor.long(MediaStore.Video.Media.DURATION).coerceAtLeast(0)
+                        } else {
+                            0L
+                        }
                     )
                 )
             }
@@ -140,16 +153,16 @@ class MediaRepository(private val context: Context) {
         return Page(out, hasMore)
     }
 
-    fun thumbnail(photoId: String): EncodedImage? = encode(photoId, 360, 78)
+    fun thumbnail(kind: Kind, photoId: String): EncodedImage? = encode(kind, photoId, 360, 78)
 
-    fun preview(photoId: String): EncodedImage? = encode(photoId, 1600, 88)
+    fun preview(kind: Kind, photoId: String): EncodedImage? = encode(kind, photoId, 1600, 88)
 
-    fun uri(photoId: String): Uri? = photoId.toLongOrNull()?.let {
-        ContentUris.withAppendedId(collection, it)
+    fun uri(kind: Kind, photoId: String): Uri? = photoId.toLongOrNull()?.let {
+        ContentUris.withAppendedId(collection(kind), it)
     }
 
-    private fun encode(photoId: String, maxSize: Int, quality: Int): EncodedImage? {
-        val uri = uri(photoId) ?: return null
+    private fun encode(kind: Kind, photoId: String, maxSize: Int, quality: Int): EncodedImage? {
+        val uri = uri(kind, photoId) ?: return null
         val bitmap = resolver.loadThumbnail(uri, Size(maxSize, maxSize), null)
         return try {
             val bytes = ByteArrayOutputStream().use { output ->
@@ -161,6 +174,28 @@ class MediaRepository(private val context: Context) {
             bitmap.recycle()
         }
     }
+
+    private fun collection(kind: Kind): Uri = if (kind == Kind.VIDEO) {
+        MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+    } else {
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+    }
+
+    private fun projection(kind: Kind): Array<String> = if (kind == Kind.VIDEO) {
+        VIDEO_PROJECTION
+    } else {
+        IMAGE_PROJECTION
+    }
+
+    private fun sortOrder(): String =
+        "${MediaStore.MediaColumns.DATE_TAKEN} DESC, ${MediaStore.MediaColumns.DATE_ADDED} DESC"
+
+    private val Kind.mediaPermission: String
+        get() = if (this == Kind.VIDEO) {
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            Manifest.permission.READ_MEDIA_IMAGES
+        }
 
     private fun granted(permission: String): Boolean =
         ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
@@ -185,19 +220,18 @@ class MediaRepository(private val context: Context) {
         private const val MAX_ALBUM_SCAN = 50_000
         private const val MAX_PAGE_SIZE = 60
 
-        private const val SORT_ORDER =
-            "${MediaStore.Images.Media.DATE_TAKEN} DESC, ${MediaStore.Images.Media.DATE_ADDED} DESC"
-
-        private val PHOTO_PROJECTION = arrayOf(
-            MediaStore.Images.Media._ID,
-            MediaStore.Images.Media.BUCKET_ID,
-            MediaStore.Images.Media.DISPLAY_NAME,
-            MediaStore.Images.Media.MIME_TYPE,
-            MediaStore.Images.Media.SIZE,
-            MediaStore.Images.Media.DATE_TAKEN,
-            MediaStore.Images.Media.DATE_ADDED,
-            MediaStore.Images.Media.WIDTH,
-            MediaStore.Images.Media.HEIGHT
+        private val IMAGE_PROJECTION = arrayOf(
+            MediaStore.MediaColumns._ID,
+            MediaStore.MediaColumns.BUCKET_ID,
+            MediaStore.MediaColumns.DISPLAY_NAME,
+            MediaStore.MediaColumns.MIME_TYPE,
+            MediaStore.MediaColumns.SIZE,
+            MediaStore.MediaColumns.DATE_TAKEN,
+            MediaStore.MediaColumns.DATE_ADDED,
+            MediaStore.MediaColumns.WIDTH,
+            MediaStore.MediaColumns.HEIGHT
         )
+
+        private val VIDEO_PROJECTION = IMAGE_PROJECTION + MediaStore.Video.Media.DURATION
     }
 }

@@ -32,7 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.1** adds drag-and-drop file sending; v0.7.0 upgraded the notification center.
+> **v0.7.2** keeps the connection alive in the background, starts it at boot, and can ask Android
+> for a battery-optimization exemption. v0.7.1 added drag-and-drop file sending.
 
 ## Features
 
@@ -46,6 +47,7 @@ service or a relay server.
 | Phone calls | Partial | Dial, answer, decline and hang up; audio stays on the phone |
 | Photo albums | Yes | Thumbnails, paged albums, previews and original download |
 | Battery | Yes | Live percentage and charging state |
+| Background | Yes | Foreground service with boot start; optional battery-optimization exemption |
 | File transfer | Yes | Both directions, 64 KiB chunks; Send to or drag files onto the window |
 | Clipboard | Partial | Text only; phone side only while the app is open |
 | Start with Windows | Yes | Opt-in hidden tray start, listed in Windows Startup Apps |
@@ -68,7 +70,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”).
-3. **PC:** run `LinkPhone.Setup.0.7.1.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.7.2.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -179,6 +181,28 @@ v0.4 must be installed manually once because older versions do not contain updat
 - Neither platform downloads or installs anything without you choosing it.
 - Android downloads are verified against GitHub's SHA-256 digest and the certificate that signed
   the installed LinkPhone app before the installer opens.
+
+</details>
+
+<details>
+<summary><strong>Background on Android</strong></summary>
+
+LinkPhone runs a foreground service so notifications, texts, calls, clipboard and the file socket
+keep working while the app is in the background. Since v0.7.2 it is a `connectedDevice` service,
+which Android 15 does not subject to the six-hour `dataSync` limit.
+
+- **Boot start:** after a reboot the service starts automatically only if a phone is already
+  paired; an unpaired install shows no service or notification.
+- **Battery optimization:** an in-app **Background connection** card asks Android for an exemption.
+  Accepting it reduces Doze network throttling; you can undo it in system battery settings. The
+  optional exemption uses the `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` permission, which Google Play
+  restricts — LinkPhone ships as a sideloaded APK, and the app falls back to the standard
+  battery-optimization list when a ROM does not show the direct dialog.
+- **Xiaomi/HyperOS, Huawei:** enable Autostart for LinkPhone and set Battery saver to
+  **No restrictions**; otherwise the system may block the boot receiver or kill the service.
+- **Limits:** force-stopping LinkPhone from system settings stops it until you open it again.
+  Clipboard phone→PC stays foreground-only because Android only allows clipboard reads to the app
+  while it is on screen.
 
 </details>
 

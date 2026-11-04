@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.app.role.RoleManager
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -64,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
@@ -217,6 +219,10 @@ class MainActivity : ComponentActivity() {
 private fun hasNotificationAccess(context: Context): Boolean =
     NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
+private fun isBatteryExempt(context: Context): Boolean =
+    (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
+        .isIgnoringBatteryOptimizations(context.packageName)
+
 @Composable
 private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -233,6 +239,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     var pendingDevice by remember { mutableStateOf<Discovery.Target?>(null) }
     var code by remember { mutableStateOf("") }
     var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
+    var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
     var contactsAccess by remember { mutableStateOf(hasContactsAccess(context)) }
@@ -254,6 +261,7 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         while (true) {
             delay(1500)
             notifAccess = hasNotificationAccess(context)
+            batteryExempt = isBatteryExempt(context)
             smsAccess = hasSmsAccess(context)
             photoAccess = hasPhotoAccess(context)
             contactsAccess = hasContactsAccess(context)
@@ -347,6 +355,18 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     val notifPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { }
+
+    val batteryExemption = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        batteryExempt = isBatteryExempt(context)
+        if (!batteryExempt) {
+            notice = "Background stays limited. Find LinkPhone in battery optimization and choose " +
+                "Don't optimize. On Xiaomi/HyperOS also enable Autostart and set Battery saver " +
+                "to No restrictions."
+        }
+    }
+
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -523,6 +543,36 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
                     OutlinedButton(onClick = {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }) { ButtonLabel(Symbols.settings, "Open settings") }
+                }
+            }
+        }
+
+        if (!batteryExempt) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CardTitle(Symbols.settings, "Background connection")
+                    Text(
+                        "Keep the connection alive while the screen is off. Android battery " +
+                            "optimization can pause background networking; LinkPhone can ask to be " +
+                            "exempt. You can undo this in system settings.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    OutlinedButton(onClick = {
+                        val request = Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            "package:${context.packageName}".toUri()
+                        )
+                        runCatching { batteryExemption.launch(request) }.onFailure {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                )
+                            }
+                            notice = "Choose LinkPhone in the battery-optimization list and set it " +
+                                "to Don't optimize. On Xiaomi/HyperOS also enable Autostart."
+                        }
+                    }) { ButtonLabel(Symbols.settings, "Allow background") }
                 }
             }
         }

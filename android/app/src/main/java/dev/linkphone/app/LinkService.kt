@@ -6,8 +6,10 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 
 class LinkService : Service() {
@@ -36,7 +38,17 @@ class LinkService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
-        startForeground(NOTIFICATION_ID, notification)
+        try {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            )
+        } catch (error: RuntimeException) {
+            Log.w("LinkPhone", "could not start foreground service", error)
+            stopSelf()
+            return
+        }
 
         val store = LinkCore.requireStore()
         val client = LinkCore.requireClient()
@@ -49,6 +61,12 @@ class LinkService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        Log.w("LinkPhone", "foreground service timed out (type $fgsType)")
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf(startId)
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 

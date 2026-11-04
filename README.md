@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.3** reconnects paired phones automatically after reboot or a PC address change.
-> v0.7.2 added background reliability and boot start.
+> **v0.7.4** puts recent calls beside the dialer with a switch to contacts.
+> v0.7.3 added automatic reconnect for paired phones.
 
 ## Features
 
@@ -43,7 +43,7 @@ service or a relay server.
 | Notification mirroring | Yes | Live progress, search, app grouping, per-app mute/clear, actions and reply |
 | SMS | Partial | Existing threads only; no MMS or new conversations |
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
-| Contacts and call history | Yes | Beside the dialer in Calls: search, call back or open an SMS thread |
+| Contacts and call history | Yes | Recent calls and contacts share a switch beside the dialer |
 | Phone calls | Partial | Dial, answer, decline and hang up; audio stays on the phone |
 | Photo albums | Yes | Thumbnails, paged albums, previews and original download |
 | Battery | Yes | Live percentage and charging state |
@@ -70,7 +70,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”).
-3. **PC:** run `LinkPhone.Setup.0.7.3.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.7.4.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -129,10 +129,10 @@ calling; use the phone's emergency interface directly.
 <details>
 <summary><strong>Contacts and call history</strong></summary>
 
-Open **Calls** to search the phone book and call or message any number; the contact list sits beside
-the dialer. **Recent calls** below it shows direction, time and duration, with a call-back button.
-Messaging opens an existing SMS thread only; a number without a thread shows a hint instead. Both
-lists are read-only and pulled on demand over the encrypted link.
+Open **Calls** to see **Recent calls** beside the dialer, showing direction, time and duration with a
+call-back button. Use the **Recent / Contacts** switch above the list to search the phone book and
+call or message any number instead. Messaging opens an existing SMS thread only; a number without a
+thread shows a hint. Both lists are read-only and pulled on demand over the encrypted link.
 
 </details>
 

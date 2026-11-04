@@ -1328,18 +1328,52 @@ button {
   min-width: 0;
 }
 
-.calls-contacts {
+.calls-side {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.calls-contacts .contacts {
+.calls-side .contacts {
   width: 100%;
   margin: 0;
 }
 
-.calls-contacts .empty {
+.calls-side .empty {
   margin: 24px auto 0;
   max-width: 100%;
+}
+
+.calls-side-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-elev);
+}
+
+.calls-side-switch button {
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.calls-side-switch button:hover {
+  color: var(--text);
+}
+
+.calls-side-switch button.active {
+  background: #ffffff;
+  color: #000000;
+  font-weight: 600;
 }
 
 @media (max-width: 1000px) {
@@ -1356,12 +1390,8 @@ button {
     order: 1;
   }
 
-  .calls-contacts {
+  .calls-side {
     order: 2;
-  }
-
-  .recent-calls {
-    order: 3;
   }
 }
 
@@ -1681,7 +1711,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 4px;
 }
 
 .recent-empty {

@@ -266,7 +266,12 @@ private fun Screen(modifier: Modifier = Modifier) {
             batteryExempt = isBatteryExempt(context)
             smsAccess = hasSmsAccess(context)
             photoAccess = hasPhotoAccess(context)
-            contactsAccess = hasContactsAccess(context)
+            val nextContacts = hasContactsAccess(context)
+            if (nextContacts != contactsAccess) {
+                contactsAccess = nextContacts
+                ContactsRepository.get(context).invalidate()
+                if (nextContacts) ContactsRepository.get(context).preload()
+            }
             callLogAccess = hasCallLogAccess(context)
             simAccess = hasSimAccess(context)
             val nextDialer = CallHub.isDefaultDialer(context)
@@ -614,14 +619,24 @@ private fun Screen(modifier: Modifier = Modifier) {
                         )
                     }) { ButtonLabel(Symbols.call, "Allow call access") }
 
-                    !dialerRoleHeld -> OutlinedButton(onClick = {
-                        val roles = context.getSystemService(RoleManager::class.java)
-                        if (roles?.isRoleAvailable(RoleManager.ROLE_DIALER) == true) {
-                            dialerRole.launch(roles.createRequestRoleIntent(RoleManager.ROLE_DIALER))
-                        } else {
-                            notice = "Default phone-app control is unavailable on this device."
-                        }
-                    }) { ButtonLabel(Symbols.call, "Set as default phone app") }
+                    !dialerRoleHeld -> Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            "Call access ready — dial from Windows",
+                            color = Primary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        OutlinedButton(onClick = {
+                            val roles = context.getSystemService(RoleManager::class.java)
+                            if (roles?.isRoleAvailable(RoleManager.ROLE_DIALER) == true) {
+                                dialerRole.launch(roles.createRequestRoleIntent(RoleManager.ROLE_DIALER))
+                            } else {
+                                notice = "Default phone-app control is unavailable on this device."
+                            }
+                        }) { ButtonLabel(Symbols.call, "Set as default for full control") }
+                    }
 
                     !callPermissionsGranted -> OutlinedButton(onClick = {
                         callPermission.launch(arrayOf(Manifest.permission.READ_PHONE_STATE))

@@ -169,7 +169,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.7.6</div>
+            <div className="brand-sub">Local network · v0.7.7</div>
           </div>
         </div>
 
@@ -306,6 +306,7 @@ export default function App(): JSX.Element {
               calls={state.phoneCalls}
               dialerReady={state.callDialerReady}
               outgoingReady={state.callOutgoingReady}
+              callPlaced={state.callPlaced}
               speaker={state.callSpeaker}
               error={state.callError}
               connected={connected.length > 0}

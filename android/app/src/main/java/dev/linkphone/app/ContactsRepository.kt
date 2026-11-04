@@ -58,6 +58,7 @@ class ContactsRepository private constructor(private val context: Context) {
     }
 
     /** Full contact list for the PC hub, loaded with the same TTL as the name map. */
+    @Synchronized
     fun list(): List<ContactEntry> {
         ensureLoaded()
         return listCache
@@ -68,6 +69,7 @@ class ContactsRepository private constructor(private val context: Context) {
         CoroutineScope(Dispatchers.IO).launch { ensureLoaded() }
     }
 
+    @Synchronized
     fun invalidate() {
         loaded = false
         loadedAt = 0L
@@ -79,15 +81,19 @@ class ContactsRepository private constructor(private val context: Context) {
     private fun ensureLoaded() {
         val now = SystemClock.elapsedRealtime()
         if (loaded && now - loadedAt < TTL_MS) return
+        if (!hasPermission()) {
+            loaded = false
+            loadedAt = 0L
+            cache.clear()
+            listCache = emptyList()
+            return
+        }
+
         cache.clear()
         listCache = emptyList()
-        loaded = true
-        loadedAt = now
-        if (!hasPermission()) return
-
-        runCatching {
+        val result = runCatching {
             val contacts = LinkedHashMap<Long, ContactBuilder>()
-            resolver.query(
+            val cursor = resolver.query(
                 ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
                 arrayOf(
                     ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
@@ -99,7 +105,8 @@ class ContactsRepository private constructor(private val context: Context) {
                 null,
                 null,
                 null
-            )?.use { cursor ->
+            ) ?: error("contacts provider returned no cursor")
+            cursor.use { cursor ->
                 val idIndex = cursor.getColumnIndex(
                     ContactsContract.CommonDataKinds.Phone.CONTACT_ID
                 )
@@ -143,7 +150,12 @@ class ContactsRepository private constructor(private val context: Context) {
                 .map { ContactEntry(it.id.toString(), it.name, it.numbers.toList()) }
                 .sortedBy { it.name.lowercase() }
                 .take(MAX_CONTACTS)
-        }.onFailure { Log.w(TAG, "cannot read contacts", it) }
+        }
+        result.onFailure { Log.w(TAG, "cannot read contacts", it) }
+        if (result.isSuccess) {
+            loaded = true
+            loadedAt = now
+        }
     }
 
     private class ContactBuilder(val id: Long, val name: String) {

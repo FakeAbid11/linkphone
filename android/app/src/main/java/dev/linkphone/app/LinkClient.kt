@@ -615,11 +615,13 @@ class LinkClient(context: Context, private val store: PairStore) {
             "gallery.preview.request" -> scope.launch { sendGalleryPreview(msg.optString("photoId")) }
             "gallery.download" -> scope.launch { downloadGalleryPhoto(msg.optString("photoId")) }
             "call.place" -> {
+                val number = msg.optString("number")
                 CallHub.placeCall(
                     appContext,
-                    msg.optString("number"),
+                    number,
                     msg.optString("accountId").ifBlank { null }
-                ).onFailure { sendCallError(it.message ?: "Could not place call") }
+                ).onSuccess { sendCallPlaced(number) }
+                    .onFailure { sendCallError(it.message ?: "Could not place call") }
             }
             "call.answer" -> CallHub.answer(msg.optString("callId"))
             "call.reject" -> CallHub.reject(msg.optString("callId"))
@@ -920,6 +922,11 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     private fun sendCallError(detail: String) {
         send(JSONObject().apply { put("t", "call.error"); put("error", detail) })
+    }
+
+    fun sendCallPlaced(number: String) {
+        if (!ready) return
+        send(JSONObject().apply { put("t", "call.placed"); put("number", number) })
     }
 
     /* ------------------------------------------------------------ */

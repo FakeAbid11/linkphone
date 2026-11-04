@@ -17,10 +17,12 @@ Clear LinkPhone app data (or install fresh), then launch it with the PC running.
 
 * ✅ Step 1 explains LinkPhone and how the link works; **Next**, **Back** and the dots track the
   three steps.
-* ✅ Step 2 lists Notifications, Messages, Contacts, Photos, Call history and Background with a
-  reason each. Granting SMS/contacts/photos/call history changes the row to **Allowed**; the
+* ✅ Step 2 lists Notifications, Messages, Contacts, Photos, Calls, Call history and Background with
+  a reason each. Granting SMS/contacts/photos/call history changes the row to **Allowed**; the
   Notification row opens system settings and updates after returning; denying leaves the button
   usable. The battery row opens the exemption dialog or the system optimization list.
+* ✅ Granting Contacts on step 2 and then opening Calls → Contacts on the PC shows the phone book
+  immediately, with no five-minute wait or extra **Refresh**.
 * ✅ The Android 13+ notification permission is requested when step 2 first opens.
 * ✅ Step 3 pairs with the PC: **Scan QR** closes onboarding on success, and the network list plus
   typed code also work. **Pair later** opens the main screen unpaired; **Skip** works from any step.
@@ -169,9 +171,11 @@ Outgoing-only mode (no default-phone role): grant **Allow call access** on the p
 the default phone app.
 
 * ✅ The PC dialer **Call**, recent-call redial and contact call buttons are enabled.
-* ✅ Dialing opens the phone's system call UI and places the call; the PC shows no active-call card
-  and cannot hang up or switch the speaker, which is expected without the role.
-* ✅ The warning explains that answer/decline/hang up need the default phone app.
+* ✅ Dialing opens the phone's system call UI and places the call; the PC shows a dismissible
+  “Call sent to your phone” confirmation instead of an active-call card, which is expected without
+  the role.
+* ✅ A compact optional-role note replaces the old warning and can be dismissed; the phone card shows
+  “Call access ready — dial from Windows” with the role button as secondary.
 * ✅ An incoming call is handled by the system dialer; the PC offers no answer/decline buttons.
 * ✅ Deny `CALL_PHONE` → the PC call buttons disable and the phone card asks for call access.
 
@@ -201,7 +205,8 @@ Contacts tab.
   **Recent / Contacts** switch and shows Recent calls. Nothing appears below the dialer.
 * ✅ **Contacts** swaps the right column to the contact search and list; **Recent** swaps back.
 * ✅ Below 1000 px the layout stacks as dialer/active call → switch and selected panel.
-* ✅ Contacts lists names, numbers and labels; search matches both names and digits.
+* ✅ Contacts lists names, numbers and labels; search matches both names and digits. Granting or
+  revoking Contact access in Android settings while LinkPhone is open reloads or clears the list.
 * ✅ The call button places a call through the phone (it is disabled until call access is granted).
 * ✅ **Message** opens an existing SMS conversation; a number with no thread shows
   “No SMS thread yet — start one on the phone.”
@@ -247,7 +252,7 @@ flight, the receiver acks every 512 KiB.
 
 ## 10b. Send to from Explorer
 
-Install v0.7.6, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+Install v0.7.7, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
 **Show more options**).
 
 * ✅ The SendTo menu lists LinkPhone with the app icon.

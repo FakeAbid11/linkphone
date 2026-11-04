@@ -14,6 +14,7 @@ interface Props {
   calls: PhoneCallInfo[]
   dialerReady: boolean
   outgoingReady: boolean
+  callPlaced: { number: string; at: number } | null
   speaker: boolean
   error: string
   connected: boolean
@@ -43,6 +44,7 @@ export function CallsPanel({
   calls,
   dialerReady,
   outgoingReady,
+  callPlaced,
   speaker,
   error,
   connected,
@@ -68,6 +70,8 @@ export function CallsPanel({
   const [number, setNumber] = useState('')
   const [accountId, setAccountId] = useState('')
   const [sideView, setSideView] = useState<'recent' | 'contacts'>('recent')
+  const [roleNoteDismissed, setRoleNoteDismissed] = useState(false)
+  const [placedDismissedAt, setPlacedDismissedAt] = useState(0)
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -98,11 +102,44 @@ export function CallsPanel({
         <span>Windows controls the call only. Use the phone's speaker below when call control is enabled.</span>
       </div>
 
-      {!dialerReady && (
+      {!outgoingReady && (
         <div className="call-warning">
-          {outgoingReady
-            ? 'Dialing is ready. Set LinkPhone as the default phone app to answer, decline, hang up or use the phone speaker from the PC.'
-            : 'Allow call access on your phone to dial from the PC. Set LinkPhone as the default phone app for full call control.'}
+          Allow call access on your phone to dial from the PC.
+        </div>
+      )}
+
+      {outgoingReady && !dialerReady && !roleNoteDismissed && (
+        <div className="call-role-note">
+          <span>
+            Optional: set LinkPhone as the default phone app to answer, decline, hang up and use
+            the phone speaker.
+          </span>
+          <button
+            className="icon-btn"
+            type="button"
+            title="Dismiss"
+            onClick={() => setRoleNoteDismissed(true)}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+      )}
+
+      {callPlaced && calls.length === 0 && callPlaced.at > placedDismissedAt && (
+        <div className="call-placed">
+          <Icon name="call" size={18} />
+          <div>
+            <strong>Call sent to your phone</strong>
+            <span>{callPlaced.number} · finish or cancel it on the phone.</span>
+          </div>
+          <button
+            className="icon-btn"
+            type="button"
+            title="Dismiss"
+            onClick={() => setPlacedDismissedAt(callPlaced.at)}
+          >
+            <Icon name="close" size={16} />
+          </button>
         </div>
       )}
 

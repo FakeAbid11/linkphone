@@ -69,6 +69,7 @@ fun OnboardingScreen(
     var contactsAccess by remember { mutableStateOf(hasContactsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
     var callLogAccess by remember { mutableStateOf(hasCallLogAccess(context)) }
+    var callAccess by remember { mutableStateOf(CallHub.isOutgoingReady(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
 
     fun refreshPermissions() {
@@ -77,6 +78,7 @@ fun OnboardingScreen(
         contactsAccess = hasContactsAccess(context)
         photoAccess = hasPhotoAccess(context)
         callLogAccess = hasCallLogAccess(context)
+        callAccess = CallHub.isOutgoingReady(context)
         batteryExempt = isBatteryExempt(context)
     }
 
@@ -105,6 +107,10 @@ fun OnboardingScreen(
 
     val callLogPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
+    ) { refreshPermissions() }
+
+    val callPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { refreshPermissions() }
 
     val notifPermission = rememberLauncherForActivityResult(
@@ -141,6 +147,7 @@ fun OnboardingScreen(
                     smsAccess = smsAccess,
                     contactsAccess = contactsAccess,
                     photoAccess = photoAccess,
+                    callAccess = callAccess,
                     callLogAccess = callLogAccess,
                     batteryExempt = batteryExempt,
                     onOpenNotificationSettings = {
@@ -161,6 +168,14 @@ fun OnboardingScreen(
                     onRequestPhotos = { photoPermission.launch(photoPermissions()) },
                     onRequestCallLog = {
                         callLogPermission.launch(Manifest.permission.READ_CALL_LOG)
+                    },
+                    onRequestCalls = {
+                        callPermission.launch(
+                            arrayOf(
+                                Manifest.permission.CALL_PHONE,
+                                Manifest.permission.READ_PHONE_STATE
+                            )
+                        )
                     },
                     onRequestBattery = {
                         val request = Intent(
@@ -303,6 +318,7 @@ private fun PermissionsStep(
     smsAccess: Boolean,
     contactsAccess: Boolean,
     photoAccess: Boolean,
+    callAccess: Boolean,
     callLogAccess: Boolean,
     batteryExempt: Boolean,
     onOpenNotificationSettings: () -> Unit,
@@ -310,6 +326,7 @@ private fun PermissionsStep(
     onRequestContacts: () -> Unit,
     onRequestPhotos: () -> Unit,
     onRequestCallLog: () -> Unit,
+    onRequestCalls: () -> Unit,
     onRequestBattery: () -> Unit
 ) {
     Column(
@@ -354,6 +371,14 @@ private fun PermissionsStep(
             granted = photoAccess,
             action = "Allow",
             onAction = onRequestPhotos
+        )
+        PermissionRow(
+            glyph = Symbols.call,
+            title = "Calls",
+            detail = "Dial from the PC. Answer, hang up and speaker control need the default phone app.",
+            granted = callAccess,
+            action = "Allow",
+            onAction = onRequestCalls
         )
         PermissionRow(
             glyph = Symbols.call,

@@ -165,6 +165,18 @@ With the phone connected, inspect its card in the desktop sidebar.
 On the phone tap **Set as default phone app**, accept Android's role prompt and grant Phone access.
 On Windows open **Calls**.
 
+Outgoing-only mode (no default-phone role): grant **Allow call access** on the phone but do not set
+the default phone app.
+
+* ✅ The PC dialer **Call**, recent-call redial and contact call buttons are enabled.
+* ✅ Dialing opens the phone's system call UI and places the call; the PC shows no active-call card
+  and cannot hang up or switch the speaker, which is expected without the role.
+* ✅ The warning explains that answer/decline/hang up need the default phone app.
+* ✅ An incoming call is handled by the system dialer; the PC offers no answer/decline buttons.
+* ✅ Deny `CALL_PHONE` → the PC call buttons disable and the phone card asks for call access.
+
+Full control mode: set LinkPhone as the default phone app and grant phone access.
+
 * ✅ Enter a non-emergency test number and press **Call**; the phone places the call and Windows shows
   dialing/active state.
 * ✅ Call the phone from another number; both phone and Windows show the incoming call.
@@ -190,8 +202,7 @@ Contacts tab.
 * ✅ **Contacts** swaps the right column to the contact search and list; **Recent** swaps back.
 * ✅ Below 1000 px the layout stacks as dialer/active call → switch and selected panel.
 * ✅ Contacts lists names, numbers and labels; search matches both names and digits.
-* ✅ The call button places a call through the phone (it is disabled until the default-phone card is
-  complete).
+* ✅ The call button places a call through the phone (it is disabled until call access is granted).
 * ✅ **Message** opens an existing SMS conversation; a number with no thread shows
   “No SMS thread yet — start one on the phone.”
 * ✅ Recent calls shows direction, relative time and talk duration; the call button redials.
@@ -236,7 +247,7 @@ flight, the receiver acks every 512 KiB.
 
 ## 10b. Send to from Explorer
 
-Install v0.7.5, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+Install v0.7.6, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
 **Show more options**).
 
 * ✅ The SendTo menu lists LinkPhone with the app icon.

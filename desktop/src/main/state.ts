@@ -91,6 +91,7 @@ export class AppStore extends EventEmitter {
   private desktopUpdate: DesktopUpdateState
   private phoneCalls: PhoneCallInfo[] = []
   private callDialerReady = false
+  private callOutgoingReady = false
   private callSpeaker = false
   private callMuted = false
   private callError = ''
@@ -545,11 +546,13 @@ export class AppStore extends EventEmitter {
   setCallState(input: {
     calls: PhoneCallInfo[]
     dialerReady: boolean
+    outgoingReady: boolean
     speaker: boolean
     muted: boolean
   }): void {
     this.phoneCalls = input.calls
     this.callDialerReady = input.dialerReady
+    this.callOutgoingReady = input.outgoingReady
     this.callSpeaker = input.speaker
     this.callMuted = input.muted
     this.callError = ''
@@ -690,6 +693,7 @@ export class AppStore extends EventEmitter {
       desktopUpdate: this.desktopUpdate,
       phoneCalls: this.phoneCalls,
       callDialerReady: this.callDialerReady,
+      callOutgoingReady: this.callOutgoingReady,
       callSpeaker: this.callSpeaker,
       callMuted: this.callMuted,
       callError: this.callError,

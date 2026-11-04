@@ -18,6 +18,7 @@ import android.telecom.Call
 import android.telecom.CallAudioState
 import android.telecom.DisconnectCause
 import android.telecom.InCallService
+import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
 import android.telecom.VideoProfile
 import androidx.core.app.NotificationCompat
@@ -45,6 +46,7 @@ data class PhoneCallInfo(
 data class PhoneCallSnapshot(
     val calls: List<PhoneCallInfo> = emptyList(),
     val dialerReady: Boolean = false,
+    val outgoingReady: Boolean = false,
     val speaker: Boolean = false,
     val muted: Boolean = false
 )
@@ -61,13 +63,22 @@ object CallHub {
     }
 
     fun refreshDialerRole(context: Context) {
-        publish(_state.value.copy(dialerReady = isCallReady(context)))
+        publish(
+            _state.value.copy(
+                dialerReady = isCallReady(context),
+                outgoingReady = isOutgoingReady(context)
+            )
+        )
     }
 
     fun isDefaultDialer(context: Context): Boolean {
         val roles = context.getSystemService(RoleManager::class.java) ?: return false
         return roles.isRoleAvailable(RoleManager.ROLE_DIALER) && roles.isRoleHeld(RoleManager.ROLE_DIALER)
     }
+
+    fun isOutgoingReady(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) ==
+            PackageManager.PERMISSION_GRANTED
 
     fun isCallReady(context: Context): Boolean =
         isDefaultDialer(context) &&
@@ -77,16 +88,14 @@ object CallHub {
             PackageManager.PERMISSION_GRANTED
 
     fun placeCall(context: Context, rawNumber: String, accountId: String? = null): Result<Unit> = runCatching {
-        if (!isDefaultDialer(context)) error("Set LinkPhone as the default phone app first")
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) !=
-            PackageManager.PERMISSION_GRANTED
-        ) error("Phone permission is not granted")
+        if (!isOutgoingReady(context)) error("Phone permission is not granted")
 
         val number = rawNumber.filter { it.isDigit() || it in "+*#,;" }
         if (number.length < 2) error("Enter a valid phone number")
         if (number.length > 64) error("Phone number is too long")
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
+        val uri = Uri.fromParts("tel", number, null)
         val extras = Bundle()
         if (!accountId.isNullOrBlank()) {
             val sims = SimRepository.get(context)
@@ -95,7 +104,13 @@ object CallHub {
                 ?: error("That SIM is no longer available")
             extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, handle)
         }
-        telecom.placeCall(Uri.fromParts("tel", number, null), extras)
+        try {
+            telecom.placeCall(uri, extras)
+        } catch (_: SecurityException) {
+            startCallActivity(context, uri, extras)
+        } catch (_: IllegalArgumentException) {
+            startCallActivity(context, uri, extras)
+        }
     }
 
     fun answer(callId: String) = main.post { runCatching { PhoneCallService.instance?.answer(callId) } }
@@ -107,6 +122,18 @@ object CallHub {
     fun setSpeaker(enabled: Boolean) = main.post {
         runCatching { PhoneCallService.instance?.setSpeaker(enabled) }
     }
+}
+
+/**
+ * Restrictive ROMs can refuse Telecom placement for a non-default dialer. Hand the same call to the
+ * system dialer; this needs LinkPhone to be visible on Android 10+ background-start rules.
+ */
+@Suppress("DEPRECATION")
+private fun startCallActivity(context: Context, uri: Uri, extras: Bundle) {
+    val intent = Intent(Intent.ACTION_CALL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    (extras.getParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE) as? PhoneAccountHandle)
+        ?.let { intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
+    context.startActivity(intent)
 }
 
 /** Default-dialer InCallService. No audio is captured or transported by LinkPhone. */
@@ -175,7 +202,12 @@ class PhoneCallService : InCallService() {
         started.clear()
         notifier.cancel()
         instance = null
-        CallHub.publish(PhoneCallSnapshot(dialerReady = CallHub.isCallReady(this)))
+        CallHub.publish(
+            PhoneCallSnapshot(
+                dialerReady = CallHub.isCallReady(this),
+                outgoingReady = CallHub.isOutgoingReady(this)
+            )
+        )
         super.onDestroy()
     }
 
@@ -203,6 +235,7 @@ class PhoneCallService : InCallService() {
             calls = calls.map { (id, call) -> call.toInfo(id, started[id] ?: System.currentTimeMillis()) }
                 .sortedWith(compareBy<PhoneCallInfo> { it.phase != PhoneCallPhase.RINGING }.thenBy { it.startedAt }),
             dialerReady = CallHub.isCallReady(this),
+            outgoingReady = CallHub.isOutgoingReady(this),
             speaker = audio?.route == CallAudioState.ROUTE_SPEAKER,
             muted = audio?.isMuted == true
         )

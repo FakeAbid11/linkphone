@@ -13,6 +13,7 @@ import { callDuration, relativeTime } from '../lib/phone'
 interface Props {
   calls: PhoneCallInfo[]
   dialerReady: boolean
+  outgoingReady: boolean
   speaker: boolean
   error: string
   connected: boolean
@@ -41,6 +42,7 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
 export function CallsPanel({
   calls,
   dialerReady,
+  outgoingReady,
   speaker,
   error,
   connected,
@@ -93,13 +95,14 @@ export function CallsPanel({
     <div className="calls-panel">
       <div className="call-audio-note">
         <strong>Call audio stays on your phone</strong>
-        <span>Windows controls the call only. Use Phone speaker below to hear it hands-free.</span>
+        <span>Windows controls the call only. Use the phone's speaker below when call control is enabled.</span>
       </div>
 
       {!dialerReady && (
         <div className="call-warning">
-          On your phone, open LinkPhone and set it as the default phone app before using call
-          controls.
+          {outgoingReady
+            ? 'Dialing is ready. Set LinkPhone as the default phone app to answer, decline, hang up or use the phone speaker from the PC.'
+            : 'Allow call access on your phone to dial from the PC. Set LinkPhone as the default phone app for full call control.'}
         </div>
       )}
 
@@ -169,7 +172,7 @@ export function CallsPanel({
                   </button>
                 ))}
               </div>
-              <button className="call-primary" disabled={!dialerReady || !number.trim()} onClick={place}>
+              <button className="call-primary" disabled={!outgoingReady || !number.trim()} onClick={place}>
                 <Icon name="call" size={18} /> Call
               </button>
             </div>
@@ -257,8 +260,8 @@ export function CallsPanel({
                         </div>
                         <button
                           className="icon-btn"
-                          title={dialerReady ? `Call ${entry.number}` : 'Calling needs the default phone app'}
-                          disabled={!dialerReady || !entry.number}
+                          title={outgoingReady ? `Call ${entry.number}` : 'Calling needs phone access'}
+                          disabled={!outgoingReady || !entry.number}
                           onClick={() => onCall(entry.number, accountId || undefined)}
                         >
                           <Icon name="call" size={18} />
@@ -277,7 +280,7 @@ export function CallsPanel({
               loading={contactsLoading}
               threadsLoading={smsLoading}
               connected={connected}
-              dialerReady={dialerReady}
+              dialerReady={outgoingReady}
               onRefresh={onRefreshContacts}
               onCall={(contactNumber) => onCall(contactNumber, accountId || undefined)}
               onMessage={onMessage}

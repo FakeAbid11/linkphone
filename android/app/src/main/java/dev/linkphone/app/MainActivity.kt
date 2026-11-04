@@ -252,6 +252,7 @@ private fun Screen(modifier: Modifier = Modifier) {
     var simAccess by remember { mutableStateOf(hasSimAccess(context)) }
     var dialerRoleHeld by remember { mutableStateOf(CallHub.isDefaultDialer(context)) }
     var callPermissionsGranted by remember { mutableStateOf(hasCallPermissions(context)) }
+    var outgoingReady by remember { mutableStateOf(CallHub.isOutgoingReady(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -274,6 +275,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                 CallHub.refreshDialerRole(context)
             }
             val nextCallPermissions = hasCallPermissions(context)
+            outgoingReady = CallHub.isOutgoingReady(context)
             if (nextCallPermissions != callPermissionsGranted) {
                 callPermissionsGranted = nextCallPermissions
                 CallHub.refreshDialerRole(context)
@@ -314,6 +316,7 @@ private fun Screen(modifier: Modifier = Modifier) {
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
         callPermissionsGranted = hasCallPermissions(context)
+        outgoingReady = CallHub.isOutgoingReady(context)
         CallHub.refreshDialerRole(context)
         if (!callPermissionsGranted) {
             notice = "Call permission was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
@@ -599,12 +602,18 @@ private fun Screen(modifier: Modifier = Modifier) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 CardTitle(Symbols.call, "Calls from your PC")
                 Text(
-                    "Answer, decline, dial and switch the phone speaker from Windows. Call audio " +
-                        "always stays on this phone.",
+                    "Dial from Windows with call access. Set LinkPhone as the default phone app to " +
+                        "answer, decline, hang up or switch the speaker. Audio always stays on this phone.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
                 when {
+                    !outgoingReady -> OutlinedButton(onClick = {
+                        callPermission.launch(
+                            arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+                        )
+                    }) { ButtonLabel(Symbols.call, "Allow call access") }
+
                     !dialerRoleHeld -> OutlinedButton(onClick = {
                         val roles = context.getSystemService(RoleManager::class.java)
                         if (roles?.isRoleAvailable(RoleManager.ROLE_DIALER) == true) {
@@ -615,10 +624,8 @@ private fun Screen(modifier: Modifier = Modifier) {
                     }) { ButtonLabel(Symbols.call, "Set as default phone app") }
 
                     !callPermissionsGranted -> OutlinedButton(onClick = {
-                        callPermission.launch(
-                            arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
-                        )
-                    }) { ButtonLabel(Symbols.call, "Allow call access") }
+                        callPermission.launch(arrayOf(Manifest.permission.READ_PHONE_STATE))
+                    }) { ButtonLabel(Symbols.call, "Allow phone access") }
 
                     else -> Text(
                         "Call control is ready",
@@ -745,7 +752,7 @@ internal fun hasSimAccess(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
         PackageManager.PERMISSION_GRANTED
 
-private fun hasCallPermissions(context: Context): Boolean =
+internal fun hasCallPermissions(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) ==
         PackageManager.PERMISSION_GRANTED &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==

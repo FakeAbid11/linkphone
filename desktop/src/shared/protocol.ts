@@ -243,6 +243,7 @@ export interface AppState {
   desktopUpdate: DesktopUpdateState
   phoneCalls: PhoneCallInfo[]
   callDialerReady: boolean
+  callOutgoingReady: boolean
   callSpeaker: boolean
   callMuted: boolean
   callError: string
@@ -532,6 +533,7 @@ export interface CallStateMsg {
   t: 'call.state'
   calls: PhoneCallInfo[]
   dialerReady: boolean
+  outgoingReady: boolean
   speaker: boolean
   muted: boolean
 }

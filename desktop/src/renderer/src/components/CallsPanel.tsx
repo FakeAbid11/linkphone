@@ -72,6 +72,7 @@ export function CallsPanel({
   const [sideView, setSideView] = useState<'recent' | 'contacts'>('recent')
   const [roleNoteDismissed, setRoleNoteDismissed] = useState(false)
   const [placedDismissedAt, setPlacedDismissedAt] = useState(0)
+  const [showCallSetup, setShowCallSetup] = useState(false)
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -108,12 +109,21 @@ export function CallsPanel({
         </div>
       )}
 
-      {outgoingReady && !dialerReady && !roleNoteDismissed && (
+      {outgoingReady && !dialerReady && !roleNoteDismissed && !callPlaced && (
         <div className="call-role-note">
-          <span>
-            Optional: set LinkPhone as the default phone app to answer, decline, hang up and use
-            the phone speaker.
-          </span>
+          <div className="call-note-body">
+            <span>
+              For the live call card, speaker and hang-up, set LinkPhone as the default phone app.
+            </span>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => setShowCallSetup((visible) => !visible)}
+            >
+              {showCallSetup ? 'Hide steps' : 'Show steps'}
+            </button>
+            {showCallSetup && <CallSetupSteps />}
+          </div>
           <button
             className="icon-btn"
             type="button"
@@ -128,9 +138,24 @@ export function CallsPanel({
       {callPlaced && calls.length === 0 && callPlaced.at > placedDismissedAt && (
         <div className="call-placed">
           <Icon name="call" size={18} />
-          <div>
+          <div className="call-note-body">
             <strong>Call sent to your phone</strong>
             <span>{callPlaced.number} · finish or cancel it on the phone.</span>
+            {outgoingReady && !dialerReady && (
+              <>
+                <span>
+                  For the live card, speaker and hang-up, set LinkPhone as the default phone app.
+                </span>
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => setShowCallSetup((visible) => !visible)}
+                >
+                  {showCallSetup ? 'Hide steps' : 'Show steps'}
+                </button>
+                {showCallSetup && <CallSetupSteps />}
+              </>
+            )}
           </div>
           <button
             className="icon-btn"
@@ -326,6 +351,16 @@ export function CallsPanel({
         </div>
       </div>
     </div>
+  )
+}
+
+function CallSetupSteps(): JSX.Element {
+  return (
+    <ol className="call-setup-steps">
+      <li>Open LinkPhone on your phone.</li>
+      <li>In “Calls from your PC”, tap “Set as default for full control”.</li>
+      <li>Accept the system prompt and allow phone access.</li>
+    </ol>
   )
 }
 

@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.7** reloads contacts after access is granted, confirms outgoing calls on the PC, and makes
-> the default-phone prompt optional. v0.7.6 added PC dialing without the role.
+> **v0.7.8** adds clear steps to unlock the PC in-call card, speaker and hang-up.
+> v0.7.7 fixed contacts reload and outgoing-call confirmations.
 
 ## Features
 
@@ -73,7 +73,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.7.7.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.7.8.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -126,8 +126,13 @@ notification, so calls remain usable when Windows is offline.
 
 Without the role, a call placed from the PC opens the phone's system call UI and Windows shows a
 “call sent to your phone” confirmation instead of a live call card; the call is finished on the
-phone. The role prompt is optional and can be dismissed. Set LinkPhone as the default phone app to
-show incoming calls, answer, decline, hang up and toggle the **phone's** speaker from Windows.
+phone. To get the PC in-call card, **Phone speaker** and **Hang up**:
+
+1. Open LinkPhone on your phone.
+2. In **Calls from your PC**, tap **Set as default for full control**.
+3. Accept the system prompt and allow phone access.
+
+The PC confirmation and the optional-role note both offer **Show steps** for the same setup.
 Microphone and call audio never cross the network. Do not depend on LinkPhone for emergency
 calling; use the phone's emergency interface directly.
 

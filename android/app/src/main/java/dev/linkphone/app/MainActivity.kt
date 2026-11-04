@@ -628,6 +628,12 @@ private fun Screen(modifier: Modifier = Modifier) {
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
+                        Text(
+                            "The live call screen, speaker and hang-up from Windows need the " +
+                                "default phone app.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
+                        )
                         OutlinedButton(onClick = {
                             val roles = context.getSystemService(RoleManager::class.java)
                             if (roles?.isRoleAvailable(RoleManager.ROLE_DIALER) == true) {

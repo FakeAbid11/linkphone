@@ -254,6 +254,7 @@ export class LinkServer extends EventEmitter {
       if (peer.phase === 'ready') {
         this.ringingCallIds.clear()
         this.store.setCallState({ calls: [], dialerReady: false, outgoingReady: false, speaker: false, muted: false })
+        this.store.setCallPlaced(null)
         this.store.resetContacts()
         this.store.resetSims()
       }
@@ -662,6 +663,12 @@ export class LinkServer extends EventEmitter {
           speaker: bool(msg.speaker),
           muted: bool(msg.muted)
         })
+        return
+      }
+
+      case 'call.placed': {
+        const number = typeof msg.number === 'string' ? msg.number.trim().slice(0, 64) : ''
+        if (number) this.store.setCallPlaced(number)
         return
       }
 

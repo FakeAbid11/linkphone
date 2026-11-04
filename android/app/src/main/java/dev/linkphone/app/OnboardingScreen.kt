@@ -99,7 +99,11 @@ fun OnboardingScreen(
 
     val contactsPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { refreshPermissions() }
+    ) {
+        refreshPermissions()
+        ContactsRepository.get(context).invalidate()
+        ContactsRepository.get(context).preload()
+    }
 
     val photoPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()

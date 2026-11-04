@@ -92,6 +92,7 @@ export class AppStore extends EventEmitter {
   private phoneCalls: PhoneCallInfo[] = []
   private callDialerReady = false
   private callOutgoingReady = false
+  private callPlaced: { number: string; at: number } | null = null
   private callSpeaker = false
   private callMuted = false
   private callError = ''
@@ -553,6 +554,7 @@ export class AppStore extends EventEmitter {
     this.phoneCalls = input.calls
     this.callDialerReady = input.dialerReady
     this.callOutgoingReady = input.outgoingReady
+    if (input.calls.length > 0) this.callPlaced = null
     this.callSpeaker = input.speaker
     this.callMuted = input.muted
     this.callError = ''
@@ -561,6 +563,11 @@ export class AppStore extends EventEmitter {
 
   setCallError(error: string): void {
     this.callError = error
+    this.changed()
+  }
+
+  setCallPlaced(number: string | null): void {
+    this.callPlaced = number ? { number, at: Date.now() } : null
     this.changed()
   }
 
@@ -694,6 +701,7 @@ export class AppStore extends EventEmitter {
       phoneCalls: this.phoneCalls,
       callDialerReady: this.callDialerReady,
       callOutgoingReady: this.callOutgoingReady,
+      callPlaced: this.callPlaced,
       callSpeaker: this.callSpeaker,
       callMuted: this.callMuted,
       callError: this.callError,

@@ -51,6 +51,8 @@ PC sidebar → **Scan QR code instead**. Phone → **Scan QR** and point it at t
 * ✅ Phone **Forget** opens a confirmation; Cancel keeps the pairing, Forget clears it and the
   foreground notification disappears.
 * ✅ PC phone-card **Forget** shows inline Forget/Cancel instead of unpairing immediately.
+* ✅ The speaker icon on a connected phone card rings the phone for about 15 seconds; silent/DND
+  behavior follows the phone settings.
 * ✅ If the router isolates IPv4 clients, v0.4.9 still connects over the PC's link-local IPv6
   address, which is tried after the IPv4 addresses.
 * ❌ Camera does not open → grant Camera in Android Settings → Apps → LinkPhone → Permissions.
@@ -96,6 +98,10 @@ yourself a message from another app).
 * ✅ Grant Contact access while Calls → Contacts is open → the list appears without pressing Refresh.
 * ✅ An ongoing/system-locked notification that Android refuses to cancel stays in the phone shade;
   its PC card is hidden.
+* ✅ **History** shows notifications after they are dismissed on the PC or phone and after restarting
+  LinkPhone; search and **Clear history** work.
+* ✅ With media playing on the phone, a **Now playing** card shows title/artist; play/pause and
+  next/previous work. It disappears when the session ends or notification access is revoked.
 * ✅ **Reply** (on a messaging notification) sends the text from the phone's own app.
 * ✅ Notifications with actions show quick-action buttons (Open, Mark read, Archive, …); tapping one
   applies it on the phone.
@@ -128,12 +134,15 @@ Phone → **Allow SMS access**. On the PC open **Messages**.
 * ✅ Existing SMS threads load newest-first; opening one shows up to the latest 300 messages.
 * ✅ Replying from the PC creates an optimistic outgoing bubble and changes from `sending` to sent.
 * ✅ Send an SMS to the phone from another number: it appears live and triggers a Windows toast.
+* ✅ **New message** sends to a number with no thread, opens the conversation and keeps the bubble
+  after a refresh and after restarting LinkPhone.
+* ✅ Conversation-list search and in-thread message search filter correctly.
 * ❌ Empty list → all three SMS permissions (read, send, receive) must be enabled on the phone.
 * ❌ Send fails → check that the phone has an active SIM and a default SMS subscription.
 
-v0.2 supports SMS replies in existing threads only. It does not support MMS or a new-recipient
-composer. Because LinkPhone is not the default SMS app, its outgoing message is not written into the
-system SMS database by LinkPhone; the PC keeps the optimistic bubble for the current session.
+LinkPhone supports existing threads and new conversations, but not MMS. Because LinkPhone is not the
+default SMS app, outgoing-only conversations are cached locally on the PC (`sms-local.json`); provider
+threads take precedence when the same address exists on the phone.
 
 ## 6b. Contact names
 

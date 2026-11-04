@@ -886,6 +886,46 @@ button {
   gap: 6px;
 }
 
+.sms-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sms-search {
+  margin: 10px 0;
+}
+
+.sms-new {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.sms-new label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sms-new input,
+.sms-new textarea,
+.sms-new select {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.sms-new-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .sms-row {
   display: flex;
   gap: 12px;
@@ -1990,6 +2030,55 @@ button {
   gap: 10px;
 }
 
+.media-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--bg-elev);
+}
+
+.media-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.media-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.media-body strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-body span {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .notif-toolbar {
   display: flex;
   align-items: center;
@@ -2031,6 +2120,17 @@ button {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 999px;
+}
+
+.notif-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.notif-history-row {
+  opacity: 0.92;
 }
 
 .notif-view button {

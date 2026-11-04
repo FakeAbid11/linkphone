@@ -249,6 +249,7 @@ export interface AppState {
   callSpeaker: boolean
   callMuted: boolean
   callError: string
+  media: { title: string; artist: string; playing: boolean; app: string } | null
   phoneContacts: PhoneContact[]
   contactsGranted: boolean
   contactsLoading: boolean
@@ -557,6 +558,24 @@ export interface CallPlacedMsg {
   number: string
 }
 
+export interface PhoneRingMsg {
+  t: 'phone.ring'
+  durationMs?: number
+}
+
+export interface MediaStateMsg {
+  t: 'media.state'
+  title: string
+  artist: string
+  playing: boolean
+  app: string
+}
+
+export interface MediaActionMsg {
+  t: 'media.action'
+  action: 'play' | 'pause' | 'next' | 'previous'
+}
+
 export interface CallAnswerMsg {
   t: 'call.answer'
   callId: string
@@ -637,6 +656,9 @@ export type ControlMsg =
   | NotifDismissMsg
   | NotifActionMsg
   | NotifCancelMsg
+  | PhoneRingMsg
+  | MediaStateMsg
+  | MediaActionMsg
   | ClipSetMsg
   | FileOfferMsg
   | FileAcceptMsg

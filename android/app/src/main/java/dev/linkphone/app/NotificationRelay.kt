@@ -22,6 +22,7 @@ class NotificationRelay : NotificationListenerService() {
     override fun onListenerConnected() {
         LinkCore.init(this)
         instance = this
+        MediaWatcher.start(this)
         runCatching {
             activeNotifications
                 ?.firstOrNull { isSystemCall(it, it.notification) }
@@ -31,6 +32,7 @@ class NotificationRelay : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         if (instance === this) instance = null
+        MediaWatcher.stop()
         if (callKey != null) {
             callKey = null
             CallHub.clearSystemCall()
@@ -39,6 +41,7 @@ class NotificationRelay : NotificationListenerService() {
 
     override fun onDestroy() {
         if (instance === this) instance = null
+        MediaWatcher.stop()
         if (callKey != null) {
             callKey = null
             CallHub.clearSystemCall()

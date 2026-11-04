@@ -75,6 +75,13 @@ export class AppStore extends EventEmitter {
   private notifications: NotificationItem[] = []
   private hiddenNotificationKeys = new Set<string>()
   private pendingCancelKeys = new Set<string>()
+  private notificationHistory: NotificationItem[] = []
+  private readonly historyFile: string
+  private historySaveTimer: NodeJS.Timeout | null = null
+  private readonly smsLocalFile: string
+  private smsLocalThreads: SmsThread[] = []
+  private smsLocalMessages: Record<string, SmsMessage[]> = {}
+  private smsSaveTimer: NodeJS.Timeout | null = null
   private transfers: TransferItem[] = []
   private smsThreads: SmsThread[] = []
   private smsActive: SmsActiveThread | null = null
@@ -98,6 +105,7 @@ export class AppStore extends EventEmitter {
   private callSpeaker = false
   private callMuted = false
   private callError = ''
+  private media: { title: string; artist: string; playing: boolean; app: string } | null = null
   private phoneContacts: PhoneContact[] = []
   private contactsGranted = false
   private contactsLoading = false
@@ -119,10 +127,173 @@ export class AppStore extends EventEmitter {
   constructor(dir: string, currentVersion = '') {
     super()
     this.file = path.join(dir, 'config.json')
+    this.historyFile = path.join(dir, 'notification-history.json')
+    this.smsLocalFile = path.join(dir, 'sms-local.json')
     this.downloadsDir = path.join(os.homedir(), 'Downloads', 'LinkPhone')
     fs.mkdirSync(this.downloadsDir, { recursive: true })
     this.persisted = this.load(dir)
+    this.notificationHistory = this.loadNotificationHistory()
+    const smsLocal = this.loadSmsLocal()
+    this.smsLocalThreads = smsLocal.threads
+    this.smsLocalMessages = smsLocal.messages
+    this.smsThreads = [...smsLocal.threads]
     this.desktopUpdate = { status: 'idle', currentVersion }
+  }
+
+  private loadNotificationHistory(): NotificationItem[] {    try {
+      const raw = fs.readFileSync(this.historyFile, 'utf8')
+      const parsed = JSON.parse(raw) as unknown
+      if (!Array.isArray(parsed)) return []
+      const out: NotificationItem[] = []
+      for (const entry of parsed) {
+        if (!entry || typeof entry !== 'object') continue
+        const item = entry as Record<string, unknown>
+        if (typeof item.key !== 'string' || typeof item.app !== 'string') continue
+        out.push({
+          key: item.key.slice(0, 256),
+          app: item.app.slice(0, 64),
+          pkg: typeof item.pkg === 'string' ? item.pkg.slice(0, 128) : '',
+          title: typeof item.title === 'string' ? item.title.slice(0, 500) : '',
+          text: typeof item.text === 'string' ? item.text.slice(0, 4000) : '',
+          when: typeof item.when === 'number' ? item.when : Date.now(),
+          canReply: false,
+          actions: [],
+          deviceId: typeof item.deviceId === 'string' ? item.deviceId : '',
+          ongoing: item.ongoing === true
+        })
+        if (out.length >= 500) break
+      }
+      return out
+    } catch {
+      return []
+    }
+  }
+
+  private scheduleHistorySave(): void {
+    if (this.historySaveTimer) return
+    this.historySaveTimer = setTimeout(() => {
+      this.historySaveTimer = null
+      try {
+        fs.mkdirSync(path.dirname(this.historyFile), { recursive: true })
+        fs.writeFileSync(this.historyFile, JSON.stringify(this.notificationHistory, null, 2), 'utf8')
+      } catch {
+        /* ignore write failures, history stays in memory */
+      }
+    }, 1000)
+    this.historySaveTimer.unref()
+  }
+
+  private recordNotificationHistory(item: NotificationItem): void {
+    const existing = this.notificationHistory.find(
+      (entry) => entry.deviceId === item.deviceId && entry.key === item.key
+    )
+    const next: NotificationItem = {
+      ...item,
+      when: existing?.when ?? item.when,
+      actions: [],
+      canReply: false
+    }
+    this.notificationHistory = [
+      next,
+      ...this.notificationHistory.filter(
+        (entry) => !(entry.deviceId === item.deviceId && entry.key === item.key)
+      )
+    ].slice(0, 500)
+    this.scheduleHistorySave()
+  }
+
+  getNotificationHistory(): NotificationItem[] {
+    return this.notificationHistory.map((item) => ({ ...item }))
+  }
+
+  clearNotificationHistory(): void {
+    this.notificationHistory = []
+    this.scheduleHistorySave()
+  }
+
+  private loadSmsLocal(): { threads: SmsThread[]; messages: Record<string, SmsMessage[]> } {
+    try {
+      const raw = fs.readFileSync(this.smsLocalFile, 'utf8')
+      const parsed = JSON.parse(raw) as {
+        threads?: unknown
+        messages?: unknown
+      }
+      const threads: SmsThread[] = []
+      if (Array.isArray(parsed.threads)) {
+        for (const entry of parsed.threads.slice(0, 50)) {
+          if (!entry || typeof entry !== 'object') continue
+          const thread = entry as Record<string, unknown>
+          if (typeof thread.threadId !== 'string' || typeof thread.address !== 'string') continue
+          threads.push({
+            threadId: thread.threadId,
+            address: thread.address,
+            name: typeof thread.name === 'string' ? thread.name : undefined,
+            snippet: typeof thread.snippet === 'string' ? thread.snippet.slice(0, 160) : '',
+            date: typeof thread.date === 'number' ? thread.date : Date.now(),
+            count: typeof thread.count === 'number' ? thread.count : 1
+          })
+        }
+      }
+      const messages: Record<string, SmsMessage[]> = {}
+      if (parsed.messages && typeof parsed.messages === 'object') {
+        for (const [key, value] of Object.entries(parsed.messages as Record<string, unknown>)) {
+          if (!Array.isArray(value)) continue
+          messages[key] = value
+            .filter((item): item is SmsMessage => !!item && typeof item === 'object')
+            .slice(-200)
+        }
+      }
+      return { threads, messages }
+    } catch {
+      return { threads: [], messages: {} }
+    }
+  }
+
+  private scheduleSmsSave(): void {
+    if (this.smsSaveTimer) return
+    this.smsSaveTimer = setTimeout(() => {
+      this.smsSaveTimer = null
+      try {
+        fs.mkdirSync(path.dirname(this.smsLocalFile), { recursive: true })
+        fs.writeFileSync(
+          this.smsLocalFile,
+          JSON.stringify({ threads: this.smsLocalThreads, messages: this.smsLocalMessages }, null, 2),
+          'utf8'
+        )
+      } catch {
+        /* ignore write failures, SMS cache stays in memory */
+      }
+    }, 1000)
+    this.smsSaveTimer.unref()
+  }
+
+  private recordLocalSms(message: SmsMessage): void {
+    const key = `addr:${message.address.trim()}`
+    const existing = this.smsLocalMessages[key] ?? []
+    this.smsLocalMessages[key] = existing.some((item) => item.id === message.id)
+      ? existing.map((item) => (item.id === message.id ? message : item))
+      : [...existing, message].slice(-200)
+    if (message.threadId.startsWith('addr:')) {
+      const thread: SmsThread = {
+        threadId: message.threadId,
+        address: message.address,
+        name: message.name,
+        snippet: message.body.slice(0, 160),
+        date: message.date,
+        count: this.smsLocalMessages[key].length,
+        subscriptionId: message.subscriptionId,
+        simLabel: message.simLabel
+      }
+      this.smsLocalThreads = [
+        thread,
+        ...this.smsLocalThreads.filter((item) => item.threadId !== thread.threadId)
+      ].slice(0, 50)
+    }
+    this.scheduleSmsSave()
+  }
+
+  localSmsMessages(address: string): SmsMessage[] {
+    return [...(this.smsLocalMessages[`addr:${address.trim()}`] ?? [])]
   }
 
   private load(dir: string): Persisted {
@@ -256,6 +427,7 @@ export class AppStore extends EventEmitter {
 
   addNotification(item: NotificationItem): boolean {
     if (this.hiddenNotificationKeys.has(item.key)) return false
+    this.recordNotificationHistory(item)
     const index = this.notifications.findIndex((n) => n.key === item.key)
     if (index >= 0) {
       this.notifications = this.notifications.map((n, i) =>
@@ -388,7 +560,13 @@ export class AppStore extends EventEmitter {
   }
 
   setSmsThreads(threads: SmsThread[]): void {
-    this.smsThreads = threads
+    const phoneAddresses = new Set(threads.map((thread) => thread.address.trim()))
+    const localOnly = this.smsLocalThreads.filter(
+      (thread) => !phoneAddresses.has(thread.address.trim())
+    )
+    this.smsThreads = [...threads, ...localOnly]
+      .sort((left, right) => right.date - left.date)
+      .slice(0, 80)
     this.smsLoading = false
     this.changed()
   }
@@ -398,9 +576,20 @@ export class AppStore extends EventEmitter {
   }
 
   openSmsThread(active: SmsActiveThread | null): void {
-    if (active && !active.name) {
-      const name = this.smsThreadName(active.threadId)
-      if (name) active = { ...active, name }
+    if (active) {
+      const local = this.localSmsMessages(active.address)
+      if (local.length > 0) {
+        const ids = new Set(active.messages.map((message) => message.id))
+        active = {
+          ...active,
+          messages: [...active.messages, ...local.filter((message) => !ids.has(message.id))]
+            .sort((left, right) => left.date - right.date)
+        }
+      }
+      if (!active.name) {
+        const name = this.smsThreadName(active.threadId)
+        if (name) active = { ...active, name }
+      }
     }
     this.smsActive = active
     if (!active) this.smsLoading = false
@@ -408,6 +597,7 @@ export class AppStore extends EventEmitter {
   }
 
   appendSmsMessage(message: SmsMessage): void {
+    this.recordLocalSms(message)
     if (this.smsActive && this.smsActive.threadId === message.threadId) {
       const exists = this.smsActive.messages.some((m) => m.id === message.id)
       this.smsActive = {
@@ -430,7 +620,7 @@ export class AppStore extends EventEmitter {
         name: thread.name || message.name
       }
       this.smsThreads = [next, ...this.smsThreads.filter((t) => t.threadId !== thread.threadId)]
-    } else if (!message.outgoing) {
+    } else {
       this.smsThreads = [
         {
           threadId: message.threadId,
@@ -454,6 +644,8 @@ export class AppStore extends EventEmitter {
         m.id === tempId ? { ...m, pending: false, failed: !ok } : m
       )
     }
+    const updated = this.smsActive.messages.find((message) => message.id === tempId)
+    if (updated) this.recordLocalSms(updated)
     this.changed()
   }
 
@@ -595,6 +787,11 @@ export class AppStore extends EventEmitter {
   dismissCallError(): void {
     if (!this.callError) return
     this.callError = ''
+    this.changed()
+  }
+
+  setMedia(media: { title: string; artist: string; playing: boolean; app: string } | null): void {
+    this.media = media && media.title.length > 0 ? media : null
     this.changed()
   }
 
@@ -745,6 +942,7 @@ export class AppStore extends EventEmitter {
       callSpeaker: this.callSpeaker,
       callMuted: this.callMuted,
       callError: this.callError,
+      media: this.media,
       phoneContacts: this.phoneContacts,
       contactsGranted: this.contactsGranted,
       contactsLoading: this.contactsLoading,

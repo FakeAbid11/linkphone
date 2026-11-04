@@ -169,7 +169,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.7.14</div>
+            <div className="brand-sub">Local network · v0.8.0</div>
           </div>
         </div>
 
@@ -273,6 +273,10 @@ export default function App(): JSX.Element {
               onClearApp={(pkg, app) =>
                 void window.linkphone.clearNotificationApp(pkg, app)
               }
+              onLoadHistory={() => window.linkphone.getNotificationHistory()}
+              onClearHistory={() => window.linkphone.clearNotificationHistory()}
+              media={state.media}
+              onMediaAction={(action) => void window.linkphone.sendMediaAction(action)}
             />
           )}
           {tab === 'files' && (
@@ -298,6 +302,9 @@ export default function App(): JSX.Element {
               }}
               onSend={(threadId, address, body, subscriptionId) =>
                 void window.linkphone.sendSms(threadId, address, body, subscriptionId)
+              }
+              onStartConversation={(address, body, subscriptionId) =>
+                void window.linkphone.startSmsConversation(address, body, subscriptionId)
               }
             />
           )}

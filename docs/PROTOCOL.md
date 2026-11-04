@@ -150,6 +150,9 @@ the socket; the frames above are unchanged.
 | `sms.sent` | phone → PC | `tempId`, `ok`, `error?` |
 | `sms.new` | phone → PC | `message{id,threadId,address,name?,body,date,outgoing}` |
 | `sms.error` | phone → PC | `op`, `error` |
+| `phone.ring` | PC → phone | `durationMs?` (capped to 30 s) |
+| `media.state` | phone → PC | `title`, `artist`, `playing`, `app` |
+| `media.action` | PC → phone | `action` = `play` \| `pause` \| `next` \| `previous` |
 | `device.status` | phone → PC | `batteryLevel`, `charging` |
 | `sims.request` | PC → phone | — |
 | `sims.sync` | phone → PC | `sms[{id,label,carrier?,slot?,isDefault?}]`, `call[{id,label,isDefault?}]`, `granted` |
@@ -192,9 +195,14 @@ progress-bearing notifications after the PC advertises the `notif.progress` capa
 
 The phone reads the `Telephony.Sms` provider after runtime `READ_SMS` permission and sends through
 `SmsManager` after `SEND_SMS`. `RECEIVE_SMS` drives live `sms.new` events. LinkPhone does not claim
-the default-SMS-app role and does not write provider rows. Consequently v0.2 supports existing SMS
-threads and replies, not MMS or composing a new conversation. A successful `sms.sent` means Android
-accepted the send request; it is not a carrier delivery receipt.
+the default-SMS-app role and does not write provider rows. MMS remains unsupported. A successful
+`sms.sent` means Android accepted the send request; it is not a carrier delivery receipt.
+
+To start a conversation for an address with no provider thread, the PC uses
+`threadId = "addr:<number>"`. The phone resolves that id with
+`messagesForAddress(number)`, so existing provider messages are returned when present. Outgoing-only
+conversations are cached locally on the PC (`sms-local.json`) and merged with provider threads on
+refresh; the phone's provider rows always win when both exist.
 
 Thread and message records may include `name`, resolved from the phone's contacts with the optional
 `READ_CONTACTS` permission. The PC displays it instead of the number; the address is still present

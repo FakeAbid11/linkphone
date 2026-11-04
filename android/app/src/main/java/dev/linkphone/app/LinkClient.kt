@@ -647,6 +647,11 @@ class LinkClient(context: Context, private val store: PairStore) {
             "contacts.request" -> scope.launch { sendContacts() }
             "calllog.request" -> scope.launch { sendCallLog(msg.optInt("limit", 200)) }
             "sims.request" -> scope.launch { sendSims() }
+            "phone.ring" -> PhoneRinger.ring(
+                appContext,
+                msg.optLong("durationMs", 15_000L)
+            )
+            "media.action" -> MediaWatcher.action(msg.optString("action"))
         }
     }
 
@@ -945,6 +950,19 @@ class LinkClient(context: Context, private val store: PairStore) {
     fun sendCallPlaced(number: String) {
         if (!ready) return
         send(JSONObject().apply { put("t", "call.placed"); put("number", number) })
+    }
+
+    fun sendMediaState(title: String, artist: String, playing: Boolean, app: String) {
+        if (!ready) return
+        send(
+            JSONObject().apply {
+                put("t", "media.state")
+                put("title", title)
+                put("artist", artist)
+                put("playing", playing)
+                put("app", app)
+            }
+        )
     }
 
     /* ------------------------------------------------------------ */

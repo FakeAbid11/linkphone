@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { LinkPhoneApi } from '../shared/api'
-import type { AppState, TransferItem } from '../shared/protocol'
+import type { AppState, NotificationItem, TransferItem } from '../shared/protocol'
 
 const api: LinkPhoneApi = {
   getState: () => ipcRenderer.invoke('state:get') as Promise<AppState>,
@@ -35,6 +35,10 @@ const api: LinkPhoneApi = {
     ipcRenderer.invoke('files:send-paths', paths) as Promise<number>,
   sendClipboard: (text) => ipcRenderer.invoke('clipboard:set', text) as Promise<void>,
   clearNotifications: () => ipcRenderer.invoke('notifications:clear') as Promise<void>,
+  getNotificationHistory: () =>
+    ipcRenderer.invoke('notifications:history') as Promise<NotificationItem[]>,
+  clearNotificationHistory: () =>
+    ipcRenderer.invoke('notifications:history-clear') as Promise<void>,
   dismissNotification: (key) => ipcRenderer.invoke('notification:dismiss', key) as Promise<void>,
   setNotificationMuted: (pkg, app, muted) =>
     ipcRenderer.invoke('notification:set-muted', pkg, app, muted) as Promise<void>,
@@ -50,6 +54,8 @@ const api: LinkPhoneApi = {
   closeSmsThread: () => ipcRenderer.invoke('sms:close') as Promise<void>,
   sendSms: (threadId, address, body, subscriptionId) =>
     ipcRenderer.invoke('sms:send', threadId, address, body, subscriptionId) as Promise<void>,
+  startSmsConversation: (address, body, subscriptionId) =>
+    ipcRenderer.invoke('sms:start', address, body, subscriptionId) as Promise<void>,
   requestGalleryAlbums: () => ipcRenderer.invoke('gallery:albums') as Promise<void>,
   openGalleryAlbum: (albumId, name) =>
     ipcRenderer.invoke('gallery:album', albumId, name) as Promise<void>,
@@ -74,6 +80,8 @@ const api: LinkPhoneApi = {
   setCallSpeaker: (enabled) => ipcRenderer.invoke('call:speaker', enabled) as Promise<void>,
   dismissCallPlaced: () => ipcRenderer.invoke('call:placed-dismiss') as Promise<void>,
   dismissCallError: () => ipcRenderer.invoke('call:error-dismiss') as Promise<void>,
+  ringPhone: (deviceId) => ipcRenderer.invoke('phone:ring', deviceId) as Promise<void>,
+  sendMediaAction: (action) => ipcRenderer.invoke('media:action', action) as Promise<void>,
   requestContacts: () => ipcRenderer.invoke('contacts:request') as Promise<void>,
   requestCallHistory: () => ipcRenderer.invoke('calllog:request') as Promise<void>,
   requestSims: () => ipcRenderer.invoke('sims:request') as Promise<void>,

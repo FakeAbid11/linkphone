@@ -82,8 +82,13 @@ yourself a message from another app).
 
 * ✅ Desktop shows a Windows toast **and** an entry in the Notifications tab with app name, title and
   text.
-* ✅ Tapping the toast opens the window and dismisses the entry.
-* ✅ Dismissing on the phone removes it from the desktop list.
+* ✅ Tapping the toast opens the window and dismisses the entry **and** the phone notification.
+* ✅ Dismissing a card on the PC removes it from the phone shade; dismissing on the phone removes it
+  from the desktop list.
+* ✅ **Clear** on an app header and **Clear all** dismiss the matching notifications from the phone.
+* ✅ With the phone disconnected, dismissing on the PC hides the card without an error.
+* ✅ An ongoing/system-locked notification that Android refuses to cancel stays in the phone shade;
+  its PC card is hidden.
 * ✅ **Reply** (on a messaging notification) sends the text from the phone's own app.
 * ✅ Notifications with actions show quick-action buttons (Open, Mark read, Archive, …); tapping one
   applies it on the phone.

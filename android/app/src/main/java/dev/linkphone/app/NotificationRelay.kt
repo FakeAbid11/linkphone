@@ -254,6 +254,15 @@ class NotificationRelay : NotificationListenerService() {
         }
     }
 
+    fun cancel(keys: List<String>) {
+        keys.forEach { key ->
+            runCatching { cancelNotification(key) }
+                .onFailure { Log.w("LinkPhone", "cannot cancel notification", it) }
+            lastSent.remove(key)
+            mirrored.remove(key)
+        }
+    }
+
     companion object {
         private const val MAX_ACTIONS = 4
 
@@ -261,6 +270,10 @@ class NotificationRelay : NotificationListenerService() {
 
         fun deliver(key: String, actionId: String, replyText: String) {
             instance?.handleAction(key, actionId, replyText)
+        }
+
+        fun deliverCancel(keys: List<String>) {
+            instance?.cancel(keys)
         }
     }
 }

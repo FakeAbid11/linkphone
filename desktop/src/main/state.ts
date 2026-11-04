@@ -288,10 +288,12 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
-  clearNotifications(): void {
+  clearNotifications(): string[] {
+    const keys = this.notifications.map((item) => item.key)
     for (const item of this.notifications) this.hideNotification(item.key)
     this.notifications = []
     this.changed()
+    return keys
   }
 
   isNotificationMuted(pkg: string, app: string): boolean {
@@ -328,8 +330,13 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
-  clearNotificationsForApp(pkg: string, app: string): void {
+  clearNotificationsForApp(pkg: string, app: string): string[] {
+    const key = muteKey(pkg, app)
+    const keys = this.notifications
+      .filter((item) => muteKey(item.pkg, item.app) === key)
+      .map((item) => item.key)
     if (this.removeNotificationsForApp(pkg, app)) this.changed()
+    return keys
   }
 
   private removeNotificationsForApp(pkg: string, app: string): boolean {

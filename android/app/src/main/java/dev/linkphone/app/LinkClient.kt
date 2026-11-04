@@ -603,6 +603,19 @@ class LinkClient(context: Context, private val store: PairStore) {
                 msg.optString("actionId"),
                 msg.optString("replyText")
             )
+            "notif.cancel" -> {
+                val raw = msg.optJSONArray("keys")
+                val keys = buildList {
+                    if (raw != null) {
+                        for (index in 0 until raw.length()) {
+                            raw.optString(index)
+                                .takeIf { it.isNotEmpty() }
+                                ?.let { add(it) }
+                        }
+                    }
+                }
+                if (keys.isNotEmpty()) NotificationRelay.deliverCancel(keys)
+            }
             "sms.threads.request" -> scope.launch { sendSmsThreads() }
             "sms.thread.request" -> {
                 val threadId = msg.optString("threadId")

@@ -383,10 +383,18 @@ function registerIpc(): void {
     if (typeof enabled === 'boolean') applyLaunchAtLogin(enabled)
   })
 
-  ipcMain.handle('notifications:clear', () => store.clearNotifications())
+  const dismissNotificationEverywhere = (key: string): void => {
+    store.dismissNotification(key)
+    server.sendNotificationCancel([key])
+  }
+
+  ipcMain.handle('notifications:clear', () => {
+    const keys = store.clearNotifications()
+    server.sendNotificationCancel(keys)
+  })
 
   ipcMain.handle('notification:dismiss', (_event, key: unknown) => {
-    if (typeof key === 'string') store.dismissNotification(key)
+    if (typeof key === 'string') dismissNotificationEverywhere(key)
   })
 
   ipcMain.handle('notification:reply', (_event, key: unknown, actionId: unknown, text: unknown) => {
@@ -407,7 +415,8 @@ function registerIpc(): void {
 
   ipcMain.handle('notifications:clear-app', (_event, pkg: unknown, app: unknown) => {
     if (typeof pkg !== 'string' || typeof app !== 'string') return
-    store.clearNotificationsForApp(pkg, app)
+    const keys = store.clearNotificationsForApp(pkg, app)
+    server.sendNotificationCancel(keys)
   })
 
   ipcMain.handle('files:open-downloads', () => shell.openPath(store.downloadsDir))
@@ -552,7 +561,7 @@ async function bootstrap(): Promise<void> {
       })
       n.on('click', () => {
         showWindow()
-        store.dismissNotification(item.key)
+        dismissNotificationEverywhere(item.key)
       })
       n.show()
     } catch {

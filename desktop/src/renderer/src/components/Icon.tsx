@@ -44,6 +44,7 @@ const GLYPHS = {
   settings: '\ue8b8',
   smartphone: '\ue7ba',
   sms: '\ue625',
+  stop: '\ue047',
   sync: '\ue627',
   system_update: '\uf2cd',
   upload: '\uf09b',

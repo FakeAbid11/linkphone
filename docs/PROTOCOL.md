@@ -151,6 +151,8 @@ the socket; the frames above are unchanged.
 | `sms.new` | phone → PC | `message{id,threadId,address,name?,body,date,outgoing}` |
 | `sms.error` | phone → PC | `op`, `error` |
 | `phone.ring` | PC → phone | `durationMs?` (capped to 30 s) |
+| `phone.ring.stop` | PC → phone | — |
+| `phone.ring.state` | phone → PC | `ringing` |
 | `media.state` | phone → PC | `title`, `artist`, `playing`, `app` |
 | `media.action` | PC → phone | `action` = `play` \| `pause` \| `next` \| `previous` |
 | `device.status` | phone → PC | `batteryLevel`, `charging` |

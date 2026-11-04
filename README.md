@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.8.0** adds notification history, new SMS conversations, find-my-phone and media controls.
-> v0.7.14 polished the UI and confirmations.
+> **v0.8.1** lets you stop find-my-phone from the phone (in-app card or notification action) or the
+> PC. v0.8.0 added notification history, new SMS conversations, find-my-phone and media controls.
 
 ## Features
 
@@ -46,7 +46,7 @@ service or a relay server.
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
 | Contacts and call history | Yes | Recent calls and contacts share a switch beside the dialer |
 | Phone calls | Partial | Dial and control from the PC (best effort); no default-dialer role; audio stays on the phone |
-| Find my phone | Yes | Ring the connected phone from its device card |
+| Find my phone | Yes | Ring the connected phone and stop it from the phone or the PC |
 | Media controls | Yes | Now playing card with play/pause and next/previous |
 | Photo albums | Yes | Thumbnails, paged albums, previews and original download |
 | Battery | Yes | Live percentage and charging state |
@@ -75,7 +75,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.8.0.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.8.1.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

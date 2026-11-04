@@ -91,6 +91,8 @@ internal object Symbols {
     const val close = "\ue5cd"
     const val settings = "\ue8b8"
     const val upload = "\uf09b"
+    const val volume_up = "\ue050"
+    const val stop = "\ue047"
 }
 
 private val DarkColors = darkColorScheme(
@@ -241,6 +243,7 @@ private fun Screen(modifier: Modifier = Modifier) {
     val updater = LinkCore.requireUpdater()
     val status by client.status.collectAsStateWithLifecycle()
     val transfers by client.transfers.collectAsStateWithLifecycle()
+    val ringing by PhoneRinger.ringing.collectAsStateWithLifecycle()
     val update by updater.state.collectAsStateWithLifecycle()
 
     var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
@@ -419,6 +422,22 @@ private fun Screen(modifier: Modifier = Modifier) {
         }
 
         StatusCard(status, notifAccess, paired = store.hasPairing())
+
+        if (ringing) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Row(
+                    Modifier.padding(start = 16.dp, top = 10.dp, end = 6.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Symbol(Symbols.volume_up)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Phone is ringing", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { PhoneRinger.stop() }) {
+                        ButtonLabel(Symbols.stop, "Stop")
+                    }
+                }
+            }
+        }
 
         UpdateCard(
             update = update,

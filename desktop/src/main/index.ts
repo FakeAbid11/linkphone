@@ -498,6 +498,9 @@ function registerIpc(): void {
   ipcMain.handle('phone:ring', (_event, deviceId: unknown) => {
     if (typeof deviceId === 'string') server.ringPhone(deviceId)
   })
+  ipcMain.handle('phone:ring-stop', (_event, deviceId: unknown) => {
+    if (typeof deviceId === 'string') server.stopRing(deviceId)
+  })
   ipcMain.handle('media:action', (_event, action: unknown) => {
     if (
       action === 'play' ||

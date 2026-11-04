@@ -48,6 +48,7 @@ export interface LinkPhoneApi {
   dismissCallPlaced: () => Promise<void>
   dismissCallError: () => Promise<void>
   ringPhone: (deviceId: string) => Promise<void>
+  stopRingPhone: (deviceId: string) => Promise<void>
   sendMediaAction: (action: 'play' | 'pause' | 'next' | 'previous') => Promise<void>
   requestContacts: () => Promise<void>
   requestCallHistory: () => Promise<void>

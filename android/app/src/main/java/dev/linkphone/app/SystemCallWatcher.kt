@@ -52,6 +52,7 @@ object SystemCallWatcher {
 
     @Synchronized
     fun stop() {
+        CallHub.clearTelephonyCall()
         val telephony = manager
         val active = listener
         manager = null

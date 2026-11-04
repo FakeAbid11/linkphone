@@ -951,6 +951,10 @@ class LinkClient(context: Context, private val store: PairStore) {
     /* Contacts and call history                                     */
     /* ------------------------------------------------------------ */
 
+    fun refreshContacts() {
+        scope.launch { sendContacts() }
+    }
+
     private fun sendContacts() {
         val repo = ContactsRepository.get(appContext)
         val granted = repo.hasPermission()

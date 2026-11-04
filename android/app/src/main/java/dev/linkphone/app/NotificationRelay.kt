@@ -37,6 +37,15 @@ class NotificationRelay : NotificationListenerService() {
         }
     }
 
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        if (callKey != null) {
+            callKey = null
+            CallHub.clearSystemCall()
+        }
+        super.onDestroy()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val sbn = sbn ?: return
         val notification = sbn.notification ?: return
@@ -163,6 +172,9 @@ class NotificationRelay : NotificationListenerService() {
                 label.contains("end call")
         }
         val categoryCall = notification.category == Notification.CATEGORY_CALL
+        val ongoing = sbn.isOngoing ||
+            notification.flags and Notification.FLAG_ONGOING_EVENT != 0
+        if (!ongoing && !callAction) return false
         if (!categoryCall && !callAction) return false
 
         if (!callAction) {

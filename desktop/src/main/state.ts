@@ -74,6 +74,7 @@ export class AppStore extends EventEmitter {
   readonly downloadsDir: string
   private notifications: NotificationItem[] = []
   private hiddenNotificationKeys = new Set<string>()
+  private pendingCancelKeys = new Set<string>()
   private transfers: TransferItem[] = []
   private smsThreads: SmsThread[] = []
   private smsActive: SmsActiveThread | null = null
@@ -276,20 +277,33 @@ export class AppStore extends EventEmitter {
     }
   }
 
+  private notePendingCancel(keys: string[]): void {
+    for (const key of keys) {
+      this.pendingCancelKeys.add(key)
+      if (this.pendingCancelKeys.size > 500) {
+        const oldest = this.pendingCancelKeys.values().next().value
+        if (oldest !== undefined) this.pendingCancelKeys.delete(oldest)
+      }
+    }
+  }
+
   dismissNotification(key: string): void {
+    this.notePendingCancel([key])
     this.hideNotification(key)
     this.notifications = this.notifications.filter((n) => n.key !== key)
     this.changed()
   }
 
   phoneNotificationDismissed(key: string): void {
-    this.hiddenNotificationKeys.delete(key)
+    const cancelledByPc = this.pendingCancelKeys.delete(key)
+    if (!cancelledByPc) this.hiddenNotificationKeys.delete(key)
     this.notifications = this.notifications.filter((n) => n.key !== key)
     this.changed()
   }
 
   clearNotifications(): string[] {
     const keys = this.notifications.map((item) => item.key)
+    this.notePendingCancel(keys)
     for (const item of this.notifications) this.hideNotification(item.key)
     this.notifications = []
     this.changed()
@@ -335,6 +349,7 @@ export class AppStore extends EventEmitter {
     const keys = this.notifications
       .filter((item) => muteKey(item.pkg, item.app) === key)
       .map((item) => item.key)
+    this.notePendingCancel(keys)
     if (this.removeNotificationsForApp(pkg, app)) this.changed()
     return keys
   }
@@ -560,11 +575,12 @@ export class AppStore extends EventEmitter {
     speaker: boolean
     muted: boolean
   }): void {
+    const previousCalls = this.phoneCalls
     this.phoneCalls = input.calls
     this.callDialerReady = input.dialerReady
     this.callOutgoingReady = input.outgoingReady
     this.callControlReady = input.controlReady
-    if (input.calls.length > 0) this.callPlaced = null
+    if (input.calls.length > 0 || previousCalls.length > 0) this.callPlaced = null
     this.callSpeaker = input.speaker
     this.callMuted = input.muted
     this.callError = ''
@@ -577,7 +593,14 @@ export class AppStore extends EventEmitter {
   }
 
   setCallPlaced(number: string | null): void {
+    if (this.phoneCalls.length > 0) return
     this.callPlaced = number ? { number, at: Date.now() } : null
+    this.changed()
+  }
+
+  dismissCallPlaced(): void {
+    if (!this.callPlaced) return
+    this.callPlaced = null
     this.changed()
   }
 

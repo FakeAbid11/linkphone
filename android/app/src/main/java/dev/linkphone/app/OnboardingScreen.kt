@@ -103,6 +103,7 @@ fun OnboardingScreen(
         refreshPermissions()
         ContactsRepository.get(context).invalidate()
         ContactsRepository.get(context).preload()
+        if (hasContactsAccess(context)) LinkCore.clientOrNull()?.refreshContacts()
     }
 
     val photoPermission = rememberLauncherForActivityResult(

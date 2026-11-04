@@ -491,6 +491,7 @@ function registerIpc(): void {
   ipcMain.handle('call:speaker', (_event, enabled: unknown) => {
     server.setCallSpeaker(Boolean(enabled))
   })
+  ipcMain.handle('call:placed-dismiss', () => store.dismissCallPlaced())
 
   ipcMain.handle('contacts:request', () => server.requestContacts())
   ipcMain.handle('calllog:request', () => server.requestCallHistory())

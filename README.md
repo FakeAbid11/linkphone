@@ -32,14 +32,15 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.4** puts recent calls beside the dialer with a switch to contacts.
-> v0.7.3 added automatic reconnect for paired phones.
+> **v0.7.5** adds a three-step Android onboarding: intro, permissions and pairing.
+> v0.7.4 moved recent calls beside the dialer.
 
 ## Features
 
 | Feature | Status | Detail |
 |---|---|---|
 | Pairing and discovery | Yes | QR or 8-character code; mDNS, with an IPv6 link-local fallback |
+| Android onboarding | Yes | Three first-launch screens: how it works, permissions and pairing |
 | Notification mirroring | Yes | Live progress, search, app grouping, per-app mute/clear, actions and reply |
 | SMS | Partial | Existing threads only; no MMS or new conversations |
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
@@ -69,12 +70,14 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 ## Install
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
-2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”).
-3. **PC:** run `LinkPhone.Setup.0.7.4.exe`. The installer is unsigned, so SmartScreen requires
+2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
+   a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
+   it and set everything up later on the main screen.
+3. **PC:** run `LinkPhone.Setup.0.7.5.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
-   and point the camera at the PC.
+   (on the third intro screen or later under **Find your PC**) and point the camera at the PC.
 5. **Grant phone permissions:** notification access for mirroring, SMS for messages, photos for the
    gallery, and contacts + call logs for the contacts hub.
 6. **Calls:** tap **Set as default phone app** and accept Android's role prompt.

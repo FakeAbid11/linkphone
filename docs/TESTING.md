@@ -11,6 +11,27 @@ code compiles and packages, while these checks cover phone/OEM behavior.
   prompt, add an inbound rule for TCP **8765**.
 * Phone: install `app-debug.apk`, allow "install unknown apps".
 
+## 0b. Android onboarding (v0.7.5+)
+
+Clear LinkPhone app data (or install fresh), then launch it with the PC running.
+
+* ✅ Step 1 explains LinkPhone and how the link works; **Next**, **Back** and the dots track the
+  three steps.
+* ✅ Step 2 lists Notifications, Messages, Contacts, Photos, Call history and Background with a
+  reason each. Granting SMS/contacts/photos/call history changes the row to **Allowed**; the
+  Notification row opens system settings and updates after returning; denying leaves the button
+  usable. The battery row opens the exemption dialog or the system optimization list.
+* ✅ The Android 13+ notification permission is requested when step 2 first opens.
+* ✅ Step 3 pairs with the PC: **Scan QR** closes onboarding on success, and the network list plus
+  typed code also work. **Pair later** opens the main screen unpaired; **Skip** works from any step.
+* ✅ Relaunching, force-stopping/reopening or rebooting does not show onboarding again, and a later
+  **Forget** on the main screen does not replay it.
+* ✅ Upgrading an install that already has a pairing never shows onboarding.
+* ❌ Onboarding repeats on every launch → `onboardingDone` is not persisting; check app data or the
+  SharedPreferences fallback.
+* ❌ Pairing from step 3 does not close onboarding → confirm the connection reaches **Connected** and
+  that the desktop pairing code is current.
+
 ## 1. Desktop boots
 
 Run `LinkPhone.exe` (or `npm run dev`).
@@ -215,7 +236,7 @@ flight, the receiver acks every 512 KiB.
 
 ## 10b. Send to from Explorer
 
-Install v0.7.4, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+Install v0.7.5, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
 **Show more options**).
 
 * ✅ The SendTo menu lists LinkPhone with the app icon.

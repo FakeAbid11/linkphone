@@ -18,6 +18,9 @@ The desktop advertises an mDNS service:
 | TXT `ver` | `1` |
 
 The Android app browses with `NsdManager`, resolves the SRV record and connects to the IP:port.
+Since v0.7.3 a paired phone also uses TXT `id` to recognize the same PC after its address changes:
+only a resolved service whose `id` matches the saved `serverId` is used for automatic reconnect.
+The key handshake below still authenticates the socket.
 
 The server binds dual-stack (`::`), so IPv4-mapped and IPv6 clients share the same port. The QR's
 `a6` field carries link-local IPv6 addresses for routers that isolate IPv4 Wi-Fi clients but still
@@ -119,6 +122,10 @@ plaintext `{ "t": "auth.reject", "reason": "not-paired" | "bad-proof" }` before 
 or 4001. The phone clears its stale local pairing and asks the user to scan a fresh QR.
 
 The key used here is the one stored at pairing time, not a fresh PBKDF2 derivation.
+
+A paired client that cannot reach its saved address rediscovers the PC through mDNS and retries the
+stored-key handshake against the newly resolved address. This changes only where the client points
+the socket; the frames above are unchanged.
 
 ## 5. Control messages
 

@@ -60,7 +60,14 @@ class LinkService : Service() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val store = LinkCore.requireStore()
+        val client = LinkCore.requireClient()
+        if (store.hasPairing() && client.status.value.state == LinkState.IDLE) {
+            client.connectSaved()
+        }
+        return START_STICKY
+    }
 
     override fun onTimeout(startId: Int, fgsType: Int) {
         Log.w("LinkPhone", "foreground service timed out (type $fgsType)")

@@ -16,7 +16,12 @@ object Proto {
 /** mDNS browse for the desktop's _linkphone._tcp advertisement. */
 class Discovery(private val context: Context) {
 
-    data class Target(val name: String, val host: String, val port: Int)
+    data class Target(
+        val name: String,
+        val host: String,
+        val port: Int,
+        val serverId: String = ""
+    )
 
     private var nsd: NsdManager? = null
     private var listener: NsdManager.DiscoveryListener? = null
@@ -53,8 +58,10 @@ class Discovery(private val context: Context) {
                     override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
                         resolving = false
                         val address = serviceInfo.host?.hostAddress ?: return
+                        val serverId = serviceInfo.attributes?.get("id")
+                            ?.toString(Charsets.UTF_8)?.trim().orEmpty()
                         onFound?.invoke(
-                            Target(serviceInfo.serviceName, address, serviceInfo.port)
+                            Target(serviceInfo.serviceName, address, serviceInfo.port, serverId)
                         )
                     }
                 })

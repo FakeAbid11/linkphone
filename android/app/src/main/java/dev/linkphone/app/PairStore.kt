@@ -50,6 +50,15 @@ class PairStore(context: Context) {
         get() = prefs.getString("key", null)
         set(value) = prefs.edit().putString("key", value).apply()
 
+    private var alternateHosts: List<String>
+        get() = prefs.getString("altHosts", null)
+            ?.split('\n')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+        set(value) {
+            prefs.edit()
+                .putString("altHosts", value.distinct().take(8).joinToString("\n"))
+                .apply()
+        }
+
     var clipboardEnabled: Boolean
         get() = prefs.getBoolean("clipboard", true)
         set(value) = prefs.edit().putBoolean("clipboard", value).apply()
@@ -58,7 +67,20 @@ class PairStore(context: Context) {
 
     fun key(): ByteArray? = keyB64?.let { Base64.decode(it, Base64.NO_WRAP) }
 
-    fun savePair(serverId: String, serverName: String, host: String, port: Int, key: String) {
+    fun hostsInOrder(): List<String> =
+        (listOfNotNull(host) + alternateHosts)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+
+    fun savePair(
+        serverId: String,
+        serverName: String,
+        host: String,
+        port: Int,
+        key: String,
+        hosts: List<String> = emptyList()
+    ) {
         prefs.edit()
             .putString("serverId", serverId)
             .putString("serverName", serverName)
@@ -66,9 +88,22 @@ class PairStore(context: Context) {
             .putInt("port", port)
             .putString("key", key)
             .apply()
+        alternateHosts = hosts.filter { it != host }
+    }
+
+    fun updateEndpoint(host: String, port: Int) {
+        val previous = this.host
+        this.host = host
+        this.port = port
+        if (!previous.isNullOrBlank() && previous != host) {
+            alternateHosts = listOf(previous) + alternateHosts
+        }
     }
 
     fun clearPair() {
-        prefs.edit().remove("key").remove("host").remove("serverId").remove("serverName").apply()
+        prefs.edit()
+            .remove("key").remove("host").remove("serverId").remove("serverName")
+            .remove("altHosts")
+            .apply()
     }
 }

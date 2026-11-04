@@ -9,6 +9,8 @@ export interface LinkPhoneApi {
   refreshAddresses: () => Promise<void>
   forgetDevice: (deviceId: string) => Promise<void>
   sendFiles: () => Promise<number>
+  pathForFile: (file: unknown) => string
+  sendFilesFromPaths: (paths: string[]) => Promise<number>
   sendClipboard: (text: string) => Promise<void>
   clearNotifications: () => Promise<void>
   dismissNotification: (key: string) => Promise<void>

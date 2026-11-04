@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { LinkPhoneApi } from '../shared/api'
 import type { AppState, TransferItem } from '../shared/protocol'
 
@@ -22,6 +22,17 @@ const api: LinkPhoneApi = {
   refreshAddresses: () => ipcRenderer.invoke('addresses:refresh') as Promise<void>,
   forgetDevice: (deviceId) => ipcRenderer.invoke('device:forget', deviceId) as Promise<void>,
   sendFiles: () => ipcRenderer.invoke('files:send') as Promise<number>,
+  pathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(
+        file as Parameters<typeof webUtils.getPathForFile>[0]
+      )
+    } catch {
+      return ''
+    }
+  },
+  sendFilesFromPaths: (paths) =>
+    ipcRenderer.invoke('files:send-paths', paths) as Promise<number>,
   sendClipboard: (text) => ipcRenderer.invoke('clipboard:set', text) as Promise<void>,
   clearNotifications: () => ipcRenderer.invoke('notifications:clear') as Promise<void>,
   dismissNotification: (key) => ipcRenderer.invoke('notification:dismiss', key) as Promise<void>,

@@ -307,6 +307,9 @@ Ring the phone from its device card, then use the phone.
   closes when connected; discovery stops after 15 seconds with "No PCs found".
 * ✅ Transfer rows read Waiting/Sending/Receiving/Done/Failed, and long file names end with an
   ellipsis.
+* ✅ With call permission granted, Setup shows no Calls card; revoke a call permission and it
+  returns after the next poll.
+* ✅ Find your PC shows two equal-width buttons; Scan QR and Scan/Scanning… fit without clipping.
 
 ## 10. Files
 

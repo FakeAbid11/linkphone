@@ -210,7 +210,7 @@ flight, the receiver acks every 512 KiB.
 
 ## 10b. Send to from Explorer
 
-Install v0.6.5, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+Install v0.7.1, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
 **Show more options**).
 
 * ✅ The SendTo menu lists LinkPhone with the app icon.
@@ -223,6 +223,19 @@ Install v0.6.5, then right-click a file in Explorer → **Send to → LinkPhone*
 * ✅ With the phone disconnected, one “queued” toast appears; connecting sends the files once.
 * ✅ Selecting only a folder skips it without an error or crash.
 * ✅ Updating from v0.6.1 keeps the shortcut; uninstalling removes it.
+
+## 10c. Drag and drop
+
+Drag files from Explorer onto any part of the LinkPhone window.
+
+* ✅ A full-window “Drop files to send to your phone” overlay appears and disappears when the drag
+  leaves the window, without flicker.
+* ✅ Dropping one file opens the Files tab and sends it; dropping several sends them all.
+* ✅ Dropping only a folder or a virtual file shows a “can’t be sent” notice and sends nothing.
+* ✅ Text or non-file drags show no overlay and do not navigate the window.
+* ✅ Dropping more than 100 files sends at most 100 and reports the accepted count.
+* ✅ With the phone disconnected, the existing queued toast appears and the files send on connect.
+* ✅ Send-to, the Send file dialog, and second-instance handling still work.
 
 ## 11. Clipboard
 

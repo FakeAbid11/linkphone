@@ -117,15 +117,16 @@ function showWindow(): void {
   win.focus()
 }
 
-function parseSendPaths(argv: string[]): string[] {
-  const index = argv.indexOf(SEND_ARG)
-  if (index < 0) return []
+function existingFiles(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
   const files: string[] = []
   const seen = new Set<string>()
-  for (const raw of argv.slice(index + 1)) {
-    if (!raw || raw.startsWith('-')) continue
+  for (const raw of input.slice(0, 500)) {
+    if (typeof raw !== 'string') continue
+    const value = raw.trim()
+    if (!value) continue
     try {
-      const file = path.resolve(raw)
+      const file = path.resolve(value)
       if (!fs.statSync(file).isFile()) continue
       const key = file.toLowerCase()
       if (seen.has(key)) continue
@@ -137,6 +138,14 @@ function parseSendPaths(argv: string[]): string[] {
     }
   }
   return files
+}
+
+function parseSendPaths(argv: string[]): string[] {
+  const index = argv.indexOf(SEND_ARG)
+  if (index < 0) return []
+  return existingFiles(
+    argv.slice(index + 1).filter((raw) => raw && !raw.startsWith('-'))
+  )
 }
 
 function navigateTo(tab: 'files' | 'settings'): void {
@@ -347,6 +356,13 @@ function registerIpc(): void {
     if (result.canceled || result.filePaths.length === 0) return 0
     void server.sendFiles(result.filePaths)
     return result.filePaths.length
+  })
+
+  ipcMain.handle('files:send-paths', (event, paths: unknown) => {
+    if (event.sender !== win?.webContents) return 0
+    const files = existingFiles(paths)
+    if (files.length > 0) handleSendIntent(files)
+    return files.length
   })
 
   ipcMain.handle('clipboard:set', (_event, text: unknown) => {

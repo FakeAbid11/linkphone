@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AppState } from '@shared/protocol'
 import logo from './assets/logo.png'
 import { Icon, type IconName } from './components/Icon'
@@ -35,6 +35,9 @@ const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
 export default function App(): JSX.Element {
   const [state, setState] = useState<AppState | null>(null)
   const [tab, setTab] = useState<Tab>('notifications')
+  const [dragActive, setDragActive] = useState(false)
+  const [dropNotice, setDropNotice] = useState('')
+  const dragDepth = useRef(0)
 
   useEffect(() => {
     let alive = true
@@ -56,12 +59,103 @@ export default function App(): JSX.Element {
     return off
   }, [])
 
+  useEffect(() => {
+    if (!dropNotice) return
+    const timer = setTimeout(() => setDropNotice(''), 5000)
+    return () => clearTimeout(timer)
+  }, [dropNotice])
+
+  useEffect(() => {
+    const hasFiles = (event: DragEvent): boolean =>
+      Array.from(event.dataTransfer?.types ?? []).includes('Files')
+    const onDragEnter = (event: DragEvent): void => {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      dragDepth.current += 1
+      setDragActive(true)
+    }
+    const onDragOver = (event: DragEvent): void => {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+    }
+    const onDragLeave = (event: DragEvent): void => {
+      if (event.relatedTarget === null) {
+        dragDepth.current = 0
+        setDragActive(false)
+        return
+      }
+      if (!hasFiles(event)) return
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragActive(false)
+    }
+    const onDragEnd = (): void => {
+      dragDepth.current = 0
+      setDragActive(false)
+    }
+    const onDrop = (event: DragEvent): void => {
+      if (!hasFiles(event)) return
+      event.preventDefault()
+      dragDepth.current = 0
+      setDragActive(false)
+      const files = Array.from(event.dataTransfer?.files ?? [])
+      const paths = files
+        .map((file) => window.linkphone.pathForFile(file))
+        .filter((value) => value.length > 0)
+      if (paths.length === 0) {
+        setDropNotice('Folders and virtual files can’t be sent')
+        return
+      }
+      void window.linkphone
+        .sendFilesFromPaths(paths)
+        .then((accepted) => {
+          if (accepted === 0) setDropNotice('Those files can’t be sent')
+          else if (accepted < files.length) {
+            setDropNotice(`Queued ${accepted} of ${files.length} files for your phone`)
+          } else {
+            setDropNotice(`Queued ${accepted} file${accepted === 1 ? '' : 's'} for your phone`)
+          }
+        })
+        .catch(() => setDropNotice('Could not send those files'))
+    }
+    document.addEventListener('dragenter', onDragEnter)
+    document.addEventListener('dragover', onDragOver)
+    document.addEventListener('dragleave', onDragLeave)
+    document.addEventListener('dragend', onDragEnd)
+    document.addEventListener('drop', onDrop)
+    return () => {
+      document.removeEventListener('dragenter', onDragEnter)
+      document.removeEventListener('dragover', onDragOver)
+      document.removeEventListener('dragleave', onDragLeave)
+      document.removeEventListener('dragend', onDragEnd)
+      document.removeEventListener('drop', onDrop)
+    }
+  }, [])
+
+  const dropUi = (
+    <>
+      {dragActive && (
+        <div className="drop-overlay">
+          <div className="drop-card">
+            <Icon name="upload" size={34} />
+            <strong>Drop files to send to your phone</strong>
+            <span className="muted">Release to send</span>
+          </div>
+        </div>
+      )}
+      {dropNotice && <div className="drop-notice">{dropNotice}</div>}
+    </>
+  )
+
   if (!state) {
     return (
-      <div className="boot">
-        <div className="boot-mark"><img src={logo} alt="" /></div>
-        <p>Starting LinkPhone…</p>
-      </div>
+      <>
+        <div className="boot">
+          <div className="boot-mark"><img src={logo} alt="" /></div>
+          <p>Starting LinkPhone…</p>
+        </div>
+        {dropUi}
+      </>
     )
   }
 
@@ -75,7 +169,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.7.0</div>
+            <div className="brand-sub">Local network · v0.7.1</div>
           </div>
         </div>
 
@@ -295,6 +389,7 @@ export default function App(): JSX.Element {
           )}
         </section>
       </main>
+      {dropUi}
     </div>
   )
 }

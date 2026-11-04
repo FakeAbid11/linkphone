@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.9.0** adds Share to LinkPhone, photo uploads to the phone gallery, a phone Downloads
-> browser, and resumable transfers. v0.8.3 tidied the setup section.
+> **v0.10.0** adds a Videos tab with inline playback, seeking and video uploads to the phone.
+> v0.9.0 added Share to LinkPhone, photo uploads, the phone Downloads browser and resumable files.
 
 ## Features
 
@@ -48,7 +48,7 @@ service or a relay server.
 | Phone calls | Partial | Dial and control from the PC (best effort); no default-dialer role; audio stays on the phone |
 | Find my phone | Yes | Ring the connected phone and stop it from the phone or the PC |
 | Media controls | Yes | Now playing card with play/pause and next/previous |
-| Photo albums | Yes | Thumbnails, paged albums, previews, original download and photo upload |
+| Photo albums | Yes | Thumbnails, paged albums, previews, downloads, uploads and inline video playback |
 | Phone downloads | Yes | Browse accessible Downloads and pull files from the PC |
 | Battery | Yes | Live percentage and charging state |
 | Background | Yes | Foreground service with boot start; optional battery-optimization exemption |
@@ -76,7 +76,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.9.0.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.10.0.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

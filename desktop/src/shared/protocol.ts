@@ -88,11 +88,14 @@ export interface SmsActiveThread {
   messages: SmsMessage[]
 }
 
+export type GalleryKind = 'image' | 'video'
+
 export interface GalleryAlbum {
   id: string
   name: string
   count: number
   coverPhotoId: string
+  kind: GalleryKind
 }
 
 export interface GalleryPhoto {
@@ -104,6 +107,17 @@ export interface GalleryPhoto {
   dateTaken: number
   width: number
   height: number
+  kind: GalleryKind
+  durationMs?: number
+}
+
+export interface GalleryDownloadState {
+  transferId: string
+  status: 'downloading' | 'done' | 'failed'
+  received: number
+  size: number
+  path?: string
+  error?: string
 }
 
 export interface GalleryPreview {
@@ -208,12 +222,14 @@ export interface TransferItem {
   error?: string
   deviceId: string
   startedAt: number
-  target?: 'downloads' | 'pictures'
+  target?: 'downloads' | 'pictures' | 'videos'
   /** Desktop-only source path, used to retry an interrupted outgoing transfer. */
   sourcePath?: string
   /** Last acknowledged byte offset, used to resume after a reconnect. */
   resumeOffset?: number
   mtimeMs?: number
+  photoId?: string
+  mediaKind?: GalleryKind
 }
 
 export interface StorageEntry {
@@ -259,6 +275,9 @@ export interface AppState {
   smsActive: SmsActiveThread | null
   smsLoading: boolean
   galleryAlbums: GalleryAlbum[]
+  galleryKinds: GalleryKind[]
+  galleryKind: GalleryKind
+  galleryDownloads: Record<string, GalleryDownloadState>
   galleryPhotos: GalleryPhoto[]
   galleryAlbumId: string | null
   galleryAlbumName: string
@@ -393,10 +412,12 @@ export interface FileOfferMsg {
   name: string
   size: number
   mime: string
-  target?: 'downloads' | 'pictures'
+  target?: 'downloads' | 'pictures' | 'videos'
   /** Present when the sender can resume; the receiver may reply with an offset. */
   resumeFrom?: number
   mtimeMs?: number
+  photoId?: string
+  mediaKind?: GalleryKind
 }
 
 export interface FileAcceptMsg {
@@ -537,11 +558,13 @@ export interface DeviceStatusMsg {
 
 export interface GalleryAlbumsRequestMsg {
   t: 'gallery.albums.request'
+  kind?: GalleryKind
 }
 
 export interface GalleryAlbumsMsg {
   t: 'gallery.albums'
   albums: GalleryAlbum[]
+  kinds?: GalleryKind[]
 }
 
 export interface GalleryPhotosRequestMsg {
@@ -549,6 +572,7 @@ export interface GalleryPhotosRequestMsg {
   albumId: string
   offset: number
   limit: number
+  kind?: GalleryKind
 }
 
 export interface GalleryPhotosMsg {
@@ -557,11 +581,13 @@ export interface GalleryPhotosMsg {
   offset: number
   photos: GalleryPhoto[]
   hasMore: boolean
+  kind?: GalleryKind
 }
 
 export interface GalleryThumbsRequestMsg {
   t: 'gallery.thumbnails.request'
   photoIds: string[]
+  kind?: GalleryKind
 }
 
 export interface GalleryThumbData {
@@ -578,6 +604,7 @@ export interface GalleryThumbsMsg {
 export interface GalleryPreviewRequestMsg {
   t: 'gallery.preview.request'
   photoId: string
+  kind?: GalleryKind
 }
 
 export interface GalleryPreviewMsg {
@@ -590,6 +617,7 @@ export interface GalleryPreviewMsg {
 export interface GalleryDownloadMsg {
   t: 'gallery.download'
   photoId: string
+  kind?: GalleryKind
 }
 
 export interface GalleryErrorMsg {

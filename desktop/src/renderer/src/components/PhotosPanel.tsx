@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useRef } from 'react'
-import type { GalleryAlbum, GalleryPhoto, GalleryPreview } from '@shared/protocol'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type {
+  GalleryAlbum,
+  GalleryDownloadState,
+  GalleryKind,
+  GalleryPhoto,
+  GalleryPreview,
+  TransferItem
+} from '@shared/protocol'
 import { Icon } from './Icon'
 import { bytes } from './FilesPanel'
 
@@ -16,8 +23,13 @@ interface Props {
   error: string
   connected: boolean
   uploading: number
+  kind: GalleryKind
+  kinds: GalleryKind[]
+  downloads: Record<string, GalleryDownloadState>
+  transfers: TransferItem[]
   onRefresh: () => void
   onSendPhotos: () => void
+  onSelectKind: (kind: GalleryKind) => void
   onOpenAlbum: (albumId: string, name: string) => void
   onCloseAlbum: () => void
   onLoadMore: (albumId: string, offset: number) => void
@@ -25,6 +37,14 @@ interface Props {
   onPreview: (photoId: string, name: string) => void
   onClosePreview: () => void
   onDownload: (photoId: string) => void
+}
+
+function duration(value?: number): string {
+  if (!value || value <= 0) return ''
+  const total = Math.round(value / 1000)
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
 function photoDate(value: number): string {
@@ -49,8 +69,13 @@ export function PhotosPanel({
   error,
   connected,
   uploading,
+  kind,
+  kinds,
+  downloads,
+  transfers,
   onRefresh,
   onSendPhotos,
+  onSelectKind,
   onOpenAlbum,
   onCloseAlbum,
   onLoadMore,
@@ -60,6 +85,18 @@ export function PhotosPanel({
   onDownload
 }: Props): JSX.Element {
   const requested = useRef(new Set<string>())
+  const [video, setVideo] = useState<GalleryPhoto | null>(null)
+  const isVideo = kind === 'video'
+  const videoKey = video ? `${kind}:${video.id}` : ''
+  const videoDownload = videoKey ? downloads[videoKey] : undefined
+  const videoTransfer = video
+    ? transfers.find(
+        (item) =>
+          item.photoId === video.id &&
+          item.mediaKind === 'video' &&
+          (item.status === 'pending' || item.status === 'active')
+      )
+    : undefined
   const visibleIds = useMemo(
     () =>
       albumId
@@ -85,6 +122,10 @@ export function PhotosPanel({
     return () => window.removeEventListener('keydown', close)
   }, [preview, onClosePreview])
 
+  useEffect(() => {
+    setVideo(null)
+  }, [kind, albumId])
+
   return (
     <div className="photos">
       {albumId ? (
@@ -102,22 +143,30 @@ export function PhotosPanel({
           </div>
 
           {photos.length === 0 && !loading ? (
-            <GalleryEmpty error={error} />
+            <GalleryEmpty error={error} kind={kind} />
           ) : (
             <div className="photo-grid">
               {photos.map((photo) => (
                 <button
                   key={photo.id}
                   className="photo-tile"
-                  onClick={() => onPreview(photo.id, photo.name)}
+                  onClick={() => (isVideo ? setVideo(photo) : onPreview(photo.id, photo.name))}
                   title={`${photo.name} · ${bytes(photo.size)}`}
                 >
                   {thumbs[photo.id] ? (
                     <img src={thumbs[photo.id]} alt={photo.name} loading="lazy" />
                   ) : (
-                    <div className="photo-placeholder">Photo</div>
+                    <div className="photo-placeholder">{isVideo ? 'Video' : 'Photo'}</div>
                   )}
-                  <span className="photo-caption">{photoDate(photo.dateTaken)}</span>
+                  {isVideo && (
+                    <span className="video-badge">
+                      <Icon name="play_arrow" size={16} />
+                      {duration(photo.durationMs)}
+                    </span>
+                  )}
+                  <span className="photo-caption">
+                    {isVideo ? duration(photo.durationMs) || photoDate(photo.dateTaken) : photoDate(photo.dateTaken)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -136,17 +185,37 @@ export function PhotosPanel({
         <>
           <div className="gallery-head">
             <div>
-              <h2>Albums on your phone</h2>
+              <h2>{isVideo ? 'Videos on your phone' : 'Albums on your phone'}</h2>
               <p className="muted">Previews stay in memory and travel only over your encrypted LAN link.</p>
             </div>
             <div className="gallery-actions">
+              {kinds.includes('video') && (
+                <div className="notif-view" role="group" aria-label="Media kind">
+                  <button
+                    type="button"
+                    className={kind === 'image' ? 'notif-view-active' : ''}
+                    aria-pressed={kind === 'image'}
+                    onClick={() => onSelectKind('image')}
+                  >
+                    Photos
+                  </button>
+                  <button
+                    type="button"
+                    className={kind === 'video' ? 'notif-view-active' : ''}
+                    aria-pressed={kind === 'video'}
+                    onClick={() => onSelectKind('video')}
+                  >
+                    Videos
+                  </button>
+                </div>
+              )}
               <button
                 className="link-btn"
                 onClick={onSendPhotos}
                 disabled={!connected}
-                title={connected ? 'Choose photos to send to the phone' : 'Connect your phone first'}
+                title={connected ? 'Choose photos or videos to send to the phone' : 'Connect your phone first'}
               >
-                <Icon name="upload" size={18} /> Send photos
+                <Icon name="upload" size={18} /> Send media
               </button>
               <button className="link-btn" onClick={onRefresh} disabled={loading}>
                 {loading ? (
@@ -166,7 +235,7 @@ export function PhotosPanel({
           )}
 
           {albums.length === 0 && !loading ? (
-            <GalleryEmpty error={error} />
+            <GalleryEmpty error={error} kind={kind} />
           ) : (
             <div className="album-grid">
               {albums.map((album) => (
@@ -184,7 +253,7 @@ export function PhotosPanel({
                   </div>
                   <div className="album-info">
                     <strong>{album.name}</strong>
-                    <span>{album.count.toLocaleString()} photos</span>
+                    <span>{album.count.toLocaleString()} {isVideo ? 'videos' : 'photos'}</span>
                   </div>
                 </button>
               ))}
@@ -192,6 +261,65 @@ export function PhotosPanel({
           )}
           {loading && <div className="gallery-loading">Reading albums from phone…</div>}
         </>
+      )}
+
+      {video && (
+        <div className="photo-lightbox" role="dialog" aria-modal="true" onClick={() => setVideo(null)}>
+          <div className="photo-lightbox-card" onClick={(event) => event.stopPropagation()}>
+            <div className="photo-lightbox-head">
+              <strong title={video.name}>{video.name}</strong>
+              <button className="icon-btn" onClick={() => setVideo(null)} aria-label="Close video">
+                <Icon name="close" />
+              </button>
+            </div>
+            <div className="photo-preview-body">
+              {videoDownload?.status === 'done' && videoDownload.transferId ? (
+                <video
+                  key={videoDownload.transferId}
+                  className="video-player"
+                  controls
+                  autoPlay
+                  playsInline
+                  preload="metadata"
+                  src={`linkphone-media://media/${videoDownload.transferId}`}
+                />
+              ) : (
+                <>
+                  {thumbs[video.id] ? (
+                    <img src={thumbs[video.id]} alt={video.name} />
+                  ) : (
+                    <div className="photo-placeholder">Video</div>
+                  )}
+                  {videoTransfer ? (
+                    <div className="gallery-loading">
+                      Downloading{' '}
+                      {videoTransfer.size > 0
+                        ? Math.round((videoTransfer.received / videoTransfer.size) * 100)
+                        : 0}
+                      %…
+                    </div>
+                  ) : videoDownload?.status === 'failed' ? (
+                    <div className="gallery-error">
+                      {videoDownload.error || 'Download failed'}
+                    </div>
+                  ) : (
+                    <button className="btn" onClick={() => onDownload(video.id)}>
+                      <Icon name="play_arrow" size={18} /> Play video
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="photo-lightbox-actions">
+              <span className="muted">
+                {duration(video.durationMs)} · saved to Downloads/LinkPhone
+              </span>
+              <button className="btn btn-ghost" onClick={() => onDownload(video.id)}>
+                <Icon name="download" size={18} /> Download
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {preview && (
@@ -221,13 +349,17 @@ export function PhotosPanel({
   )
 }
 
-function GalleryEmpty({ error }: { error: string }): JSX.Element {
+function GalleryEmpty({ error, kind }: { error: string; kind: GalleryKind }): JSX.Element {
+  const video = kind === 'video'
   return (
     <div className="empty">
       <div className="empty-art"><Icon name="photo_library" size={34} /></div>
-      <h2>{error ? 'Photos unavailable' : 'No photos found'}</h2>
+      <h2>{error ? (video ? 'Videos unavailable' : 'Photos unavailable') : video ? 'No videos found' : 'No photos found'}</h2>
       <p className="muted">
-        {error || 'On the phone, allow photo access for LinkPhone, then refresh this page.'}
+        {error ||
+          (video
+            ? 'On the phone, allow video access for LinkPhone, then refresh this page.'
+            : 'On the phone, allow media access for LinkPhone, then refresh this page.')}
       </p>
     </div>
   )

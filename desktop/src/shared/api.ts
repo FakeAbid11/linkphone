@@ -38,14 +38,18 @@ export interface LinkPhoneApi {
     body: string,
     subscriptionId?: number
   ) => Promise<'queued' | 'invalid' | 'no-peer'>
-  requestGalleryAlbums: () => Promise<void>
-  openGalleryAlbum: (albumId: string, name: string) => Promise<void>
+  requestGalleryAlbums: (kind?: 'image' | 'video') => Promise<void>
+  openGalleryAlbum: (kind: 'image' | 'video', albumId: string, name: string) => Promise<void>
   closeGalleryAlbum: () => Promise<void>
-  loadMoreGallery: (albumId: string, offset: number) => Promise<void>
-  requestGalleryThumbnails: (photoIds: string[]) => Promise<void>
-  requestGalleryPreview: (photoId: string, name: string) => Promise<void>
+  loadMoreGallery: (kind: 'image' | 'video', albumId: string, offset: number) => Promise<void>
+  requestGalleryThumbnails: (kind: 'image' | 'video', photoIds: string[]) => Promise<void>
+  requestGalleryPreview: (
+    kind: 'image' | 'video',
+    photoId: string,
+    name: string
+  ) => Promise<void>
   closeGalleryPreview: () => Promise<void>
-  downloadGalleryPhoto: (photoId: string) => Promise<void>
+  downloadGalleryPhoto: (kind: 'image' | 'video', photoId: string) => Promise<void>
   checkDesktopUpdate: () => Promise<void>
   downloadDesktopUpdate: () => Promise<void>
   installDesktopUpdate: () => void

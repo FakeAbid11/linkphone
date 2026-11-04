@@ -96,6 +96,9 @@ export class AppStore extends EventEmitter {
   private smsActive: SmsActiveThread | null = null
   private smsLoading = false
   private galleryAlbums: GalleryAlbum[] = []
+  private galleryKinds: AppState['galleryKinds'] = ['image']
+  private galleryKind: AppState['galleryKind'] = 'image'
+  private galleryDownloads: AppState['galleryDownloads'] = {}
   private galleryPhotos: GalleryPhoto[] = []
   private galleryAlbumId: string | null = null
   private galleryAlbumName = ''
@@ -839,10 +842,31 @@ export class AppStore extends EventEmitter {
 
   /* ---------------- Gallery ---------------- */
 
-  requestGalleryAlbums(): void {
+  requestGalleryAlbums(kind?: AppState['galleryKind']): void {
+    if (kind) this.galleryKind = kind
     this.galleryLoading = true
     this.galleryError = ''
     this.galleryPreview = null
+    this.changed()
+  }
+
+  setGalleryKinds(kinds: AppState['galleryKinds']): void {
+    this.galleryKinds = kinds.length > 0 ? kinds : ['image']
+    this.changed()
+  }
+
+  setGalleryDownload(key: string, state: AppState['galleryDownloads'][string]): void {
+    this.galleryDownloads = { ...this.galleryDownloads, [key]: state }
+    this.changed()
+  }
+
+  ensureIncomingTransfer(item: TransferItem): void {
+    if (this.transfers.some((transfer) => transfer.id === item.id)) {
+      this.patchTransfer(item.id, item)
+      return
+    }
+    this.transfers = [item, ...this.transfers].slice(0, MAX_TRANSFERS)
+    this.saveTransfers()
     this.changed()
   }
 
@@ -1119,6 +1143,9 @@ export class AppStore extends EventEmitter {
       smsActive: this.smsActive,
       smsLoading: this.smsLoading,
       galleryAlbums: this.galleryAlbums,
+      galleryKinds: this.galleryKinds,
+      galleryKind: this.galleryKind,
+      galleryDownloads: this.galleryDownloads,
       galleryPhotos: this.galleryPhotos,
       galleryAlbumId: this.galleryAlbumId,
       galleryAlbumName: this.galleryAlbumName,

@@ -22,6 +22,12 @@ const api: LinkPhoneApi = {
   refreshAddresses: () => ipcRenderer.invoke('addresses:refresh') as Promise<void>,
   forgetDevice: (deviceId) => ipcRenderer.invoke('device:forget', deviceId) as Promise<void>,
   sendFiles: () => ipcRenderer.invoke('files:send') as Promise<number>,
+  sendPhotosToPhone: () => ipcRenderer.invoke('files:send-photos') as Promise<number>,
+  retryTransfer: (id) => ipcRenderer.invoke('files:retry', id) as Promise<void>,
+  requestStorageList: (cursor) =>
+    ipcRenderer.invoke('storage:list', cursor) as Promise<void>,
+  pullStorageFile: (id, name, mime) =>
+    ipcRenderer.invoke('storage:pull', id, name, mime) as Promise<void>,
   pathForFile: (file) => {
     try {
       return webUtils.getPathForFile(

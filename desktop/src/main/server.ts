@@ -34,8 +34,10 @@ import {
   type SimInfo,
   type SmsMessage,
   type SmsThread,
+  type StorageEntry,
   type TransferItem
 } from '../shared/protocol'
+import { mimeForPath } from '../shared/mime'
 import {
   decodeFileChunk,
   deriveKey,
@@ -61,8 +63,14 @@ const MAX_PLAIN_CONTROL = 16 * 1024 * 1024
 class Outbound {
   acked = 0
   cursor = 0
+  resumeOffset = 0
+  size = 0
   accepted = false
   failed = false
+  deviceId = ''
+  path = ''
+  target: 'downloads' | 'pictures' = 'downloads'
+  mtimeMs = 0
   private acceptResolve: ((ok: boolean) => void) | null = null
   private dataResolve: (() => void) | null = null
 
@@ -80,10 +88,21 @@ class Outbound {
     })
   }
 
-  accept(): void {
+  accept(offset = 0): void {
     this.accepted = true
+    this.resumeOffset = Math.max(0, offset)
     this.acceptResolve?.(true)
     this.acceptResolve = null
+  }
+
+  async waitDrained(size: number, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs
+    while (this.acked < size) {
+      if (this.failed) return false
+      if (Date.now() >= deadline) return false
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+    return true
   }
 
   decline(): void {
@@ -153,8 +172,18 @@ export class LinkServer extends EventEmitter {
     this.receiver = new FileReceiver(
       store.downloadsDir,
       (patch) => store.patchTransfer(patch.id, patch),
-      (id) => this.broadcast({ t: 'file.accept', id }),
-      (id, reason) => this.broadcast({ t: 'file.decline', id, reason })
+      (id, offset, deviceId) => {
+        const peer = [...this.peers].find(
+          (candidate) => candidate.deviceId === deviceId && candidate.phase === 'ready'
+        )
+        if (peer) this.send(peer, { t: 'file.accept', id, offset })
+      },
+      (id, reason, deviceId) => {
+        const peer = [...this.peers].find(
+          (candidate) => candidate.deviceId === deviceId && candidate.phase === 'ready'
+        )
+        if (peer) this.send(peer, { t: 'file.decline', id, reason })
+      }
     )
   }
 
@@ -261,7 +290,18 @@ export class LinkServer extends EventEmitter {
       }
       if (peer.deviceId) {
         this.store.markDisconnected(peer.deviceId)
-        this.receiver.cancelAllForDevice(peer.deviceId)
+        this.receiver.pauseAllForDevice(peer.deviceId)
+        this.store.interruptTransfersForDevice(peer.deviceId)
+        for (const [id, out] of [...this.outbound]) {
+          if (out.deviceId !== peer.deviceId) continue
+          this.store.patchTransfer(id, {
+            status: 'interrupted',
+            error: 'connection lost',
+            resumeOffset: out.acked
+          })
+          this.outbound.delete(id)
+          out.decline()
+        }
       }
     })
     ws.on('error', () => ws.terminate())
@@ -531,8 +571,11 @@ export class LinkServer extends EventEmitter {
           id: str(msg.id),
           name: str(msg.name, 'file'),
           size: num(msg.size),
-          mime: str(msg.mime, 'application/octet-stream')
+          mime: str(msg.mime, 'application/octet-stream'),
+          target: msg.target === 'pictures' ? 'pictures' : 'downloads'
         }
+        if (typeof msg.resumeFrom === 'number') offer.resumeFrom = num(msg.resumeFrom)
+        if (typeof msg.mtimeMs === 'number') offer.mtimeMs = num(msg.mtimeMs)
         this.receiver.offer(offer, peer.deviceId)
         return
       }
@@ -541,9 +584,32 @@ export class LinkServer extends EventEmitter {
         this.receiver.finish(str(msg.id))
         return
 
-      case 'file.cancel':
-        this.receiver.abort(str(msg.id), str(msg.reason, 'canceled by phone'))
+      case 'storage.list': {
+        const list = Array.isArray(msg.entries) ? (msg.entries as unknown[]) : []
+        this.store.setStorageFiles(
+          list.filter(isRawMsg).map(parseStorageEntry).slice(0, 100),
+          bool(msg.scanLimited),
+          bool(msg.granted),
+          str(msg.nextCursor) || undefined
+        )
         return
+      }
+
+      case 'storage.error':
+        this.store.setStorageError(str(msg.message, 'Could not read phone files'))
+        return
+
+      case 'file.cancel': {
+        const id = str(msg.id)
+        const out = this.outbound.get(id)
+        if (out) {
+          out.decline()
+          this.finishOutbound(id, 'failed', str(msg.reason, 'canceled by phone'))
+        } else {
+          this.receiver.abort(id, str(msg.reason, 'canceled by phone'))
+        }
+        return
+      }
 
       case 'file.ack': {
         const out = this.outbound.get(str(msg.id))
@@ -556,7 +622,7 @@ export class LinkServer extends EventEmitter {
       }
 
       case 'file.accept': {
-        this.outbound.get(str(msg.id))?.accept()
+        this.outbound.get(str(msg.id))?.accept(num(msg.offset))
         return
       }
 
@@ -746,10 +812,11 @@ export class LinkServer extends EventEmitter {
     peer.ws.send(JSON.stringify(msg))
   }
 
-  private sendBinary(peer: Peer, payload: Buffer): void {
-    if (!peer.key || peer.ws.readyState !== WebSocket.OPEN) return
+  private sendBinary(peer: Peer, payload: Buffer): boolean {
+    if (!peer.key || peer.ws.readyState !== WebSocket.OPEN) return false
     peer.sendSeq += 1
     peer.ws.send(sealFrame(peer.key, 's2c', peer.sendSeq, payload), { binary: true })
+    return true
   }
 
   broadcast(msg: ControlMsg | RawMsg): void {
@@ -762,16 +829,38 @@ export class LinkServer extends EventEmitter {
   /* desktop -> phone                                                  */
   /* ---------------------------------------------------------------- */
 
-  async sendFiles(paths: string[]): Promise<void> {
+  async sendFiles(paths: string[], target: 'downloads' | 'pictures' = 'downloads'): Promise<void> {
     const peers = [...this.peers].filter((p) => p.phase === 'ready')
     for (const peer of peers) {
       for (const filePath of paths) {
-        await this.sendFileTo(peer, filePath)
+        await this.sendFileTo(peer, filePath, target)
       }
     }
   }
 
-  private async sendFileTo(peer: Peer, filePath: string): Promise<void> {
+  retryTransfer(id: string): void {
+    const item = this.store.getTransfer(id)
+    if (!item || item.direction !== 'out' || !item.sourcePath) return
+    const peer = [...this.peers].find(
+      (candidate) => candidate.deviceId === item.deviceId && candidate.phase === 'ready'
+    )
+    if (!peer) return
+    void this.sendFileTo(
+      peer,
+      item.sourcePath,
+      item.target ?? 'downloads',
+      item.id,
+      item.resumeOffset ?? item.received
+    )
+  }
+
+  private async sendFileTo(
+    peer: Peer,
+    filePath: string,
+    target: 'downloads' | 'pictures' = 'downloads',
+    existingId?: string,
+    resumeFrom?: number
+  ): Promise<void> {
     let source: FileSource
     try {
       source = new FileSource(filePath, filePath.split(/[\\/]/).pop() ?? 'file')
@@ -779,57 +868,104 @@ export class LinkServer extends EventEmitter {
       return
     }
 
-    const id = crypto.randomUUID()
+    const id = existingId ?? crypto.randomUUID()
+    const mime = mimeForPath(filePath)
     const out = new Outbound()
+    out.deviceId = peer.deviceId
+    out.path = filePath
+    out.target = target
+    out.size = source.size
+    out.mtimeMs = source.mtimeMs
     this.outbound.set(id, out)
-    this.store.upsertTransfer({
-      id,
-      name: source.name,
-      size: source.size,
-      received: 0,
-      direction: 'out',
-      status: 'pending',
-      deviceId: peer.deviceId,
-      startedAt: Date.now()
-    })
 
+    if (existingId) {
+      this.store.patchTransfer(id, {
+        status: 'pending',
+        error: undefined,
+        received: resumeFrom ?? 0,
+        target,
+        sourcePath: filePath,
+        mtimeMs: source.mtimeMs
+      })
+    } else {
+      this.store.upsertTransfer({
+        id,
+        name: source.name,
+        size: source.size,
+        received: 0,
+        direction: 'out',
+        status: 'pending',
+        deviceId: peer.deviceId,
+        startedAt: Date.now(),
+        target,
+        sourcePath: filePath,
+        mtimeMs: source.mtimeMs
+      })
+    }
+
+    let sentDone = false
     try {
-      this.send(peer, {
+      const offer: FileOfferMsg = {
         t: 'file.offer',
         id,
         name: source.name,
         size: source.size,
-        mime: 'application/octet-stream'
-      })
+        mime,
+        target,
+        mtimeMs: source.mtimeMs
+      }
+      if (resumeFrom !== undefined) offer.resumeFrom = resumeFrom
+      this.send(peer, offer)
 
       const accepted = await out.waitAccept(15_000)
       if (!accepted) {
         this.store.patchTransfer(id, {
-          status: 'failed',
+          status: out.failed ? 'failed' : 'interrupted',
           error: out.failed ? 'declined by phone' : 'no response from phone'
         })
         return
       }
 
-      this.store.patchTransfer(id, { status: 'active' })
+      const offset = Math.max(0, Math.min(out.resumeOffset, source.size))
+      source.seek(offset)
+      out.cursor = offset
+      out.acked = offset
+      this.store.patchTransfer(id, { status: 'active', received: offset })
 
       while (out.cursor < source.size) {
         if (out.failed) throw new Error('transfer aborted by phone')
         if (out.cursor - out.acked >= WINDOW_BYTES) await out.waitData(ACK_TIMEOUT_MS)
         if (out.failed) throw new Error('ack timeout')
-        const offset = out.cursor
+        const at = out.cursor
         const chunk = source.readChunk(MAX_FILE_CHUNK)
         if (chunk.length === 0) break
-        this.sendBinary(peer, fileChunkPayload(KIND_FILE, id, offset, chunk))
+        if (!this.sendBinary(peer, fileChunkPayload(KIND_FILE, id, at, chunk))) {
+          throw new Error('connection lost')
+        }
         out.cursor += chunk.length
       }
 
+      const drained = await out.waitDrained(source.size, 15_000)
+      if (!drained) throw new Error('phone did not confirm the last chunk')
       this.send(peer, { t: 'file.done', id })
-      this.store.patchTransfer(id, { status: 'done', received: source.size })
+      sentDone = true
+      this.store.patchTransfer(id, {
+        status: 'done',
+        received: source.size,
+        resumeOffset: 0
+      })
+      if (target === 'pictures') this.requestGalleryAlbums()
     } catch (err) {
       const message = (err as Error).message
-      this.store.patchTransfer(id, { status: 'failed', error: message })
-      this.send(peer, { t: 'file.cancel', id, reason: message })
+      const interrupted = message === 'connection lost'
+      this.store.patchTransfer(id, {
+        status: interrupted ? 'interrupted' : 'failed',
+        error: message,
+        resumeOffset: out.acked
+      })
+      if (!interrupted && !sentDone) {
+        this.send(peer, { t: 'file.cancel', id, reason: message })
+      }
     } finally {
       source.close()
       this.outbound.delete(id)
@@ -949,6 +1085,37 @@ export class LinkServer extends EventEmitter {
     })
     this.broadcast({ t: 'sms.thread.request', threadId })
     return this.sendSms(threadId, normalized, text, subscriptionId)
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Phone storage                                                     */
+  /* ---------------------------------------------------------------- */
+
+  requestStorageList(cursor?: string): boolean {
+    const peer = [...this.peers].find((candidate) => candidate.phase === 'ready')
+    if (!peer) return false
+    this.store.setStorageLoading(true)
+    this.send(peer, {
+      t: 'storage.list.request',
+      reqId: crypto.randomUUID(),
+      cursor: cursor?.slice(0, 64)
+    })
+    return true
+  }
+
+  pullStorageFile(id: string, name = '', mime = ''): void {
+    const peer = [...this.peers].find((candidate) => candidate.phase === 'ready')
+    if (!peer) return
+    this.send(peer, {
+      t: 'storage.pull',
+      id: id.slice(0, 64),
+      name: name ? name.slice(0, 200) : undefined,
+      mime: mime ? mime.slice(0, 100) : undefined
+    })
+  }
+
+  uploadPhotos(paths: string[]): void {
+    void this.sendFiles(paths, 'pictures')
   }
 
   /* ---------------------------------------------------------------- */
@@ -1106,6 +1273,16 @@ function parseGalleryAlbum(raw: RawMsg): GalleryAlbum {
     name: str(raw.name, 'Album').slice(0, 200),
     count: Math.max(0, Math.floor(num(raw.count))),
     coverPhotoId: str(raw.coverPhotoId).slice(0, 64)
+  }
+}
+
+function parseStorageEntry(raw: RawMsg): StorageEntry {
+  return {
+    id: str(raw.id).slice(0, 64),
+    name: str(raw.name, 'file').slice(0, 240),
+    size: Math.max(0, num(raw.size)),
+    mime: str(raw.mime, 'application/octet-stream').slice(0, 100),
+    modified: Math.max(0, num(raw.modified))
   }
 }
 

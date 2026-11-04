@@ -311,6 +311,26 @@ Ring the phone from its device card, then use the phone.
   returns after the next poll.
 * ✅ Find your PC shows two equal-width buttons; Scan QR and Scan/Scanning… fit without clipping.
 
+## 9f. Files and photos (v0.9.0+)
+
+* ✅ Share one file from Gallery/Files to **LinkPhone** with the PC connected; it arrives in
+  `Downloads/LinkPhone` and the share screen says Sent.
+* ✅ Share several files with the PC open but LinkPhone on the phone backgrounded; the share screen
+  waits, then sends.
+* ✅ Share with the PC offline; the screen explains that the PC could not be reached and the cache
+  is cleaned.
+* ✅ PC → phone **Send photos**: images appear in `Pictures/LinkPhone` and the Photos tab refreshes.
+* ✅ PC → phone file upload still lands in `Downloads/LinkPhone`.
+* ✅ Open Files, browse **On your phone**, and pull a download; it appears in Transfers. On Android
+  13+ confirm the limited-list message.
+* ✅ Drop Wi-Fi during a large transfer in each direction: the row becomes Interrupted. Reconnect
+  and tap Retry; the transfer resumes from the received offset.
+* ✅ Restart the desktop while a transfer is interrupted; history returns as Interrupted, and Retry
+  either resumes (phone kept its partial) or starts again from zero.
+* ✅ Modify a source file between attempts; the receiver resets instead of corrupting the file.
+* ✅ New PC with an old APK: pictures fall back to Downloads and the phone-files section shows an
+  update hint; ordinary transfers still work.
+
 ## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.

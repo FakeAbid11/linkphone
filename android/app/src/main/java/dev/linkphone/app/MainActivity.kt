@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -100,7 +101,7 @@ internal object Symbols {
     const val info = "\ue88e"
 }
 
-private val DarkColors = darkColorScheme(
+internal val DarkColors = darkColorScheme(
     primary = Primary,
     onPrimary = Color.Black,
     primaryContainer = Color(0xFF1C1C1C),
@@ -528,11 +529,27 @@ private fun Screen(modifier: Modifier = Modifier) {
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
                                 )
-                                Text(
-                                    transferLabel(transfer),
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        transferLabel(transfer),
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (
+                                        transfer.direction == "out" &&
+                                        (transfer.status == "failed" ||
+                                            transfer.status == "interrupted") &&
+                                        status.state == LinkState.CONNECTED
+                                    ) {
+                                        TextButton(
+                                            onClick = { client.retryTransfer(transfer.id) },
+                                            contentPadding = PaddingValues(horizontal = 8.dp)
+                                        ) { Text("Retry", fontSize = 12.sp) }
+                                    }
+                                }
                             }
                             val fraction = if (transfer.size > 0) {
                                 (transfer.received.toFloat() / transfer.size).coerceIn(0f, 1f)
@@ -918,6 +935,9 @@ private fun transferLabel(transfer: TransferUi): String = when (transfer.status)
     "active" -> if (transfer.direction == "in") "Receiving…" else "Sending…"
     "done" -> "Done"
     "failed" -> "Failed"
+    "interrupted" -> "Interrupted"
+    "declined" -> "Declined"
+    "canceled" -> "Canceled"
     else -> transfer.status
 }
 

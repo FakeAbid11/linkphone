@@ -1,13 +1,17 @@
 package dev.linkphone.app
 
+import android.Manifest
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +37,7 @@ import okio.ByteString.Companion.toByteString
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.OutputStream
+import java.io.File
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.NetworkInterface
@@ -62,7 +67,8 @@ data class TransferUi(
     val size: Long,
     val received: Long,
     val direction: String,
-    val status: String
+    val status: String,
+    val target: String = "downloads"
 )
 
 data class OutgoingAction(val id: String, val label: String, val reply: Boolean)
@@ -151,7 +157,7 @@ class LinkClient(context: Context, private val store: PairStore) {
     private val hostQueue = java.util.concurrent.ConcurrentLinkedQueue<String>()
 
     private val incoming = ConcurrentHashMap<String, Incoming>()
-    private val pendingSends = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
+    private val outgoing = ConcurrentHashMap<String, Outgoing>()
 
     val isReady: Boolean get() = ready
 
@@ -280,6 +286,13 @@ class LinkClient(context: Context, private val store: PairStore) {
         ready = false
         supportsLiveProgress = false
         PhoneRinger.stop()
+        incoming.values.forEach { sink ->
+            runCatching { sink.stream.close() }
+            runCatching { resolver.delete(sink.uri, null, null) }
+        }
+        incoming.clear()
+        outgoing.values.forEach { it.attempt?.complete(-1L) }
+        outgoing.clear()
         _status.value = LinkStatus(LinkState.IDLE)
     }
 
@@ -558,19 +571,18 @@ class LinkClient(context: Context, private val store: PairStore) {
     }
 
     @Synchronized
-    private fun send(msg: JSONObject) {
-        val socket = ws ?: return
+    private fun send(msg: JSONObject): Boolean {
+        val socket = ws ?: return false
         val currentKey = key
         if (currentKey == null) {
-            socket.send(msg.toString())
-            return
+            return socket.send(msg.toString())
         }
         val body = msg.toString().toByteArray(Charsets.UTF_8)
         val plain = ByteArray(body.size + 1)
         plain[0] = Proto.KIND_CONTROL.toByte()
         System.arraycopy(body, 0, plain, 1, body.size)
         sendSeq += 1
-        socket.send(Crypto.seal(currentKey, "c2s", sendSeq, plain).toByteString())
+        return socket.send(Crypto.seal(currentKey, "c2s", sendSeq, plain).toByteString())
     }
 
     private fun handleBinary(bytes: ByteArray) {
@@ -603,10 +615,27 @@ class LinkClient(context: Context, private val store: PairStore) {
                 if (text.isNotEmpty()) clipboardIn.tryEmit(text)
             }
             "file.offer" -> onIncomingOffer(msg)
-            "file.accept" -> pendingSends.remove(msg.optString("id"))?.complete(true)
-            "file.decline" -> pendingSends.remove(msg.optString("id"))?.complete(false)
+            "file.accept" -> {
+                val id = msg.optString("id")
+                outgoing[id]?.attempt?.complete(msg.optLong("offset", 0L))
+            }
+            "file.decline" -> outgoing[msg.optString("id")]?.attempt?.complete(-1L)
             "file.done" -> finishIncoming(msg.optString("id"))
-            "file.cancel" -> abortIncoming(msg.optString("id"))
+            "file.cancel" -> {
+                val id = msg.optString("id")
+                outgoing[id]?.let {
+                    it.cancelled = true
+                    it.attempt?.complete(-1L)
+                }
+                abortIncoming(id, msg.optString("reason", "canceled by PC"))
+            }
+            "file.ack" -> {
+                val out = outgoing[msg.optString("id")]
+                if (out != null) {
+                    val offset = msg.optLong("offset", 0L)
+                    if (offset > out.acked) out.acked = offset
+                }
+            }
             "notif.action" -> NotificationRelay.deliver(
                 msg.optString("key"),
                 msg.optString("actionId"),
@@ -636,6 +665,8 @@ class LinkClient(context: Context, private val store: PairStore) {
             "gallery.thumbnails.request" -> scope.launch { sendGalleryThumbnails(msg) }
             "gallery.preview.request" -> scope.launch { sendGalleryPreview(msg.optString("photoId")) }
             "gallery.download" -> scope.launch { downloadGalleryPhoto(msg.optString("photoId")) }
+            "storage.list.request" -> scope.launch { sendStorageList(msg.optString("reqId")) }
+            "storage.pull" -> scope.launch { sendStoredFile(msg.optString("id")) }
             "call.place" -> {
                 val number = msg.optString("number")
                 CallHub.placeCall(
@@ -680,24 +711,65 @@ class LinkClient(context: Context, private val store: PairStore) {
         var lastAck = 0L
     }
 
+    private class Outgoing(
+        val id: String,
+        val uri: Uri,
+        val name: String,
+        val size: Long,
+        val mime: String,
+        val target: String
+    ) {
+        @Volatile var acked = 0L
+        @Volatile var attempt: CompletableDeferred<Long>? = null
+        @Volatile var cancelled = false
+    }
+
     private fun onIncomingOffer(msg: JSONObject) {
         val id = msg.optString("id")
+        if (id.isEmpty()) return
         val name = msg.optString("name", "file")
         val size = msg.optLong("size", 0L)
-        try {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, name)
-                put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
-                put(MediaStore.Downloads.RELATIVE_PATH, "Download/LinkPhone")
-                put(MediaStore.Downloads.IS_PENDING, 1)
+        val mime = msg.optString("mime", "application/octet-stream")
+        val target = msg.optString("target", "downloads")
+        val resumeFrom = if (msg.has("resumeFrom")) msg.optLong("resumeFrom", 0L) else null
+        val existing = incoming[id]
+        if (existing != null) {
+            if (resumeFrom != null && existing.name == name && existing.size == size) {
+                upsertTransfer(TransferUi(id, name, size, existing.received, "in", "active"))
+                send(
+                    JSONObject().apply {
+                        put("t", "file.accept")
+                        put("id", id)
+                        put("offset", existing.received)
+                    }
+                )
+                return
             }
-            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            abortIncoming(id, "restarted")
+        }
+        try {
+            val pictures = target == "pictures" && mime.startsWith("image/")
+            val collection = if (pictures) {
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            } else {
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            }
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                put(
+                    MediaStore.MediaColumns.RELATIVE_PATH,
+                    if (pictures) "Pictures/LinkPhone" else "Download/LinkPhone"
+                )
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(collection, values)
                 ?: throw IllegalStateException("no media store entry")
             val stream = resolver.openOutputStream(uri)
                 ?: throw IllegalStateException("no output stream")
             incoming[id] = Incoming(id, uri, stream, name, size)
-            upsertTransfer(TransferUi(id, name, size, 0, "in", "active"))
-            send(JSONObject().apply { put("t", "file.accept"); put("id", id) })
+            upsertTransfer(TransferUi(id, name, size, 0, "in", "active", target))
+            send(JSONObject().apply { put("t", "file.accept"); put("id", id); put("offset", 0) })
         } catch (e: Exception) {
             Log.w("LinkPhone", "cannot accept file", e)
             send(
@@ -722,7 +794,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         try {
             sink.stream.write(data)
             sink.received += data.size
-            if (sink.received - sink.lastAck >= 512 * 1024) {
+            if (sink.received - sink.lastAck >= 512 * 1024 || sink.received == sink.size) {
                 sink.lastAck = sink.received
                 send(
                     JSONObject().apply {
@@ -735,89 +807,282 @@ class LinkClient(context: Context, private val store: PairStore) {
             }
         } catch (e: Exception) {
             Log.w("LinkPhone", "write chunk", e)
-            abortIncoming(id)
+            abortIncoming(id, "write failed")
         }
     }
 
     private fun finishIncoming(id: String) {
-        val sink = incoming.remove(id) ?: return
+        val sink = incoming[id] ?: return
+        if (sink.received != sink.size) {
+            abortIncoming(id, "incomplete")
+            return
+        }
+        incoming.remove(id)
         try {
             sink.stream.flush()
             sink.stream.close()
-            val values = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
+            val values = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
             resolver.update(sink.uri, values, null, null)
             upsertTransfer(TransferUi(id, sink.name, sink.size, sink.received, "in", "done"))
+            send(
+                JSONObject().apply {
+                    put("t", "file.ack")
+                    put("id", id)
+                    put("offset", sink.received)
+                }
+            )
         } catch (e: Exception) {
             upsertTransfer(TransferUi(id, sink.name, sink.size, sink.received, "in", "failed"))
         }
     }
 
-    private fun abortIncoming(id: String) {
+    private fun abortIncoming(id: String, reason: String = "canceled") {
         val sink = incoming.remove(id) ?: return
         runCatching { sink.stream.close() }
         runCatching { resolver.delete(sink.uri, null, null) }
         upsertTransfer(TransferUi(id, sink.name, sink.size, sink.received, "in", "failed"))
+        send(
+            JSONObject().apply {
+                put("t", "file.cancel")
+                put("id", id)
+                put("reason", reason)
+            }
+        )
     }
 
     /* ------------------------------------------------------------ */
     /* outgoing files                                                */
     /* ------------------------------------------------------------ */
 
-    fun sendFile(uri: Uri) {
+    fun sendFile(uri: Uri, target: String = "downloads") {
         scope.launch {
-            try {
-                val (name, size) = queryMeta(uri)
-                val id = UUID.randomUUID().toString()
-                val accepted = CompletableDeferred<Boolean>()
-                pendingSends[id] = accepted
-                upsertTransfer(TransferUi(id, name, size, 0, "out", "pending"))
-
-                send(
-                    JSONObject().apply {
-                        put("t", "file.offer")
-                        put("id", id)
-                        put("name", name)
-                        put("size", size)
-                        put("mime", "application/octet-stream")
-                    }
-                )
-
-                val ok = withTimeoutOrNull(15_000) { accepted.await() } ?: false
-                if (!ok) {
-                    pendingSends.remove(id)
-                    upsertTransfer(TransferUi(id, name, size, 0, "out", "failed"))
-                    return@launch
-                }
-
-                upsertTransfer(TransferUi(id, name, size, 0, "out", "active"))
-                var offset = 0L
-                var lastReport = 0L
-                resolver.openInputStream(uri)?.use { input ->
-                    val buffer = ByteArray(Proto.CHUNK)
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read <= 0) break
-                        sendChunk(id, offset, buffer, read)
-                        offset += read
-                        while ((ws?.queueSize() ?: 0L) > 2L * 1024 * 1024) delay(8)
-                        if (offset - lastReport >= 512 * 1024) {
-                            lastReport = offset
-                            upsertTransfer(TransferUi(id, name, size, offset, "out", "active"))
-                        }
-                    }
-                }
-                send(JSONObject().apply { put("t", "file.done"); put("id", id) })
-                upsertTransfer(TransferUi(id, name, size, offset, "out", "done"))
-            } catch (e: Exception) {
-                Log.w("LinkPhone", "send file", e)
-            }
+            val out = prepareSend(uri, target) ?: return@launch
+            startSend(out, 0L)
         }
     }
 
+    suspend fun sendFileAndWait(uri: Uri, target: String = "downloads"): Boolean {
+        val out = prepareSend(uri, target) ?: return false
+        return startSend(out, 0L)
+    }
+
+    fun retryTransfer(id: String) {
+        val out = outgoing[id] ?: return
+        if (!ready || out.attempt?.isActive == true) return
+        scope.launch { startSend(out, out.acked) }
+    }
+
+    private fun prepareSend(uri: Uri, target: String): Outgoing? = try {
+        val (name, size) = queryMeta(uri)
+        val mime = resolver.getType(uri) ?: "application/octet-stream"
+        val out = Outgoing(UUID.randomUUID().toString(), uri, name, size, mime, target)
+        outgoing[out.id] = out
+        out
+    } catch (e: Exception) {
+        Log.w("LinkPhone", "prepare file", e)
+        null
+    }
+
+    private suspend fun startSend(out: Outgoing, resumeFrom: Long): Boolean {
+        val attempt = CompletableDeferred<Long>()
+        out.attempt = attempt
+        out.cancelled = false
+        upsertTransfer(
+            TransferUi(out.id, out.name, out.size, resumeFrom, "out", "pending", out.target)
+        )
+        val offer = JSONObject().apply {
+            put("t", "file.offer")
+            put("id", out.id)
+            put("name", out.name)
+            put("size", out.size)
+            put("mime", out.mime)
+            put("target", out.target)
+            if (resumeFrom > 0) put("resumeFrom", resumeFrom)
+        }
+        if (!send(offer)) {
+            upsertTransfer(
+                TransferUi(out.id, out.name, out.size, out.acked, "out", "interrupted", out.target)
+            )
+            return false
+        }
+
+        val accepted = withTimeoutOrNull(15_000) { attempt.await() } ?: -2L
+        if (accepted < 0) {
+            val declined = accepted == -1L
+            upsertTransfer(
+                TransferUi(
+                    out.id,
+                    out.name,
+                    out.size,
+                    out.acked,
+                    "out",
+                    if (declined) "failed" else "interrupted",
+                    out.target
+                )
+            )
+            if (declined) outgoing.remove(out.id)
+            return false
+        }
+
+        val start = accepted.coerceIn(0L, out.size)
+        out.acked = start
+        upsertTransfer(
+            TransferUi(out.id, out.name, out.size, start, "out", "active", out.target)
+        )
+        try {
+            val input = resolver.openInputStream(out.uri)
+                ?: throw IllegalStateException("cannot read file")
+            input.use { stream ->
+                var skipped = 0L
+                while (skipped < start) {
+                    val step = stream.skip(start - skipped)
+                    if (step <= 0) {
+                        if (stream.read() < 0) throw IllegalStateException("file changed")
+                        skipped += 1
+                    } else {
+                        skipped += step
+                    }
+                }
+                var offset = start
+                var lastReport = start
+                val buffer = ByteArray(Proto.CHUNK)
+                while (true) {
+                    if (out.cancelled) throw IllegalStateException("canceled")
+                    val read = stream.read(buffer)
+                    if (read <= 0) break
+                    if (!sendChunk(out.id, offset, buffer, read)) {
+                        throw IllegalStateException("connection lost")
+                    }
+                    offset += read
+                    while ((ws?.queueSize() ?: 0L) > 2L * 1024 * 1024) {
+                        if (!ready) throw IllegalStateException("connection lost")
+                        delay(8)
+                    }
+                    while (offset - out.acked >= 512L * 1024) {
+                        if (!ready) throw IllegalStateException("connection lost")
+                        delay(50)
+                    }
+                    if (offset - lastReport >= 512 * 1024 || offset == out.size) {
+                        lastReport = offset
+                        upsertTransfer(
+                            TransferUi(out.id, out.name, out.size, offset, "out", "active", out.target)
+                        )
+                    }
+                }
+
+                val deadline = System.currentTimeMillis() + 15_000
+                while (out.acked < out.size && System.currentTimeMillis() < deadline) {
+                    if (!ready) throw IllegalStateException("connection lost")
+                    delay(100)
+                }
+                if (out.acked < out.size) throw IllegalStateException("phone did not confirm")
+                send(JSONObject().apply { put("t", "file.done"); put("id", out.id) })
+                upsertTransfer(
+                    TransferUi(out.id, out.name, out.size, out.size, "out", "done", out.target)
+                )
+                outgoing.remove(out.id)
+                return true
+            }
+        } catch (e: Exception) {
+            val message = e.message ?: "send failed"
+            val interrupted = message == "connection lost" || message == "canceled"
+            upsertTransfer(
+                TransferUi(
+                    out.id,
+                    out.name,
+                    out.size,
+                    out.acked,
+                    "out",
+                    if (interrupted) "interrupted" else "failed",
+                    out.target
+                )
+            )
+            if (!interrupted) {
+                send(
+                    JSONObject().apply {
+                        put("t", "file.cancel")
+                        put("id", out.id)
+                        put("reason", message)
+                    }
+                )
+            }
+            return false
+        }
+    }
+
+    private fun sendStorageList(reqId: String) {
+        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            true
+        } else {
+            ContextCompat.checkSelfPermission(
+                appContext,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+        val entries = JSONArray()
+        if (granted) {
+            runCatching {
+                val projection = arrayOf(
+                    MediaStore.Downloads._ID,
+                    MediaStore.Downloads.DISPLAY_NAME,
+                    MediaStore.Downloads.SIZE,
+                    MediaStore.Downloads.MIME_TYPE,
+                    MediaStore.Downloads.DATE_MODIFIED
+                )
+                resolver.query(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    projection,
+                    "${MediaStore.Downloads.IS_PENDING} = 0",
+                    null,
+                    "${MediaStore.Downloads.DATE_MODIFIED} DESC"
+                )?.use { cursor ->
+                    val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+                    val nameIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
+                    val sizeIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.SIZE)
+                    val mimeIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.MIME_TYPE)
+                    val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DATE_MODIFIED)
+                    while (cursor.moveToNext() && entries.length() < 100) {
+                        entries.put(
+                            JSONObject().apply {
+                                put("id", cursor.getLong(idIndex).toString())
+                                put("name", cursor.getString(nameIndex) ?: "file")
+                                put("size", cursor.getLong(sizeIndex))
+                                put(
+                                    "mime",
+                                    cursor.getString(mimeIndex) ?: "application/octet-stream"
+                                )
+                                put("modified", cursor.getLong(dateIndex) * 1000L)
+                            }
+                        )
+                    }
+                }
+            }.onFailure { Log.w("LinkPhone", "storage list", it) }
+        }
+        send(
+            JSONObject().apply {
+                put("t", "storage.list")
+                put("reqId", reqId)
+                put("entries", entries)
+                put("scanLimited", Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                put("granted", granted)
+            }
+        )
+    }
+
+    private fun sendStoredFile(id: String) {
+        val numeric = id.toLongOrNull() ?: return
+        val uri = ContentUris.withAppendedId(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            numeric
+        )
+        sendFile(uri, "downloads")
+    }
+
     @Synchronized
-    private fun sendChunk(id: String, offset: Long, buffer: ByteArray, length: Int) {
-        val currentKey = key ?: return
-        val socket = ws ?: return
+    private fun sendChunk(id: String, offset: Long, buffer: ByteArray, length: Int): Boolean {
+        val currentKey = key ?: return false
+        val socket = ws ?: return false
+        if (!ready) return false
         val idBytes = id.toByteArray(Charsets.UTF_8)
         val plain = ByteArray(2 + idBytes.size + 8 + length)
         plain[0] = Proto.KIND_FILE.toByte()
@@ -832,10 +1097,16 @@ class LinkClient(context: Context, private val store: PairStore) {
         )
         System.arraycopy(buffer, 0, plain, 2 + idBytes.size + 8, length)
         sendSeq += 1
-        socket.send(Crypto.seal(currentKey, "c2s", sendSeq, plain).toByteString())
+        return socket.send(Crypto.seal(currentKey, "c2s", sendSeq, plain).toByteString())
     }
 
     private fun queryMeta(uri: Uri): Pair<String, Long> {
+        if (uri.scheme == "file") {
+            val file = uri.path?.let { File(it) }
+            if (file != null && file.exists()) {
+                return (file.name.ifBlank { "file" }) to file.length()
+            }
+        }
         var name = uri.lastPathSegment ?: "file"
         var size = 0L
         resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)

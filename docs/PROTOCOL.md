@@ -136,12 +136,16 @@ the socket; the frames above are unchanged.
 | `notif.action` | PC → phone | `key`, `actionId`, `replyText?` |
 | `notif.cancel` | PC → phone | `keys[]` — dismiss these notifications in the phone shade (best effort) |
 | `clip.set` | both | `text`, `ts` |
-| `file.offer` | both | `id`, `name`, `size`, `mime` |
-| `file.accept` | both | `id` |
+| `file.offer` | both | `id`, `name`, `size`, `mime`, `target?` (`downloads`/`pictures`), `resumeFrom?`, `mtimeMs?` |
+| `file.accept` | both | `id`, `offset?` (bytes already received; absent means 0) |
 | `file.decline` | both | `id`, `reason?` |
 | `file.ack` | receiver → sender | `id`, `offset` |
 | `file.done` | sender → receiver | `id` |
 | `file.cancel` | both | `id`, `reason?` |
+| `storage.list.request` | PC → phone | `reqId`, `cursor?` |
+| `storage.list` | phone → PC | `reqId`, `entries[{id,name,size,mime,modified}]`, `scanLimited`, `granted` |
+| `storage.pull` | PC → phone | `id`, `name?`, `mime?` — the phone replies with a normal `file.offer` |
+| `storage.error` | phone → PC | `op`, `id?`, `message` |
 | `sms.threads.request` | PC → phone | — |
 | `sms.threads` | phone → PC | `threads[{threadId,address,name?,snippet,date,count}]` |
 | `sms.thread.request` | PC → phone | `threadId` |
@@ -180,6 +184,17 @@ the socket; the frames above are unchanged.
 | `calllog.request` | PC → phone | `limit?` (1–200) |
 | `calllog.sync` | phone → PC | `entries[{id,number,name?,type,date,duration}]`, `granted` |
 | `ping` / `pong` | both | `ts` |
+
+### Files, resume and phone storage
+
+- A receiver keeps a partial file and replies to a resumed `file.offer` with `file.accept.offset`.
+  A sender includes `resumeFrom` only when it can resume, so an older receiver can start at zero
+  without breaking the offset check.
+- `target: "pictures"` asks the phone to file an image in `Pictures/LinkPhone` under MediaStore
+  Images. Older phones ignore it and use Downloads.
+- `storage.list` lists only MediaStore Downloads. On Android 13+ that means files owned by
+  LinkPhone; `scanLimited` tells the PC to show that limitation. `storage.pull` asks the phone to
+  send the file through the normal `file.offer` pipeline.
 
 ### Notifications
 

@@ -6,7 +6,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.app.role.RoleManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -250,7 +249,6 @@ private fun Screen(modifier: Modifier = Modifier) {
     var contactsAccess by remember { mutableStateOf(hasContactsAccess(context)) }
     var callLogAccess by remember { mutableStateOf(hasCallLogAccess(context)) }
     var simAccess by remember { mutableStateOf(hasSimAccess(context)) }
-    var dialerRoleHeld by remember { mutableStateOf(CallHub.isDefaultDialer(context)) }
     var callPermissionsGranted by remember { mutableStateOf(hasCallPermissions(context)) }
     var outgoingReady by remember { mutableStateOf(CallHub.isOutgoingReady(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -274,11 +272,6 @@ private fun Screen(modifier: Modifier = Modifier) {
             }
             callLogAccess = hasCallLogAccess(context)
             simAccess = hasSimAccess(context)
-            val nextDialer = CallHub.isDefaultDialer(context)
-            if (nextDialer != dialerRoleHeld) {
-                dialerRoleHeld = nextDialer
-                CallHub.refreshDialerRole(context)
-            }
             val nextCallPermissions = hasCallPermissions(context)
             outgoingReady = CallHub.isOutgoingReady(context)
             if (nextCallPermissions != callPermissionsGranted) {
@@ -344,20 +337,6 @@ private fun Screen(modifier: Modifier = Modifier) {
         SimRepository.get(context).reload()
         if (!simAccess) {
             notice = "Phone access was denied. SIM selection stays on the default SIM."
-        }
-    }
-
-    val dialerRole = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        dialerRoleHeld = CallHub.isDefaultDialer(context)
-        CallHub.refreshDialerRole(context)
-        if (dialerRoleHeld && !hasCallPermissions(context)) {
-            callPermission.launch(
-                arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
-            )
-        } else if (!dialerRoleHeld) {
-            notice = "LinkPhone needs to be the default phone app for reliable call control."
         }
     }
 
@@ -607,45 +586,29 @@ private fun Screen(modifier: Modifier = Modifier) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 CardTitle(Symbols.call, "Calls from your PC")
                 Text(
-                    "Dial from Windows with call access. Set LinkPhone as the default phone app to " +
-                        "answer, decline, hang up or switch the speaker. Audio always stays on this phone.",
+                    "Dial, answer, decline, hang up and switch the phone speaker from Windows. " +
+                        "Audio always stays on this phone. No default-phone role is required.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
                 when {
                     !outgoingReady -> OutlinedButton(onClick = {
                         callPermission.launch(
-                            arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+                            arrayOf(
+                                Manifest.permission.CALL_PHONE,
+                                Manifest.permission.READ_PHONE_STATE,
+                                Manifest.permission.ANSWER_PHONE_CALLS
+                            )
                         )
                     }) { ButtonLabel(Symbols.call, "Allow call access") }
 
-                    !dialerRoleHeld -> Column(
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            "Call access ready — dial from Windows",
-                            color = Primary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            "The live call screen, speaker and hang-up from Windows need the " +
-                                "default phone app.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp
-                        )
-                        OutlinedButton(onClick = {
-                            val roles = context.getSystemService(RoleManager::class.java)
-                            if (roles?.isRoleAvailable(RoleManager.ROLE_DIALER) == true) {
-                                dialerRole.launch(roles.createRequestRoleIntent(RoleManager.ROLE_DIALER))
-                            } else {
-                                notice = "Default phone-app control is unavailable on this device."
-                            }
-                        }) { ButtonLabel(Symbols.call, "Set as default for full control") }
-                    }
-
                     !callPermissionsGranted -> OutlinedButton(onClick = {
-                        callPermission.launch(arrayOf(Manifest.permission.READ_PHONE_STATE))
+                        callPermission.launch(
+                            arrayOf(
+                                Manifest.permission.READ_PHONE_STATE,
+                                Manifest.permission.ANSWER_PHONE_CALLS
+                            )
+                        )
                     }) { ButtonLabel(Symbols.call, "Allow phone access") }
 
                     else -> Text(
@@ -777,6 +740,8 @@ internal fun hasCallPermissions(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) ==
         PackageManager.PERMISSION_GRANTED &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
+        PackageManager.PERMISSION_GRANTED &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS) ==
         PackageManager.PERMISSION_GRANTED
 
 @Composable

@@ -12,8 +12,8 @@ import { callDuration, relativeTime } from '../lib/phone'
 
 interface Props {
   calls: PhoneCallInfo[]
-  dialerReady: boolean
   outgoingReady: boolean
+  controlReady: boolean
   callPlaced: { number: string; at: number } | null
   speaker: boolean
   error: string
@@ -42,8 +42,8 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
 
 export function CallsPanel({
   calls,
-  dialerReady,
   outgoingReady,
+  controlReady,
   callPlaced,
   speaker,
   error,
@@ -70,9 +70,7 @@ export function CallsPanel({
   const [number, setNumber] = useState('')
   const [accountId, setAccountId] = useState('')
   const [sideView, setSideView] = useState<'recent' | 'contacts'>('recent')
-  const [roleNoteDismissed, setRoleNoteDismissed] = useState(false)
   const [placedDismissedAt, setPlacedDismissedAt] = useState(0)
-  const [showCallSetup, setShowCallSetup] = useState(false)
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -109,29 +107,15 @@ export function CallsPanel({
         </div>
       )}
 
-      {outgoingReady && !dialerReady && !roleNoteDismissed && !callPlaced && (
-        <div className="call-role-note">
-          <div className="call-note-body">
-            <span>
-              For the live call card, speaker and hang-up, set LinkPhone as the default phone app.
-            </span>
-            <button
-              type="button"
-              className="link-btn"
-              onClick={() => setShowCallSetup((visible) => !visible)}
-            >
-              {showCallSetup ? 'Hide steps' : 'Show steps'}
-            </button>
-            {showCallSetup && <CallSetupSteps />}
-          </div>
-          <button
-            className="icon-btn"
-            type="button"
-            title="Dismiss"
-            onClick={() => setRoleNoteDismissed(true)}
-          >
-            <Icon name="close" size={16} />
-          </button>
+      {!outgoingReady && (
+        <div className="call-warning">
+          Allow call access on your phone to dial from the PC.
+        </div>
+      )}
+
+      {calls.length > 0 && !controlReady && (
+        <div className="call-warning">
+          Allow call access on your phone to answer, decline, hang up or use the speaker.
         </div>
       )}
 
@@ -141,21 +125,6 @@ export function CallsPanel({
           <div className="call-note-body">
             <strong>Call sent to your phone</strong>
             <span>{callPlaced.number} · finish or cancel it on the phone.</span>
-            {outgoingReady && !dialerReady && (
-              <>
-                <span>
-                  For the live card, speaker and hang-up, set LinkPhone as the default phone app.
-                </span>
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => setShowCallSetup((visible) => !visible)}
-                >
-                  {showCallSetup ? 'Hide steps' : 'Show steps'}
-                </button>
-                {showCallSetup && <CallSetupSteps />}
-              </>
-            )}
           </div>
           <button
             className="icon-btn"
@@ -180,6 +149,7 @@ export function CallsPanel({
                   call={call}
                   now={now}
                   speaker={speaker}
+                  controlReady={controlReady}
                   onAnswer={onAnswer}
                   onReject={onReject}
                   onDisconnect={onDisconnect}
@@ -354,20 +324,11 @@ export function CallsPanel({
   )
 }
 
-function CallSetupSteps(): JSX.Element {
-  return (
-    <ol className="call-setup-steps">
-      <li>Open LinkPhone on your phone.</li>
-      <li>In “Calls from your PC”, tap “Set as default for full control”.</li>
-      <li>Accept the system prompt and allow phone access.</li>
-    </ol>
-  )
-}
-
 function CallCard({
   call,
   now,
   speaker,
+  controlReady,
   onAnswer,
   onReject,
   onDisconnect,
@@ -376,6 +337,7 @@ function CallCard({
   call: PhoneCallInfo
   now: number
   speaker: boolean
+  controlReady: boolean
   onAnswer: (callId: string) => void
   onReject: (callId: string) => void
   onDisconnect: (callId: string) => void
@@ -399,10 +361,20 @@ function CallCard({
 
       {ringing ? (
         <div className="call-actions">
-          <button className="call-decline" onClick={() => onReject(call.id)}>
+          <button
+            className="call-decline"
+            disabled={!controlReady}
+            title={controlReady ? undefined : 'Allow call access on your phone'}
+            onClick={() => onReject(call.id)}
+          >
             <Icon name="call_end" size={18} /> Decline
           </button>
-          <button className="call-answer" onClick={() => onAnswer(call.id)}>
+          <button
+            className="call-answer"
+            disabled={!controlReady}
+            title={controlReady ? undefined : 'Allow call access on your phone'}
+            onClick={() => onAnswer(call.id)}
+          >
             <Icon name="call" size={18} /> Answer
           </button>
         </div>
@@ -410,13 +382,19 @@ function CallCard({
         <div className="call-actions">
           <button
             className={`call-speaker ${speaker ? 'call-speaker-on' : ''}`}
-            disabled={ended}
+            disabled={ended || !controlReady}
+            title={controlReady ? undefined : 'Allow call access on your phone'}
             onClick={() => onSpeaker(!speaker)}
           >
             <Icon name={speaker ? 'volume_off' : 'volume_up'} size={18} />
             {speaker ? 'Speaker on' : 'Phone speaker'}
           </button>
-          <button className="call-decline" disabled={ended} onClick={() => onDisconnect(call.id)}>
+          <button
+            className="call-decline"
+            disabled={ended || !controlReady}
+            title={controlReady ? undefined : 'Allow call access on your phone'}
+            onClick={() => onDisconnect(call.id)}
+          >
             <Icon name="call_end" size={18} /> Hang up
           </button>
         </div>

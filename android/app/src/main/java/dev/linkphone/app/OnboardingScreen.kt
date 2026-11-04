@@ -69,7 +69,7 @@ fun OnboardingScreen(
     var contactsAccess by remember { mutableStateOf(hasContactsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
     var callLogAccess by remember { mutableStateOf(hasCallLogAccess(context)) }
-    var callAccess by remember { mutableStateOf(CallHub.isOutgoingReady(context)) }
+    var callAccess by remember { mutableStateOf(hasCallPermissions(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
 
     fun refreshPermissions() {
@@ -78,7 +78,7 @@ fun OnboardingScreen(
         contactsAccess = hasContactsAccess(context)
         photoAccess = hasPhotoAccess(context)
         callLogAccess = hasCallLogAccess(context)
-        callAccess = CallHub.isOutgoingReady(context)
+        callAccess = hasCallPermissions(context)
         batteryExempt = isBatteryExempt(context)
     }
 
@@ -177,7 +177,8 @@ fun OnboardingScreen(
                         callPermission.launch(
                             arrayOf(
                                 Manifest.permission.CALL_PHONE,
-                                Manifest.permission.READ_PHONE_STATE
+                                Manifest.permission.READ_PHONE_STATE,
+                                Manifest.permission.ANSWER_PHONE_CALLS
                             )
                         )
                     },
@@ -379,7 +380,7 @@ private fun PermissionsStep(
         PermissionRow(
             glyph = Symbols.call,
             title = "Calls",
-            detail = "Dial from the PC. Answer, hang up and speaker control need the default phone app.",
+            detail = "Dial and control calls from the PC (best effort).",
             granted = callAccess,
             action = "Allow",
             onAction = onRequestCalls
@@ -402,7 +403,8 @@ private fun PermissionsStep(
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            "Call control needs the default-phone role. You can set that up after pairing.",
+            "Notification access lets the PC show the live call card. Call access enables answer, " +
+                "decline and hang up; speaker routing varies by phone.",
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

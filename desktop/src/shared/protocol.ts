@@ -244,6 +244,7 @@ export interface AppState {
   phoneCalls: PhoneCallInfo[]
   callDialerReady: boolean
   callOutgoingReady: boolean
+  callControlReady: boolean
   callPlaced: { number: string; at: number } | null
   callSpeaker: boolean
   callMuted: boolean
@@ -535,6 +536,7 @@ export interface CallStateMsg {
   calls: PhoneCallInfo[]
   dialerReady: boolean
   outgoingReady: boolean
+  controlReady: boolean
   speaker: boolean
   muted: boolean
 }

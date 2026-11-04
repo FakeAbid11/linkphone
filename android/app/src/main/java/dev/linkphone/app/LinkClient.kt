@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Dns
 import okhttp3.OkHttpClient
@@ -41,6 +42,10 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 private const val CAP_NOTIF_PROGRESS = "notif.progress"
+private const val RECONNECT_MIN_MS = 2500L
+private const val RECONNECT_MAX_MS = 15_000L
+private const val DISCOVERY_INTERVAL_MS = 20_000L
+private const val DISCOVERY_TIMEOUT_MS = 5_000L
 
 enum class LinkState { IDLE, CONNECTING, PAIRING, CONNECTED, ERROR }
 
@@ -124,10 +129,16 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     private var pendingCode: String? = null
     private var pendingServerId: String = ""
+    private var pendingAddresses: List<String> = emptyList()
     private var serverName: String = ""
     private var host = ""
     private var port = 8765
     private var reconnectJob: Job? = null
+    private var reconnectAttempts = 0
+    private var reconnectDelayMs = RECONNECT_MIN_MS
+    private var lastDiscoveryAt = 0L
+    private var rediscovering = false
+    private val autoDiscovery = Discovery(appContext)
 
     /** Extra addresses from a QR payload, tried in order when the first one fails. */
     private val hostQueue = java.util.concurrent.ConcurrentLinkedQueue<String>()
@@ -166,17 +177,27 @@ class LinkClient(context: Context, private val store: PairStore) {
         host = candidates.first()
         port = portNumber
         pendingCode = code
+        pendingAddresses = candidates
         wantConnection = true
+        reconnectJob?.cancel()
+        reconnectAttempts = 0
+        reconnectDelayMs = RECONNECT_MIN_MS
         open()
     }
 
     fun connectSaved() {
-        val savedHost = store.host ?: return
+        val saved = store.hostsInOrder()
+        if (saved.isEmpty()) return
         hostQueue.clear()
-        host = savedHost
+        saved.drop(1).forEach { hostQueue.add(it) }
+        host = saved.first()
         port = store.port
         pendingCode = null
+        pendingAddresses = saved
         wantConnection = true
+        reconnectJob?.cancel()
+        reconnectAttempts = 0
+        reconnectDelayMs = RECONNECT_MIN_MS
         open()
     }
 
@@ -245,6 +266,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         wantConnection = false
         reconnectJob?.cancel()
         hostQueue.clear()
+        autoDiscovery.stop()
         runCatching { ws?.close(1000, "user") }
         ws = null
         key = null
@@ -311,7 +333,12 @@ class LinkClient(context: Context, private val store: PairStore) {
         } else {
             detail
         }
-        _status.value = LinkStatus(LinkState.ERROR, serverName, help)
+        val paired = store.keyB64 != null
+        _status.value = LinkStatus(
+            LinkState.ERROR,
+            serverName,
+            if (paired) "$help Searching again automatically…" else help
+        )
         scheduleReconnect()
     }
 
@@ -321,9 +348,58 @@ class LinkClient(context: Context, private val store: PairStore) {
         // recover automatically after the user fixes Windows Firewall/Wi-Fi.
         if (!wantConnection || (store.keyB64 == null && pendingCode.isNullOrBlank())) return
         reconnectJob?.cancel()
+        val waitMs = reconnectDelayMs
+        reconnectAttempts += 1
+        reconnectDelayMs = (reconnectDelayMs * 2).coerceAtMost(RECONNECT_MAX_MS)
         reconnectJob = scope.launch {
-            delay(2500)
+            delay(waitMs)
+            if (!wantConnection || ready) return@launch
+            val paired = store.keyB64 != null
+            if (paired && reconnectAttempts >= 2 &&
+                System.currentTimeMillis() - lastDiscoveryAt >= DISCOVERY_INTERVAL_MS
+            ) {
+                rediscoverPaired()
+            }
             if (wantConnection && !ready) open()
+        }
+    }
+
+    /**
+     * Finds the paired PC again after its address changed. Only a target whose
+     * advertised server UUID matches the saved pairing is accepted; the usual
+     * key handshake still authenticates the socket.
+     */
+    private suspend fun rediscoverPaired(): Discovery.Target? {
+        val savedId = store.serverId
+        if (savedId.isNullOrBlank() || rediscovering) return null
+        rediscovering = true
+        lastDiscoveryAt = System.currentTimeMillis()
+        _status.value = LinkStatus(
+            LinkState.CONNECTING,
+            serverName.ifBlank { store.serverName.orEmpty() },
+            "Looking for ${store.serverName ?: "your PC"}…"
+        )
+        return try {
+            val found = CompletableDeferred<Discovery.Target?>()
+            withContext(Dispatchers.Main) {
+                autoDiscovery.start(
+                    onFound = { target ->
+                        if (target.serverId == savedId) found.complete(target)
+                    },
+                    onError = { found.complete(null) }
+                )
+            }
+            val target = withTimeoutOrNull(DISCOVERY_TIMEOUT_MS) { found.await() }
+            if (target != null) {
+                host = target.host
+                port = target.port
+                store.updateEndpoint(target.host, target.port)
+                Log.d("LinkPhone", "rediscovered ${target.name} at ${target.host}:${target.port}")
+            }
+            target
+        } finally {
+            autoDiscovery.stop()
+            rediscovering = false
         }
     }
 
@@ -432,7 +508,14 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     private fun onPaired() {
         val current = key ?: return
-        store.savePair(pendingServerId, serverName, host, port, b64(current))
+        store.savePair(
+            pendingServerId,
+            serverName,
+            host,
+            port,
+            b64(current),
+            pendingAddresses
+        )
         pendingCode = null
         markConnected()
     }
@@ -441,6 +524,9 @@ class LinkClient(context: Context, private val store: PairStore) {
         ready = true
         wantConnection = true
         hostQueue.clear()
+        reconnectAttempts = 0
+        reconnectDelayMs = RECONNECT_MIN_MS
+        store.updateEndpoint(host, port)
         _status.value = LinkStatus(LinkState.CONNECTED, serverName)
         BatteryMonitor.current(appContext)?.let { battery ->
             sendBatteryStatus(battery.level, battery.charging)

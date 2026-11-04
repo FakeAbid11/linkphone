@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.2** keeps the connection alive in the background, starts it at boot, and can ask Android
-> for a battery-optimization exemption. v0.7.1 added drag-and-drop file sending.
+> **v0.7.3** reconnects paired phones automatically after reboot or a PC address change.
+> v0.7.2 added background reliability and boot start.
 
 ## Features
 
@@ -51,7 +51,7 @@ service or a relay server.
 | File transfer | Yes | Both directions, 64 KiB chunks; Send to or drag files onto the window |
 | Clipboard | Partial | Text only; phone side only while the app is open |
 | Start with Windows | Yes | Opt-in hidden tray start, listed in Windows Startup Apps |
-| Auto-reconnect | Yes | 2.5 s backoff across Wi-Fi hiccups |
+| Auto-reconnect | Yes | Reclaims a paired PC after reboot, app restart or a PC address change |
 | Built-in updates | Yes | Automatic checks + notifications; verified Windows/Android installers |
 | Screen mirroring | Not yet | Planned; `MediaProjection` + WebRTC |
 | App streaming, camera | Not yet | Planned |
@@ -70,7 +70,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 
 1. Open the [latest GitHub Release](https://github.com/FakeAbid11/linkphone/releases/latest).
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”).
-3. **PC:** run `LinkPhone.Setup.0.7.2.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.7.3.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -192,7 +192,11 @@ keep working while the app is in the background. Since v0.7.2 it is a `connected
 which Android 15 does not subject to the six-hour `dataSync` limit.
 
 - **Boot start:** after a reboot the service starts automatically only if a phone is already
-  paired; an unpaired install shows no service or notification.
+  paired; an unpaired install shows no service or notification. Opening LinkPhone also starts the
+  service and reconnects without tapping **Reconnect**.
+- **Auto reconnect:** a paired phone retries every saved QR address, then rediscovers the same PC
+  over mDNS by its server ID if the PC's address changed. If either side's pairing data is deleted
+  or the app is reinstalled, scan a fresh QR; reconnect never bypasses the saved key.
 - **Battery optimization:** an in-app **Background connection** card asks Android for an exemption.
   Accepting it reduces Doze network throttling; you can undo it in system battery settings. The
   optional exemption uses the `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` permission, which Google Play

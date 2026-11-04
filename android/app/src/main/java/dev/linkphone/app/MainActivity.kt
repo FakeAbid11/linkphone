@@ -167,6 +167,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LinkCore.init(this)
+        if (LinkCore.requireStore().hasPairing()) {
+            runCatching { LinkCore.startService(this) }
+        }
         discovery = Discovery(this)
 
         lifecycleScope.launch {

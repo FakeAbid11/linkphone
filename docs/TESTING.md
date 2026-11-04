@@ -210,7 +210,7 @@ flight, the receiver acks every 512 KiB.
 
 ## 10b. Send to from Explorer
 
-Install v0.7.2, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+Install v0.7.3, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
 **Show more options**).
 
 * ✅ The SendTo menu lists LinkPhone with the app icon.
@@ -288,14 +288,32 @@ Automatic scans (v0.6.5+):
   Doze delays are expected rather than a bug.
 * ✅ Clipboard phone→PC still requires LinkPhone in the foreground.
 
-## 14. Resilience
+## 14. Auto reconnect (v0.7.3+)
+
+* ✅ Pair once, force-stop LinkPhone, then open it → the service starts and the connection returns
+  without tapping **Reconnect**.
+* ✅ Restart the PC without changing its address → the phone reconnects on the next retry.
+* ✅ Change the PC's address (disable/enable its Wi-Fi or reserve another DHCP lease) → within
+  ~20 s the phone rediscovers it through mDNS and reconnects; the pairing is unchanged and no QR is
+  needed.
+* ✅ With two LinkPhone PCs on the LAN, only the one whose mDNS TXT `id` matches the saved
+  `serverId` is used.
+* ✅ With the PC off, retries back off from 2.5 s to 15 s instead of hammering the old address;
+  turning the PC on reconnects within one cycle.
+* ✅ **Forget this phone** on the PC, then let the phone retry → it stops with the existing
+  "PC no longer knows this phone" message; a fresh QR is still required.
+* ✅ Block mDNS/AP client isolation → auto discovery finds nothing, but **Scan** still lists the PC
+  and manual pairing works.
+* ✅ Opening the app with no pairing still starts nothing and shows no notification.
+
+## 15. Resilience
 
 * Lock the phone for 5 minutes → the foreground service should keep the socket alive.
 * Toggle Wi-Fi off/on → within ~3 s the phone should reconnect and the status returns to Connected.
-* Change the PC's Wi-Fi network → the phone reconnects to the stored IP; if the PC's address changed
-  you must re-pair.
+* Change the PC's Wi-Fi network → the phone rediscovers the paired PC by `serverId`; a different
+  subnet (a different LAN) still needs a manual scan.
 
-## 15. Start with Windows
+## 16. Start with Windows
 
 * ✅ **Settings → Start with Windows** turns on; `HKCU\...\Run` has `LinkPhone` =
   `"...\LinkPhone.exe" --hidden`.

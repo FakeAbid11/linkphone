@@ -18,7 +18,7 @@ export class DesktopUpdater {
     private readonly onUpdateAvailable?: (version: string) => void
   ) {
     autoUpdater.autoDownload = false
-    autoUpdater.autoInstallOnAppQuit = true
+    autoUpdater.autoInstallOnAppQuit = false
     autoUpdater.allowPrerelease = false
 
     autoUpdater.on('checking-for-update', () => {
@@ -121,7 +121,7 @@ export class DesktopUpdater {
 
   install(): void {
     if (!this.packaged) return
-    autoUpdater.quitAndInstall(false, true)
+    autoUpdater.quitAndInstall(true, true)
   }
 }
 

@@ -156,16 +156,28 @@ class NotificationRelay : NotificationListenerService() {
 
     private fun isSystemCall(sbn: StatusBarNotification, notification: Notification): Boolean {
         if (sbn.packageName == packageName) return false
-        val ongoing = sbn.isOngoing ||
-            notification.flags and Notification.FLAG_ONGOING_EVENT != 0
-        if (!ongoing) return false
-        if (notification.category == Notification.CATEGORY_CALL) return true
-        return notification.actions.orEmpty().any { action ->
-            val label = action.title?.toString()?.lowercase().orEmpty()
+        val labels = notification.actions.orEmpty().mapNotNull { it.title?.toString()?.lowercase() }
+        val callAction = labels.any { label ->
             label.contains("answer") || label.contains("decline") ||
                 label.contains("reject") || label.contains("hang up") ||
                 label.contains("end call")
         }
+        val categoryCall = notification.category == Notification.CATEGORY_CALL
+        if (!categoryCall && !callAction) return false
+
+        if (!callAction) {
+            val extras = notification.extras
+            val text = buildString {
+                append(extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty())
+                append(' ')
+                append(
+                    extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+                        ?: extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty()
+                )
+            }.lowercase()
+            if (text.contains("missed")) return false
+        }
+        return true
     }
 
     private fun handleSystemCall(sbn: StatusBarNotification, notification: Notification) {
@@ -182,6 +194,12 @@ class NotificationRelay : NotificationListenerService() {
             )?.toString()?.trim().orEmpty()
         val number = extractNumber("$title $text") ?: title.ifBlank { text }
         val displayName = title.ifBlank { text }.ifBlank { number }.ifBlank { "Unknown" }
+
+        Log.d(
+            "LinkPhone",
+            "call notification pkg=${sbn.packageName} category=${notification.category} " +
+                "ongoing=${sbn.isOngoing} actions=$actions title=$title text=$text"
+        )
 
         callKey = sbn.key
         CallHub.updateSystemCall(

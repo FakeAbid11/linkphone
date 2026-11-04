@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.9** adds best-effort call control from the PC without making LinkPhone the default dialer.
-> v0.7.8 added the setup guidance it replaces.
+> **v0.7.10** shows the PC call card even when the phone hides its dialer notification.
+> v0.7.9 added best-effort call control without the default-dialer role.
 
 ## Features
 
@@ -73,7 +73,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.7.9.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.7.10.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -125,14 +125,17 @@ LinkPhone dials from Windows with **call access** and controls the call without 
 phone app. The phone includes a minimal dial/incoming/in-call screen and call notification, so calls
 remain usable when Windows is offline.
 
-The PC call card is built from the system dialer’s ongoing call notification (so notification access
-is required) and from call access: **Answer** uses `acceptRingingCall`, **Decline/Hang up** uses
-`endCall`, and **Phone speaker** asks Android to route communication audio to the speaker. These are
+The PC call card comes from two sources: the system dialer’s call notification when available, and
+the phone’s own call state (`PhoneStateListener`). The second source appears even when the dialer
+notification is hidden from notification listeners; in that case the caller may show as “Phone
+call” or “Incoming call”. **Answer** uses `acceptRingingCall`, **Decline/Hang up** uses `endCall`,
+and **Phone speaker** asks Android to route communication audio to the speaker. These are
 best-effort: some phones or OEM dialers may block the deprecated Telecom calls or ignore speaker
 routing. If a control fails, the PC shows the error and the call stays controllable on the phone.
-With notification access off, the PC keeps the “Call sent to your phone” confirmation instead of a
-live card. Microphone and call audio never cross the network. Do not depend on LinkPhone for
-emergency calling; use the phone's emergency interface directly.
+With notification access off, the card still appears from call state; with phone-state access off,
+the PC keeps the “Call sent to your phone” confirmation. Microphone and call audio never cross the
+network. Do not depend on LinkPhone for emergency calling; use the phone's emergency interface
+directly.
 
 </details>
 

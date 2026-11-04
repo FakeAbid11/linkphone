@@ -315,6 +315,7 @@ private fun Screen(modifier: Modifier = Modifier) {
     ) {
         callPermissionsGranted = hasCallPermissions(context)
         outgoingReady = CallHub.isOutgoingReady(context)
+        SystemCallWatcher.start(context)
         CallHub.refreshDialerRole(context)
         if (!callPermissionsGranted) {
             notice = "Call permission was denied. Allow it in Settings → Apps → LinkPhone → Permissions."

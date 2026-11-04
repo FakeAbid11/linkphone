@@ -27,8 +27,8 @@ android {
         applicationId = "dev.linkphone.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 34
-        versionName = "0.7.9"
+        versionCode = 35
+        versionName = "0.7.10"
     }
 
     buildFeatures {

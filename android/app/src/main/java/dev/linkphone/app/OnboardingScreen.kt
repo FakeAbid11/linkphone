@@ -115,7 +115,10 @@ fun OnboardingScreen(
 
     val callPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { refreshPermissions() }
+    ) {
+        refreshPermissions()
+        SystemCallWatcher.start(context)
+    }
 
     val notifPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()

@@ -19,6 +19,7 @@ class LinkService : Service() {
     override fun onCreate() {
         super.onCreate()
         LinkCore.init(this)
+        SystemCallWatcher.start(this)
         createChannel()
 
         val tapIntent = PendingIntent.getActivity(
@@ -78,6 +79,7 @@ class LinkService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        SystemCallWatcher.stop()
         batteryMonitor?.stop()
         batteryMonitor = null
         super.onDestroy()

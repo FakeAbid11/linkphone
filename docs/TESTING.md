@@ -48,6 +48,9 @@ Run `LinkPhone.exe` (or `npm run dev`).
 PC sidebar → **Scan QR code instead**. Phone → **Scan QR** and point it at the PC.
 
 * ✅ Camera opens, detects the code, and status goes Connecting → Pairing → Connected.
+* ✅ Phone **Forget** opens a confirmation; Cancel keeps the pairing, Forget clears it and the
+  foreground notification disappears.
+* ✅ PC phone-card **Forget** shows inline Forget/Cancel instead of unpairing immediately.
 * ✅ If the router isolates IPv4 clients, v0.4.9 still connects over the PC's link-local IPv6
   address, which is tried after the IPv4 addresses.
 * ❌ Camera does not open → grant Camera in Android Settings → Apps → LinkPhone → Permissions.
@@ -201,6 +204,10 @@ Best-effort no-role control:
   diagnostics.
 * ✅ `CALL_PHONE` denied → the PC call buttons disable and the phone card asks for call access.
 * ✅ No “Set as default phone app” text appears on the PC or phone.
+* ✅ Disconnect the phone → Calls says “Connect your phone…” instead of “Allow call access”.
+* ✅ A failed call action shows an error with an X; dismissing it clears the message.
+* ✅ Switch Contacts → Recent → Contacts → the contact search remains; leave Calls and return → the
+  last Recent/Contacts choice remains.
 * ✅ A missed-call notification does not create a ringing/active PC card; a real incoming call does.
 * ✅ Place a call, dismiss “Call sent to your phone”, switch tabs and return → it stays dismissed;
   it also does not reappear after the call ends.
@@ -262,6 +269,8 @@ phone offers the “Choose a SIM” card.
 **Phone → PC:** phone → Send file → pick from the picker.
 
 * ✅ File lands in `C:\Users\<you>\Downloads\LinkPhone\`.
+* ✅ With the phone disconnected, the phone's **Send file** button is disabled and the card asks to
+  connect; it enables again after reconnect.
 
 A 100 MB file should take a few seconds on 5 GHz and must not stall: the sender keeps 512 KiB in
 flight, the receiver acks every 512 KiB.

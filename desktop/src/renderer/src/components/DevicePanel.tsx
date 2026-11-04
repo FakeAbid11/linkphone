@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { DeviceInfo } from '@shared/protocol'
 import { Icon } from './Icon'
 
@@ -6,6 +7,8 @@ interface Props {
 }
 
 export function DevicePanel({ devices }: Props): JSX.Element {
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+
   if (devices.length === 0) {
     return (
       <div className="device-card device-empty">
@@ -46,14 +49,36 @@ export function DevicePanel({ devices }: Props): JSX.Element {
               </div>
             )}
           </div>
-          {device.paired && (
+          {device.paired && confirmId !== device.deviceId && (
             <button
               className="icon-btn"
               title="Forget this phone"
-              onClick={() => void window.linkphone.forgetDevice(device.deviceId)}
+              onClick={() => setConfirmId(device.deviceId)}
             >
               <Icon name="close" />
             </button>
+          )}
+          {device.paired && confirmId === device.deviceId && (
+            <div className="device-forget-confirm">
+              <span>Forget this phone?</span>
+              <button
+                className="link-btn"
+                type="button"
+                onClick={() => {
+                  void window.linkphone.forgetDevice(device.deviceId)
+                  setConfirmId(null)
+                }}
+              >
+                Forget
+              </button>
+              <button
+                className="link-btn"
+                type="button"
+                onClick={() => setConfirmId(null)}
+              >
+                Cancel
+              </button>
+            </div>
           )}
         </div>
       ))}

@@ -37,6 +37,7 @@ interface Props {
   onCall: (number: string, accountId?: string) => void
   onMessage: (threadId: string, address: string) => void
   onDismissPlaced: () => void
+  onDismissError: () => void
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
@@ -67,12 +68,27 @@ export function CallsPanel({
   onRefreshContacts,
   onCall,
   onMessage,
-  onDismissPlaced
+  onDismissPlaced,
+  onDismissError
 }: Props): JSX.Element {
   const [number, setNumber] = useState('')
   const [accountId, setAccountId] = useState('')
-  const [sideView, setSideView] = useState<'recent' | 'contacts'>('recent')
+  const [sideView, setSideView] = useState<'recent' | 'contacts'>(() => {
+    try {
+      return localStorage.getItem('linkphone.callsView') === 'contacts' ? 'contacts' : 'recent'
+    } catch {
+      return 'recent'
+    }
+  })
   const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('linkphone.callsView', sideView)
+    } catch {
+      /* ignore storage failures */
+    }
+  }, [sideView])
 
   useEffect(() => {
     const fallback = callAccounts.find((account) => account.isDefault)?.id
@@ -102,13 +118,19 @@ export function CallsPanel({
         <span>Windows controls the call only. Use the phone's speaker below when call control is enabled.</span>
       </div>
 
-      {!outgoingReady && (
+      {!connected && (
+        <div className="call-warning">
+          Connect your phone to make or control calls.
+        </div>
+      )}
+
+      {connected && !outgoingReady && (
         <div className="call-warning">
           Allow call access on your phone to dial from the PC.
         </div>
       )}
 
-      {calls.length > 0 && !controlReady && (
+      {connected && calls.length > 0 && !controlReady && (
         <div className="call-warning">
           Allow call access on your phone to answer, decline, hang up or use the speaker.
         </div>
@@ -132,7 +154,19 @@ export function CallsPanel({
         </div>
       )}
 
-      {error && <div className="call-error">{error}</div>}
+      {error && (
+        <div className="call-error">
+          <span className="call-error-text">{error}</span>
+          <button
+            className="icon-btn"
+            type="button"
+            title="Dismiss"
+            onClick={onDismissError}
+          >
+            <Icon name="close" size={16} />
+          </button>
+        </div>
+      )}
 
       <div className="calls-grid">
         <div className="calls-left">
@@ -228,7 +262,7 @@ export function CallsPanel({
             </button>
           </div>
 
-          {sideView === 'recent' ? (
+          <div className={sideView === 'recent' ? undefined : 'calls-side-hidden'}>
             <div className="recent-calls">
               <div className="files-head">
                 <h2>Recent calls</h2>
@@ -299,7 +333,8 @@ export function CallsPanel({
                 </ul>
               )}
             </div>
-          ) : (
+          </div>
+          <div className={sideView === 'contacts' ? undefined : 'calls-side-hidden'}>
             <ContactsPanel
               contacts={contacts}
               threads={threads}
@@ -312,7 +347,7 @@ export function CallsPanel({
               onCall={(contactNumber) => onCall(contactNumber, accountId || undefined)}
               onMessage={onMessage}
             />
-          )}
+          </div>
         </div>
       </div>
     </div>

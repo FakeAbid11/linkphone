@@ -63,6 +63,10 @@ class PairStore(context: Context) {
         get() = prefs.getBoolean("clipboard", true)
         set(value) = prefs.edit().putBoolean("clipboard", value).apply()
 
+    var onboardingDone: Boolean
+        get() = prefs.getBoolean("onboardingDone", false)
+        set(value) = prefs.edit().putBoolean("onboardingDone", value).apply()
+
     fun hasPairing(): Boolean = keyB64 != null && host != null
 
     fun key(): ByteArray? = keyB64?.let { Base64.decode(it, Base64.NO_WRAP) }

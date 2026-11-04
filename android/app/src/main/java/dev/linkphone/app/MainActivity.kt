@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,17 +36,14 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -76,7 +72,7 @@ private val Primary = Color.White
 private val Secondary = Color(0xFFB3B3B3)
 private val MaterialSymbols = FontFamily(Font(R.font.material_symbols_rounded))
 
-private object Symbols {
+internal object Symbols {
     const val smartphone = "\ue7ba"
     const val system_update = "\uf2cd"
     const val search = "\uef7a"
@@ -122,7 +118,7 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-private fun Symbol(
+internal fun Symbol(
     glyph: String,
     size: TextUnit = 20.sp,
     tint: Color = Color.Unspecified
@@ -137,7 +133,7 @@ private fun Symbol(
 }
 
 @Composable
-private fun ButtonLabel(glyph: String, label: String) {
+internal fun ButtonLabel(glyph: String, label: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -148,7 +144,7 @@ private fun ButtonLabel(glyph: String, label: String) {
 }
 
 @Composable
-private fun CardTitle(glyph: String, text: String) {
+internal fun CardTitle(glyph: String, text: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -160,17 +156,17 @@ private fun CardTitle(glyph: String, text: String) {
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var discovery: Discovery
     private var suppressUntil = 0L
     private var lastClip = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LinkCore.init(this)
-        if (LinkCore.requireStore().hasPairing()) {
+        val startStore = LinkCore.requireStore()
+        if (startStore.hasPairing()) {
+            startStore.onboardingDone = true
             runCatching { LinkCore.startService(this) }
         }
-        discovery = Discovery(this)
 
         lifecycleScope.launch {
             LinkCore.requireClient().clipboardIn.collect { text -> applyRemoteClip(text) }
@@ -196,19 +192,30 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            val store = LinkCore.requireStore()
+            var showOnboarding by remember {
+                mutableStateOf(!store.onboardingDone && !store.hasPairing())
+            }
             MaterialTheme(colorScheme = DarkColors) {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
-                        Screen(discovery, Modifier.padding(padding))
+                        if (showOnboarding) {
+                            OnboardingScreen(
+                                store = store,
+                                client = LinkCore.requireClient(),
+                                modifier = Modifier.padding(padding),
+                                onFinish = {
+                                    store.onboardingDone = true
+                                    showOnboarding = false
+                                }
+                            )
+                        } else {
+                            Screen(Modifier.padding(padding))
+                        }
                     }
                 }
             }
         }
-    }
-
-    override fun onDestroy() {
-        discovery.stop()
-        super.onDestroy()
     }
 
     private fun applyRemoteClip(text: String) {
@@ -219,15 +226,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private fun hasNotificationAccess(context: Context): Boolean =
+internal fun hasNotificationAccess(context: Context): Boolean =
     NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
-private fun isBatteryExempt(context: Context): Boolean =
+internal fun isBatteryExempt(context: Context): Boolean =
     (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
         .isIgnoringBatteryOptimizations(context.packageName)
 
 @Composable
-private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
+private fun Screen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val client = LinkCore.requireClient()
     val store = LinkCore.requireStore()
@@ -236,11 +243,6 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     val transfers by client.transfers.collectAsStateWithLifecycle()
     val update by updater.state.collectAsStateWithLifecycle()
 
-    val devices = remember { mutableStateListOf<Discovery.Target>() }
-    var scanning by remember { mutableStateOf(false) }
-    var scanningQr by remember { mutableStateOf(false) }
-    var pendingDevice by remember { mutableStateOf<Discovery.Target?>(null) }
-    var code by remember { mutableStateOf("") }
     var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
@@ -251,10 +253,6 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
     var dialerRoleHeld by remember { mutableStateOf(CallHub.isDefaultDialer(context)) }
     var callPermissionsGranted by remember { mutableStateOf(hasCallPermissions(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
-
-    DisposableEffect(Unit) {
-        onDispose { discovery.stop() }
-    }
 
     LaunchedEffect(Unit) {
         updater.check(false)
@@ -393,39 +391,6 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
         }
     }
 
-    fun scan() {
-        devices.clear()
-        scanning = true
-        discovery.start(
-            onFound = { target ->
-                if (devices.none { it.host == target.host && it.port == target.port }) {
-                    devices.add(target)
-                }
-            },
-            onError = { scanning = false }
-        )
-    }
-
-    fun connect(target: Discovery.Target, pairingCode: String?) {
-        scanning = false
-        discovery.stop()
-        LinkCore.startService(context)
-        client.connect(target.host, target.port, pairingCode)
-    }
-
-    fun connectScanned(payload: PairPayload) {
-        scanning = false
-        discovery.stop()
-        val preferred = preferredAddress(payload.addresses)
-        val addresses = buildList {
-            if (preferred != null) add(preferred)
-            addAll(payload.addresses.filter { it != preferred })
-            addAll(payload.ipv6Addresses)
-        }
-        LinkCore.startService(context)
-        client.connect(addresses, payload.port, payload.code)
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -489,50 +454,11 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CardTitle(Symbols.search, "Find your PC")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { scanningQr = true }) {
-                            ButtonLabel(Symbols.qr_code_scanner, "Scan QR")
-                        }
-                        Button(onClick = { scan() }, enabled = !scanning) {
-                            ButtonLabel(Symbols.search, if (scanning) "Scanning…" else "Scan")
-                        }
-                    }
-                }
-                Text(
-                    "Scan the QR code on your PC for one-tap pairing, or look for it on your network.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp
-                )
-                if (devices.isNotEmpty()) {
-                    devices.forEach { target ->
-                        OutlinedButton(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                if (store.hasPairing()) connect(target, null)
-                                else pendingDevice = target
-                            }
-                        ) {
-                            Column(Modifier.fillMaxWidth()) {
-                                Text(target.name, fontWeight = FontWeight.Medium)
-                                Text(
-                                    "${target.host}:${target.port}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        PairingSection(
+            store = store,
+            client = client,
+            onNotice = { notice = it }
+        )
 
         if (!notifAccess) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -772,64 +698,9 @@ private fun Screen(discovery: Discovery, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-
-    val target = pendingDevice
-    if (target != null) {
-        AlertDialog(
-            onDismissRequest = { pendingDevice = null },
-            title = { Text("Pair with ${target.name}") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Type the pairing code shown on your PC.")
-                    OutlinedTextField(
-                        value = code,
-                        onValueChange = { code = it.uppercase().take(12) },
-                        singleLine = true,
-                        label = { Text("Pairing code") },
-                        textStyle = androidx.compose.ui.text.TextStyle(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 20.sp,
-                            letterSpacing = 4.sp
-                        )
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val value = code
-                        pendingDevice = null
-                        code = ""
-                        connect(target, value)
-                    },
-                    enabled = code.length >= 6
-                ) { ButtonLabel(Symbols.link, "Pair") }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDevice = null }) { Text("Cancel") }
-            }
-        )
-    }
-
-    if (scanningQr) {
-        QrScannerScreen(
-            onResult = { raw ->
-                scanningQr = false
-                val payload = parsePairPayload(raw)
-                when {
-                    payload == null ->
-                        notice = "That QR code is not a LinkPhone pairing code."
-                    payload.addresses.isEmpty() && payload.ipv6Addresses.isEmpty() ->
-                        notice = "The QR code had no network address. Use Scan instead."
-                    else -> connectScanned(payload)
-                }
-            },
-            onClose = { scanningQr = false }
-        )
-    }
 }
 
-private fun hasSmsAccess(context: Context): Boolean =
+internal fun hasSmsAccess(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) ==
         PackageManager.PERMISSION_GRANTED &&
     ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) ==
@@ -837,7 +708,7 @@ private fun hasSmsAccess(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) ==
         PackageManager.PERMISSION_GRANTED
 
-private fun hasPhotoAccess(context: Context): Boolean = when {
+internal fun hasPhotoAccess(context: Context): Boolean = when {
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES) ==
             PackageManager.PERMISSION_GRANTED ||
@@ -852,7 +723,7 @@ private fun hasPhotoAccess(context: Context): Boolean = when {
         PackageManager.PERMISSION_GRANTED
 }
 
-private fun photoPermissions(): Array<String> = when {
+internal fun photoPermissions(): Array<String> = when {
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> arrayOf(
         Manifest.permission.READ_MEDIA_IMAGES,
         Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
@@ -862,15 +733,15 @@ private fun photoPermissions(): Array<String> = when {
     else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
 }
 
-private fun hasContactsAccess(context: Context): Boolean =
+internal fun hasContactsAccess(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) ==
         PackageManager.PERMISSION_GRANTED
 
-private fun hasCallLogAccess(context: Context): Boolean =
+internal fun hasCallLogAccess(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) ==
         PackageManager.PERMISSION_GRANTED
 
-private fun hasSimAccess(context: Context): Boolean =
+internal fun hasSimAccess(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
         PackageManager.PERMISSION_GRANTED
 

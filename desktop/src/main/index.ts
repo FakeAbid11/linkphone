@@ -787,7 +787,8 @@ function registerMediaProtocol(store: AppStore): void {
   })
 }
 
-const gotLock = app.requestSingleInstanceLock()if (!gotLock) {
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', (_event, argv) => {

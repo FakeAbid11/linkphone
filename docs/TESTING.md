@@ -161,17 +161,22 @@ Android Settings → Apps → Default apps → Phone app if you no longer want L
 ## 9b. Contacts and recent calls
 
 On the phone grant **Contact access** and **Call history** (Call logs), then open **Calls** on
-Windows. The contact list sits beside the dialer; there is no separate Contacts tab.
+Windows. Recent calls and contacts share the column beside the dialer; there is no separate
+Contacts tab.
 
-* ✅ At the default window the dialer/active call is on the left and contacts on the right; below
-  1000 px they stack as dialer → contacts → recent calls.
+* ✅ At the default window the dialer/active call is on the left; the right column starts with the
+  **Recent / Contacts** switch and shows Recent calls. Nothing appears below the dialer.
+* ✅ **Contacts** swaps the right column to the contact search and list; **Recent** swaps back.
+* ✅ Below 1000 px the layout stacks as dialer/active call → switch and selected panel.
 * ✅ Contacts lists names, numbers and labels; search matches both names and digits.
 * ✅ The call button places a call through the phone (it is disabled until the default-phone card is
   complete).
 * ✅ **Message** opens an existing SMS conversation; a number with no thread shows
   “No SMS thread yet — start one on the phone.”
 * ✅ Recent calls shows direction, relative time and talk duration; the call button redials.
-* ✅ **Refresh** repopulates contacts and recent calls; reopening Calls also refreshes.
+* ✅ Each panel's **Refresh** reloads only that panel; reopening Calls also refreshes both.
+* ✅ An incoming or active call replaces the dialer on the left while the switch and side panel stay
+  usable.
 * ✅ Revoke Call logs in Android settings and refresh: the PC explains that call history is off
   instead of showing an empty list.
 * ❌ Contacts refused → allow Contact access on the phone and refresh.
@@ -210,7 +215,7 @@ flight, the receiver acks every 512 KiB.
 
 ## 10b. Send to from Explorer
 
-Install v0.7.3, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+Install v0.7.4, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
 **Show more options**).
 
 * ✅ The SendTo menu lists LinkPhone with the app icon.

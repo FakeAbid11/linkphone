@@ -124,6 +124,18 @@ object CallHub {
     }
 }
 
+/**
+ * Restrictive ROMs can refuse Telecom placement for a non-default dialer. Hand the same call to the
+ * system dialer; this needs LinkPhone to be visible on Android 10+ background-start rules.
+ */
+@Suppress("DEPRECATION")
+private fun startCallActivity(context: Context, uri: Uri, extras: Bundle) {
+    val intent = Intent(Intent.ACTION_CALL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    (extras.getParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE) as? PhoneAccountHandle)
+        ?.let { intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
+    context.startActivity(intent)
+}
+
 /** Default-dialer InCallService. No audio is captured or transported by LinkPhone. */
 class PhoneCallService : InCallService() {
     private val calls = ConcurrentHashMap<String, Call>()
@@ -197,18 +209,6 @@ class PhoneCallService : InCallService() {
             )
         )
         super.onDestroy()
-    }
-
-    /**
-     * Restrictive ROMs can refuse Telecom placement for a non-default dialer. Hand the same call to
-     * the system dialer; this needs LinkPhone to be visible on Android 10+ background-start rules.
-     */
-    @Suppress("DEPRECATION")
-    private fun startCallActivity(context: Context, uri: Uri, extras: Bundle) {
-        val intent = Intent(Intent.ACTION_CALL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        (extras.getParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE) as? PhoneAccountHandle)
-            ?.let { intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
-        context.startActivity(intent)
     }
 
     fun answer(callId: String) {

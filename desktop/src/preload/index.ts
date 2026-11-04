@@ -81,6 +81,7 @@ const api: LinkPhoneApi = {
   dismissCallPlaced: () => ipcRenderer.invoke('call:placed-dismiss') as Promise<void>,
   dismissCallError: () => ipcRenderer.invoke('call:error-dismiss') as Promise<void>,
   ringPhone: (deviceId) => ipcRenderer.invoke('phone:ring', deviceId) as Promise<void>,
+  stopRingPhone: (deviceId) => ipcRenderer.invoke('phone:ring-stop', deviceId) as Promise<void>,
   sendMediaAction: (action) => ipcRenderer.invoke('media:action', action) as Promise<void>,
   requestContacts: () => ipcRenderer.invoke('contacts:request') as Promise<void>,
   requestCallHistory: () => ipcRenderer.invoke('calllog:request') as Promise<void>,

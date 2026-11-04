@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -113,6 +114,12 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     private val _transfers = MutableStateFlow<List<TransferUi>>(emptyList())
     val transfers: StateFlow<List<TransferUi>> = _transfers.asStateFlow()
+
+    init {
+        scope.launch {
+            PhoneRinger.ringing.collect { sendRingState(it) }
+        }
+    }
 
     val clipboardIn = MutableSharedFlow<String>(extraBufferCapacity = 16)
 
@@ -272,6 +279,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         key = null
         ready = false
         supportsLiveProgress = false
+        PhoneRinger.stop()
         _status.value = LinkStatus(LinkState.IDLE)
     }
 
@@ -321,6 +329,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         ready = false
         key = null
         supportsLiveProgress = false
+        PhoneRinger.stop()
         val next = hostQueue.poll()
         if (wantConnection && next != null) {
             Log.d("LinkPhone", "first address failed, trying $next")
@@ -651,6 +660,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 appContext,
                 msg.optLong("durationMs", 15_000L)
             )
+            "phone.ring.stop" -> PhoneRinger.stop()
             "media.action" -> MediaWatcher.action(msg.optString("action"))
         }
     }
@@ -963,6 +973,11 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("app", app)
             }
         )
+    }
+
+    private fun sendRingState(ringing: Boolean) {
+        if (!ready) return
+        send(JSONObject().apply { put("t", "phone.ring.state"); put("ringing", ringing) })
     }
 
     /* ------------------------------------------------------------ */

@@ -268,6 +268,21 @@ phone offers the “Choose a SIM” card.
   refreshes.
 * ✅ A single-SIM phone shows no picker and behaves as before.
 
+## 9d. Find my phone (v0.8.1+)
+
+Ring the phone from its device card, then use the phone.
+
+* ✅ App open: a **Phone is ringing** card appears; **Stop** silences it immediately and the PC
+  button flips back to **Ring phone**.
+* ✅ App backgrounded or screen locked: a notification offers **Stop ringing**; the action and
+  swiping the notification away both silence the phone.
+* ✅ Auto-stop at 15 seconds clears the card, the notification and the PC ringing state.
+* ✅ Ringing again while it is already ringing replaces the tone and leaves the PC state correct.
+* ✅ Disconnect or Forget on the phone while ringing: the tone stops and the card disappears.
+* ✅ Notifications permission denied: no notification, but the in-app Stop card and auto-stop work.
+* ✅ Two paired phones: only the targeted phone rings, and only its device card flips.
+* ✅ An older 0.8.0 phone still rings; the PC cannot show Stop, and the Ring button remains usable.
+
 ## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.

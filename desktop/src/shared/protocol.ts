@@ -213,6 +213,7 @@ export interface DeviceInfo {
   lastSeen?: number
   batteryLevel?: number
   charging?: boolean
+  ringing?: boolean
 }
 
 export interface AppState {
@@ -563,6 +564,15 @@ export interface PhoneRingMsg {
   durationMs?: number
 }
 
+export interface PhoneRingStopMsg {
+  t: 'phone.ring.stop'
+}
+
+export interface PhoneRingStateMsg {
+  t: 'phone.ring.state'
+  ringing: boolean
+}
+
 export interface MediaStateMsg {
   t: 'media.state'
   title: string
@@ -657,6 +667,8 @@ export type ControlMsg =
   | NotifActionMsg
   | NotifCancelMsg
   | PhoneRingMsg
+  | PhoneRingStopMsg
+  | PhoneRingStateMsg
   | MediaStateMsg
   | MediaActionMsg
   | ClipSetMsg

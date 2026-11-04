@@ -689,6 +689,11 @@ export class LinkServer extends EventEmitter {
         return
       }
 
+      case 'phone.ring.state': {
+        if (peer.deviceId) this.store.setRinging(peer.deviceId, bool(msg.ringing))
+        return
+      }
+
       case 'call.error':
         this.store.setCallError(str(msg.error, 'Call operation failed').slice(0, 500))
         return
@@ -859,6 +864,17 @@ export class LinkServer extends EventEmitter {
     )
     if (!peer) return
     this.send(peer, { t: 'phone.ring', durationMs: 15_000 })
+  }
+
+  stopRing(deviceId: string): void {
+    const peer = [...this.peers].find(
+      (candidate) => candidate.deviceId === deviceId && candidate.phase === 'ready'
+    )
+    if (!peer) {
+      this.store.setRinging(deviceId, false)
+      return
+    }
+    this.send(peer, { t: 'phone.ring.stop' })
   }
 
   sendMediaAction(action: 'play' | 'pause' | 'next' | 'previous'): void {

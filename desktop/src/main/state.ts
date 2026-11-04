@@ -117,6 +117,7 @@ export class AppStore extends EventEmitter {
   private callLogGranted = false
   private callLogLoading = false
   private live = new Map<string, DeviceInfo>()
+  private ringTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private addresses: string[] = []
   private addresses6: string[] = []
   private launchAtLogin = false
@@ -373,6 +374,7 @@ export class AppStore extends EventEmitter {
   forget(deviceId: string): void {
     this.persisted.paired = this.persisted.paired.filter((d) => d.deviceId !== deviceId)
     this.live.delete(deviceId)
+    this.clearRingTimer(deviceId)
     this.save()
     this.changed()
   }
@@ -419,9 +421,37 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
-  markDisconnected(deviceId: string): void {
+  setRinging(deviceId: string, ringing: boolean): void {
     const current = this.live.get(deviceId)
-    if (current) this.live.set(deviceId, { ...current, connected: false, lastSeen: Date.now() })
+    if (!current || current.ringing === ringing) return
+    this.clearRingTimer(deviceId)
+    if (ringing) {
+      const timer = setTimeout(() => this.setRinging(deviceId, false), 31_000)
+      timer.unref?.()
+      this.ringTimers.set(deviceId, timer)
+    }
+    this.live.set(deviceId, { ...current, ringing })
+    this.changed()
+  }
+
+  private clearRingTimer(deviceId: string): void {
+    const timer = this.ringTimers.get(deviceId)
+    if (!timer) return
+    clearTimeout(timer)
+    this.ringTimers.delete(deviceId)
+  }
+
+  markDisconnected(deviceId: string): void {
+    this.clearRingTimer(deviceId)
+    const current = this.live.get(deviceId)
+    if (current) {
+      this.live.set(deviceId, {
+        ...current,
+        connected: false,
+        ringing: false,
+        lastSeen: Date.now()
+      })
+    }
     this.changed()
   }
 
@@ -901,7 +931,8 @@ export class AppStore extends EventEmitter {
         address: live?.address,
         lastSeen: live?.lastSeen,
         batteryLevel: live?.batteryLevel,
-        charging: live?.charging
+        charging: live?.charging,
+        ringing: live?.ringing ?? false
       }
     })
     for (const [id, live] of this.live) {

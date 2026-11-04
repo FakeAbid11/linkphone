@@ -17,6 +17,7 @@ interface Props {
   connected: boolean
   uploading: number
   onRefresh: () => void
+  onSendPhotos: () => void
   onOpenAlbum: (albumId: string, name: string) => void
   onCloseAlbum: () => void
   onLoadMore: (albumId: string, offset: number) => void
@@ -49,6 +50,7 @@ export function PhotosPanel({
   connected,
   uploading,
   onRefresh,
+  onSendPhotos,
   onOpenAlbum,
   onCloseAlbum,
   onLoadMore,

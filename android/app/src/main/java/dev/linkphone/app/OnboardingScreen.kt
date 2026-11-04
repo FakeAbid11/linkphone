@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -457,6 +458,7 @@ private fun PairStep(
     notice: String?,
     onNotice: (String) -> Unit
 ) {
+    val status by client.status.collectAsStateWithLifecycle()
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -471,6 +473,25 @@ private fun PairStep(
         )
         Spacer(Modifier.height(2.dp))
         PairingSection(store = store, client = client, onNotice = onNotice)
+        if (status.state == LinkState.CONNECTING || status.state == LinkState.PAIRING) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Text(
+                    if (status.state == LinkState.PAIRING) "Pairing…" else "Connecting…",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else if (status.state == LinkState.ERROR && status.detail.isNotBlank()) {
+            Text(
+                status.detail,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         notice?.let {
             Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

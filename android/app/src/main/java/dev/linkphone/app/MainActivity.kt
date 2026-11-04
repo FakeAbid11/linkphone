@@ -46,6 +46,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,9 +54,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -93,6 +97,7 @@ internal object Symbols {
     const val upload = "\uf09b"
     const val volume_up = "\ue050"
     const val stop = "\ue047"
+    const val info = "\ue88e"
 }
 
 private val DarkColors = darkColorScheme(
@@ -123,14 +128,18 @@ private val DarkColors = darkColorScheme(
 internal fun Symbol(
     glyph: String,
     size: TextUnit = 20.sp,
-    tint: Color = Color.Unspecified
+    tint: Color = Color.Unspecified,
+    contentDescription: String? = null
 ) {
     Text(
         text = glyph,
         fontFamily = MaterialSymbols,
         fontSize = size,
         lineHeight = size,
-        color = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else tint
+        color = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else tint,
+        modifier = Modifier.clearAndSetSemantics {
+            if (contentDescription != null) this.contentDescription = contentDescription
+        }
     )
 }
 
@@ -257,6 +266,18 @@ private fun Screen(modifier: Modifier = Modifier) {
     var outgoingReady by remember { mutableStateOf(CallHub.isOutgoingReady(context)) }
     var notice by remember { mutableStateOf<String?>(null) }
     var confirmForget by remember { mutableStateOf(false) }
+    val paired = store.hasPairing()
+    var setupOpen by rememberSaveable { mutableStateOf(!paired) }
+    val stepsLeft = listOf(
+        !notifAccess,
+        !batteryExempt,
+        !smsAccess,
+        !photoAccess,
+        !contactsAccess,
+        !callLogAccess,
+        smsAccess && !simAccess,
+        !outgoingReady || !callPermissionsGranted
+    ).count { it }
 
     LaunchedEffect(Unit) {
         updater.check(false)
@@ -421,7 +442,15 @@ private fun Screen(modifier: Modifier = Modifier) {
             }
         }
 
-        StatusCard(status, notifAccess, paired = store.hasPairing())
+        StatusCard(
+            status = status,
+            notifAccess = notifAccess,
+            paired = paired,
+            onReconnect = {
+                LinkCore.startService(context)
+                client.connectSaved()
+            }
+        )
 
         if (ringing) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -439,12 +468,114 @@ private fun Screen(modifier: Modifier = Modifier) {
             }
         }
 
+        notice?.let { text ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Row(
+                    Modifier.padding(start = 16.dp, top = 10.dp, end = 6.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Symbol(Symbols.info, 18.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(text, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { notice = null }) { ButtonLabel(Symbols.close, "Dismiss") }
+                }
+            }
+        }
+
         UpdateCard(
             update = update,
             onCheck = { updater.check(true) },
             onDownload = { updater.download() },
             onInstall = { updater.install() }
         )
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CardTitle(Symbols.folder, "Files")
+                    Button(
+                        onClick = { filePicker.launch(arrayOf("*/*")) },
+                        enabled = status.state == LinkState.CONNECTED
+                    ) {
+                        ButtonLabel(Symbols.upload, "Send file")
+                    }
+                }
+                if (transfers.isEmpty()) {
+                    Text(
+                        if (status.state == LinkState.CONNECTED) {
+                            "Files you send land in your PC's Downloads/LinkPhone folder."
+                        } else {
+                            "Connect your phone to send files."
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    transfers.forEach { transfer ->
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    (if (transfer.direction == "in") "↓ " else "↑ ") + transfer.name,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    transferLabel(transfer),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            val fraction = if (transfer.size > 0) {
+                                (transfer.received.toFloat() / transfer.size).coerceIn(0f, 1f)
+                            } else 0f
+                            LinearProgressIndicator(
+                                progress = { fraction },
+                                modifier = Modifier.fillMaxWidth().height(4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, top = 10.dp, end = 8.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Symbol(Symbols.settings, 20.sp)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Setup", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text(
+                        when {
+                            !paired -> "Pair your phone to get started"
+                            stepsLeft > 0 ->
+                                "$stepsLeft ${if (stepsLeft == 1) "step" else "steps"} left"
+                            else -> "All set"
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+                if (paired) {
+                    TextButton(onClick = { setupOpen = !setupOpen }) {
+                        Text(if (setupOpen) "Hide" else "Show")
+                    }
+                }
+            }
+        }
+
+        if (setupOpen) {
 
         if (store.hasPairing()) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -456,10 +587,6 @@ private fun Screen(modifier: Modifier = Modifier) {
                         fontSize = 13.sp
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = {
-                            LinkCore.startService(context)
-                            client.connectSaved()
-                        }) { ButtonLabel(Symbols.refresh, "Reconnect") }
                         OutlinedButton(onClick = {
                             confirmForget = true
                         }) { ButtonLabel(Symbols.close, "Forget") }
@@ -604,7 +731,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                     )
                     OutlinedButton(onClick = {
                         simPermission.launch(Manifest.permission.READ_PHONE_STATE)
-                    }) { ButtonLabel(Symbols.smartphone, "Allow phone access") }
+                    }) { ButtonLabel(Symbols.smartphone, "Allow SIM access") }
                 }
             }
         }
@@ -636,7 +763,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                                 Manifest.permission.ANSWER_PHONE_CALLS
                             )
                         )
-                    }) { ButtonLabel(Symbols.call, "Allow phone access") }
+                    }) { ButtonLabel(Symbols.call, "Allow call control") }
 
                     else -> Text(
                         "Call control is ready",
@@ -648,73 +775,6 @@ private fun Screen(modifier: Modifier = Modifier) {
             }
         }
 
-        notice?.let { text ->
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Row(
-                    Modifier.padding(start = 16.dp, top = 10.dp, end = 6.dp, bottom = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { notice = null }) { ButtonLabel(Symbols.close, "Dismiss") }
-                }
-            }
-        }
-
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CardTitle(Symbols.folder, "Files")
-                    Button(
-                        onClick = { filePicker.launch(arrayOf("*/*")) },
-                        enabled = status.state == LinkState.CONNECTED
-                    ) {
-                        ButtonLabel(Symbols.upload, "Send file")
-                    }
-                }
-                if (transfers.isEmpty()) {
-                    Text(
-                        if (status.state == LinkState.CONNECTED) {
-                            "Files you send land in your PC's Downloads/LinkPhone folder."
-                        } else {
-                            "Connect your phone to send files."
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
-                    )
-                } else {
-                    transfers.forEach { transfer ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    (if (transfer.direction == "in") "↓ " else "↑ ") + transfer.name,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    transfer.status,
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            val fraction = if (transfer.size > 0) {
-                                (transfer.received.toFloat() / transfer.size).coerceIn(0f, 1f)
-                            } else 0f
-                            LinearProgressIndicator(
-                                progress = { fraction },
-                                modifier = Modifier.fillMaxWidth().height(4.dp)
-                            )
-                        }
-                    }
-                }
-            }
         }
 
         Text(
@@ -858,8 +918,21 @@ private fun UpdateCard(
     }
 }
 
+private fun transferLabel(transfer: TransferUi): String = when (transfer.status) {
+    "pending" -> "Waiting"
+    "active" -> if (transfer.direction == "in") "Receiving…" else "Sending…"
+    "done" -> "Done"
+    "failed" -> "Failed"
+    else -> transfer.status
+}
+
 @Composable
-private fun StatusCard(status: LinkStatus, notifAccess: Boolean, paired: Boolean) {
+private fun StatusCard(
+    status: LinkStatus,
+    notifAccess: Boolean,
+    paired: Boolean,
+    onReconnect: () -> Unit
+) {
     val (label, detail, color) = when (status.state) {
         LinkState.CONNECTED -> Triple(
             "Connected to ${status.serverName.ifBlank { "PC" }}",
@@ -871,7 +944,7 @@ private fun StatusCard(status: LinkStatus, notifAccess: Boolean, paired: Boolean
         LinkState.ERROR -> Triple("Offline", status.detail.ifBlank { "Not connected" }, Secondary)
         LinkState.IDLE -> Triple(
             if (paired) "Paired, not connected" else "Not connected",
-            if (paired) "Tap Reconnect or scan again" else "Scan for your PC below",
+            if (paired) "Open LinkPhone on your PC or try again" else "Scan for your PC below",
             Secondary
         )
     }
@@ -887,7 +960,9 @@ private fun StatusCard(status: LinkStatus, notifAccess: Boolean, paired: Boolean
                 Text(label, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 Text(detail, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (status.state == LinkState.CONNECTING || status.state == LinkState.PAIRING) {
+            if (paired && (status.state == LinkState.IDLE || status.state == LinkState.ERROR)) {
+                TextButton(onClick = onReconnect) { ButtonLabel(Symbols.refresh, "Reconnect") }
+            } else if (status.state == LinkState.CONNECTING || status.state == LinkState.PAIRING) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             }
             Spacer(Modifier.width(2.dp))

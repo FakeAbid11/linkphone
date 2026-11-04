@@ -147,6 +147,7 @@ export function CallsPanel({
             className="icon-btn"
             type="button"
             title="Dismiss"
+            aria-label="Dismiss call notice"
             onClick={onDismissPlaced}
           >
             <Icon name="close" size={16} />
@@ -161,6 +162,7 @@ export function CallsPanel({
             className="icon-btn"
             type="button"
             title="Dismiss"
+            aria-label="Dismiss call error"
             onClick={onDismissError}
           >
             <Icon name="close" size={16} />
@@ -322,6 +324,11 @@ export function CallsPanel({
                         <button
                           className="icon-btn"
                           title={outgoingReady ? `Call ${entry.number}` : 'Calling needs phone access'}
+                          aria-label={
+                            outgoingReady
+                              ? `Call ${entry.number}`
+                              : 'Calling needs phone access'
+                          }
                           disabled={!outgoingReady || !entry.number}
                           onClick={() => onCall(entry.number, accountId || undefined)}
                         >

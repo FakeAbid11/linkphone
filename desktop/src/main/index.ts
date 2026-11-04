@@ -360,15 +360,16 @@ function registerIpc(): void {
 
   ipcMain.handle('files:send-paths', (event, paths: unknown) => {
     if (event.sender !== win?.webContents) return 0
+    if (!server.hasConnectedPeer()) return 0
     const files = existingFiles(paths)
     if (files.length > 0) handleSendIntent(files)
     return files.length
   })
 
   ipcMain.handle('clipboard:set', (_event, text: unknown) => {
-    if (typeof text !== 'string') return
+    if (typeof text !== 'string') return false
     clipboard.writeText(text)
-    server.sendClipboard(text)
+    return server.sendClipboard(text)
   })
 
   ipcMain.handle('clipboard:copy', (_event, text: unknown) => {
@@ -434,12 +435,12 @@ function registerIpc(): void {
 
   ipcMain.handle('sms:send', (_event, threadId: unknown, address: unknown, body: unknown, subscriptionId: unknown) => {
     if (typeof threadId !== 'string' || typeof address !== 'string' || typeof body !== 'string') {
-      return
+      return 'invalid'
     }
     const subId = typeof subscriptionId === 'number' && Number.isFinite(subscriptionId)
       ? Math.floor(subscriptionId)
       : undefined
-    server.sendSms(threadId, address, body, subId)
+    return server.sendSms(threadId, address, body, subId)
   })
 
   ipcMain.handle('gallery:albums', () => server.requestGalleryAlbums())
@@ -518,8 +519,8 @@ function registerIpc(): void {
   ipcMain.handle(
     'sms:start',
     (_event, address: unknown, body: unknown, subscriptionId: unknown) => {
-      if (typeof address !== 'string' || typeof body !== 'string') return
-      server.startSmsConversation(
+      if (typeof address !== 'string' || typeof body !== 'string') return 'invalid'
+      return server.startSmsConversation(
         address,
         body,
         typeof subscriptionId === 'number' ? subscriptionId : undefined

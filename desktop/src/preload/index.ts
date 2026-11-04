@@ -33,7 +33,7 @@ const api: LinkPhoneApi = {
   },
   sendFilesFromPaths: (paths) =>
     ipcRenderer.invoke('files:send-paths', paths) as Promise<number>,
-  sendClipboard: (text) => ipcRenderer.invoke('clipboard:set', text) as Promise<void>,
+  sendClipboard: (text) => ipcRenderer.invoke('clipboard:set', text) as Promise<boolean>,
   clearNotifications: () => ipcRenderer.invoke('notifications:clear') as Promise<void>,
   getNotificationHistory: () =>
     ipcRenderer.invoke('notifications:history') as Promise<NotificationItem[]>,
@@ -53,9 +53,13 @@ const api: LinkPhoneApi = {
     ipcRenderer.invoke('sms:thread', threadId, address) as Promise<void>,
   closeSmsThread: () => ipcRenderer.invoke('sms:close') as Promise<void>,
   sendSms: (threadId, address, body, subscriptionId) =>
-    ipcRenderer.invoke('sms:send', threadId, address, body, subscriptionId) as Promise<void>,
+    ipcRenderer.invoke('sms:send', threadId, address, body, subscriptionId) as Promise<
+      'queued' | 'no-peer' | 'invalid'
+    >,
   startSmsConversation: (address, body, subscriptionId) =>
-    ipcRenderer.invoke('sms:start', address, body, subscriptionId) as Promise<void>,
+    ipcRenderer.invoke('sms:start', address, body, subscriptionId) as Promise<
+      'queued' | 'invalid' | 'no-peer'
+    >,
   requestGalleryAlbums: () => ipcRenderer.invoke('gallery:albums') as Promise<void>,
   openGalleryAlbum: (albumId, name) =>
     ipcRenderer.invoke('gallery:album', albumId, name) as Promise<void>,

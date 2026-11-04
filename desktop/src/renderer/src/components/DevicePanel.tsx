@@ -69,6 +69,7 @@ export function DevicePanel({ devices }: Props): JSX.Element {
             <button
               className="icon-btn"
               title="Forget this phone"
+              aria-label={`Forget ${device.name}`}
               onClick={() => setConfirmId(device.deviceId)}
             >
               <Icon name="close" />

@@ -2282,3 +2282,32 @@ button {
   pointer-events: none;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
+
+button.dropzone {
+  width: 100%;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.dropzone:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.dropzone:disabled:hover {
+  border-color: var(--line-strong);
+  background: none;
+}
+
+.sms-send-error {
+  margin: 6px 0 0;
+  color: var(--text);
+  font-size: 12px;
+}
+
+:is(button, [role='button'], input, textarea, select, .tab):focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 2px;
+}

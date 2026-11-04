@@ -210,7 +210,7 @@ flight, the receiver acks every 512 KiB.
 
 ## 10b. Send to from Explorer
 
-Install v0.7.1, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+Install v0.7.2, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
 **Show more options**).
 
 * ✅ The SendTo menu lists LinkPhone with the app icon.
@@ -266,14 +266,36 @@ Automatic scans (v0.6.5+):
 * ❌ No background notification within six hours → some OEM battery managers delay WorkManager; open
   LinkPhone to check immediately.
 
-## 13. Resilience
+## 13. Background and boot (v0.7.2+)
+
+* ✅ Open LinkPhone, pair, then minimize and lock the screen → the persistent LinkPhone
+  notification stays and notifications, texts and calls keep arriving on the PC.
+* ✅ The **Background connection** card appears while the app is battery-optimized; tap **Allow
+  background**, accept the system dialog → the card disappears and
+  `adb shell dumpsys deviceidle whitelist | findstr dev.linkphone.app` lists the package.
+* ✅ Decline the exemption → the card stays, a notice explains the manual step, and the app keeps
+  working.
+* ✅ On a ROM that rejects `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` → the fallback opens the
+  battery-optimization list and the notice explains what to choose.
+* ✅ Reboot with a paired phone → the service starts on its own, the notification appears, and the
+  PC reconnects without opening LinkPhone. On Xiaomi/HyperOS this requires Autostart to be enabled.
+* ✅ Reboot with no pairing → no service and no notification.
+* ✅ Force-stop LinkPhone, then reboot → no start (Android behavior); opening the app starts it.
+* ✅ `adb shell dumpsys activity services dev.linkphone.app` shows `LinkService` with the
+  `connectedDevice` type; leaving it running for more than six hours does not trigger the old
+  `dataSync` timeout.
+* ✅ Screen off overnight with the exemption → the PC still shows the phone connected. Without it,
+  Doze delays are expected rather than a bug.
+* ✅ Clipboard phone→PC still requires LinkPhone in the foreground.
+
+## 14. Resilience
 
 * Lock the phone for 5 minutes → the foreground service should keep the socket alive.
 * Toggle Wi-Fi off/on → within ~3 s the phone should reconnect and the status returns to Connected.
 * Change the PC's Wi-Fi network → the phone reconnects to the stored IP; if the PC's address changed
   you must re-pair.
 
-## 14. Start with Windows
+## 15. Start with Windows
 
 * ✅ **Settings → Start with Windows** turns on; `HKCU\...\Run` has `LinkPhone` =
   `"...\LinkPhone.exe" --hidden`.

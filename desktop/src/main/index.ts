@@ -561,7 +561,8 @@ async function bootstrap(): Promise<void> {
       })
       n.on('click', () => {
         showWindow()
-        dismissNotificationEverywhere(item.key)
+        store.dismissNotification(item.key)
+        server.sendNotificationCancel([item.key])
       })
       n.show()
     } catch {

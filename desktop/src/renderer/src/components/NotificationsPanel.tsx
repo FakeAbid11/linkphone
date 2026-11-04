@@ -253,7 +253,9 @@ export function NotificationsPanel({
                   type="button"
                   className="link-btn"
                   onClick={() => {
-                    void onClearAll().then(() => setConfirmClear(false))
+                    void onClearAll()
+                      .then(() => setConfirmClear(false))
+                      .catch(() => setConfirmClear(false))
                   }}
                 >
                   Confirm clear

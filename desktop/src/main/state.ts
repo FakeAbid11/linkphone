@@ -92,6 +92,7 @@ export class AppStore extends EventEmitter {
   private phoneCalls: PhoneCallInfo[] = []
   private callDialerReady = false
   private callOutgoingReady = false
+  private callControlReady = false
   private callPlaced: { number: string; at: number } | null = null
   private callSpeaker = false
   private callMuted = false
@@ -548,12 +549,14 @@ export class AppStore extends EventEmitter {
     calls: PhoneCallInfo[]
     dialerReady: boolean
     outgoingReady: boolean
+    controlReady: boolean
     speaker: boolean
     muted: boolean
   }): void {
     this.phoneCalls = input.calls
     this.callDialerReady = input.dialerReady
     this.callOutgoingReady = input.outgoingReady
+    this.callControlReady = input.controlReady
     if (input.calls.length > 0) this.callPlaced = null
     this.callSpeaker = input.speaker
     this.callMuted = input.muted
@@ -701,6 +704,7 @@ export class AppStore extends EventEmitter {
       phoneCalls: this.phoneCalls,
       callDialerReady: this.callDialerReady,
       callOutgoingReady: this.callOutgoingReady,
+      callControlReady: this.callControlReady,
       callPlaced: this.callPlaced,
       callSpeaker: this.callSpeaker,
       callMuted: this.callMuted,

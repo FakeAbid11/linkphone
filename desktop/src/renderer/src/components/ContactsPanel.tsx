@@ -164,7 +164,7 @@ export function ContactsPanel({
                         <div className="contact-actions">
                           <button
                             className="icon-btn"
-                            title={dialerReady ? `Call ${number.number}` : 'Calling needs the default phone app'}
+                            title={dialerReady ? `Call ${number.number}` : 'Calling needs phone access'}
                             disabled={!dialerReady}
                             onClick={() => onCall(number.number)}
                           >

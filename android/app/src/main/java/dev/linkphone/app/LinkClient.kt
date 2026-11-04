@@ -623,10 +623,14 @@ class LinkClient(context: Context, private val store: PairStore) {
                 ).onSuccess { sendCallPlaced(number) }
                     .onFailure { sendCallError(it.message ?: "Could not place call") }
             }
-            "call.answer" -> CallHub.answer(msg.optString("callId"))
-            "call.reject" -> CallHub.reject(msg.optString("callId"))
-            "call.disconnect" -> CallHub.disconnect(msg.optString("callId"))
-            "call.speaker" -> CallHub.setSpeaker(msg.optBoolean("enabled"))
+            "call.answer" -> CallHub.answer(appContext, msg.optString("callId"))
+                .onFailure { sendCallError(it.message ?: "Could not answer the call") }
+            "call.reject" -> CallHub.reject(appContext, msg.optString("callId"))
+                .onFailure { sendCallError(it.message ?: "Could not decline the call") }
+            "call.disconnect" -> CallHub.disconnect(appContext, msg.optString("callId"))
+                .onFailure { sendCallError(it.message ?: "Could not hang up the call") }
+            "call.speaker" -> CallHub.setSpeaker(appContext, msg.optBoolean("enabled"))
+                .onFailure { sendCallError(it.message ?: "Could not switch the speaker") }
             "contacts.request" -> scope.launch { sendContacts() }
             "calllog.request" -> scope.launch { sendCallLog(msg.optInt("limit", 200)) }
             "sims.request" -> scope.launch { sendSims() }
@@ -914,6 +918,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("calls", calls)
                 put("dialerReady", snapshot.dialerReady)
                 put("outgoingReady", snapshot.outgoingReady)
+                put("controlReady", snapshot.controlReady)
                 put("speaker", snapshot.speaker)
                 put("muted", snapshot.muted)
             }

@@ -10,7 +10,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -47,6 +50,7 @@ data class PhoneCallSnapshot(
     val calls: List<PhoneCallInfo> = emptyList(),
     val dialerReady: Boolean = false,
     val outgoingReady: Boolean = false,
+    val controlReady: Boolean = false,
     val speaker: Boolean = false,
     val muted: Boolean = false
 )
@@ -57,6 +61,14 @@ object CallHub {
     private val _state = MutableStateFlow(PhoneCallSnapshot())
     val state: StateFlow<PhoneCallSnapshot> = _state.asStateFlow()
 
+    private var appContext: Context? = null
+    private var systemCall: PhoneCallInfo? = null
+    private var systemSpeaker = false
+
+    fun attach(context: Context) {
+        appContext = context.applicationContext
+    }
+
     internal fun publish(snapshot: PhoneCallSnapshot) {
         _state.value = snapshot
         LinkCore.clientOrNull()?.sendCallState(snapshot)
@@ -66,7 +78,49 @@ object CallHub {
         publish(
             _state.value.copy(
                 dialerReady = isCallReady(context),
-                outgoingReady = isOutgoingReady(context)
+                outgoingReady = isOutgoingReady(context),
+                controlReady = isRemoteControlReady(context)
+            )
+        )
+    }
+
+    fun isRemoteControlReady(context: Context): Boolean =
+        PhoneCallService.instance != null ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS) ==
+            PackageManager.PERMISSION_GRANTED
+
+    private fun hasAnswerPermission(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS) ==
+            PackageManager.PERMISSION_GRANTED
+
+    fun updateSystemCall(call: PhoneCallInfo) {
+        if (PhoneCallService.instance != null) return
+        val startedAt = if (systemCall?.id == call.id) {
+            systemCall?.startedAt ?: call.startedAt
+        } else {
+            call.startedAt
+        }
+        systemCall = call.copy(startedAt = startedAt)
+        publishSystemState()
+    }
+
+    fun clearSystemCall() {
+        if (PhoneCallService.instance != null) return
+        systemCall = null
+        systemSpeaker = false
+        publishSystemState()
+    }
+
+    private fun publishSystemState() {
+        val context = appContext
+        publish(
+            PhoneCallSnapshot(
+                calls = listOfNotNull(systemCall),
+                dialerReady = context?.let { isCallReady(it) } ?: false,
+                outgoingReady = context?.let { isOutgoingReady(it) } ?: false,
+                controlReady = context?.let { isRemoteControlReady(it) } ?: false,
+                speaker = systemSpeaker,
+                muted = false
             )
         )
     }
@@ -111,6 +165,80 @@ object CallHub {
         } catch (_: IllegalArgumentException) {
             startCallActivity(context, uri, extras)
         }
+    }
+
+    @Suppress("DEPRECATION")
+    fun answer(context: Context, callId: String): Result<Unit> = runCatching {
+        val service = PhoneCallService.instance
+        if (service != null) {
+            main.post { runCatching { service.answer(callId) } }
+            return@runCatching
+        }
+        if (!hasAnswerPermission(context)) error("Allow call access on your phone")
+        val telecom = context.getSystemService(TelecomManager::class.java)
+            ?: error("Calling is unavailable on this device")
+        telecom.acceptRingingCall()
+        systemCall = systemCall?.copy(phase = PhoneCallPhase.ACTIVE, incoming = false)
+        publishSystemState()
+    }
+
+    @Suppress("DEPRECATION")
+    fun reject(context: Context, callId: String): Result<Unit> = runCatching {
+        val service = PhoneCallService.instance
+        if (service != null) {
+            main.post { runCatching { service.reject(callId) } }
+            return@runCatching
+        }
+        if (!hasAnswerPermission(context)) error("Allow call access on your phone")
+        val telecom = context.getSystemService(TelecomManager::class.java)
+            ?: error("Calling is unavailable on this device")
+        telecom.endCall()
+        systemCall = null
+        systemSpeaker = false
+        publishSystemState()
+    }
+
+    @Suppress("DEPRECATION")
+    fun disconnect(context: Context, callId: String): Result<Unit> = runCatching {
+        val service = PhoneCallService.instance
+        if (service != null) {
+            main.post { runCatching { service.disconnect(callId) } }
+            return@runCatching
+        }
+        if (!hasAnswerPermission(context)) error("Allow call access on your phone")
+        val telecom = context.getSystemService(TelecomManager::class.java)
+            ?: error("Calling is unavailable on this device")
+        telecom.endCall()
+        systemCall = null
+        systemSpeaker = false
+        publishSystemState()
+    }
+
+    @Suppress("DEPRECATION")
+    fun setSpeaker(context: Context, enabled: Boolean): Result<Unit> = runCatching {
+        val service = PhoneCallService.instance
+        if (service != null) {
+            main.post { runCatching { service.setSpeaker(enabled) } }
+            return@runCatching
+        }
+        if (!hasAnswerPermission(context)) error("Allow call access on your phone")
+        val audio = context.getSystemService(AudioManager::class.java)
+            ?: error("Audio routing is unavailable on this device")
+        audio.isSpeakerphoneOn = enabled
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (enabled) {
+                val speaker = audio.availableCommunicationDevices.firstOrNull {
+                    it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                } ?: error("Speaker routing is unavailable")
+                if (!audio.setCommunicationDevice(speaker)) {
+                    error("Speaker routing was blocked by the phone")
+                }
+            } else {
+                audio.clearCommunicationDevice()
+            }
+        }
+        systemSpeaker = enabled
+        publishSystemState()
     }
 
     fun answer(callId: String) = main.post { runCatching { PhoneCallService.instance?.answer(callId) } }
@@ -205,7 +333,8 @@ class PhoneCallService : InCallService() {
         CallHub.publish(
             PhoneCallSnapshot(
                 dialerReady = CallHub.isCallReady(this),
-                outgoingReady = CallHub.isOutgoingReady(this)
+                outgoingReady = CallHub.isOutgoingReady(this),
+                controlReady = CallHub.isRemoteControlReady(this)
             )
         )
         super.onDestroy()
@@ -236,6 +365,7 @@ class PhoneCallService : InCallService() {
                 .sortedWith(compareBy<PhoneCallInfo> { it.phase != PhoneCallPhase.RINGING }.thenBy { it.startedAt }),
             dialerReady = CallHub.isCallReady(this),
             outgoingReady = CallHub.isOutgoingReady(this),
+            controlReady = CallHub.isRemoteControlReady(this),
             speaker = audio?.route == CallAudioState.ROUTE_SPEAKER,
             muted = audio?.isMuted == true
         )

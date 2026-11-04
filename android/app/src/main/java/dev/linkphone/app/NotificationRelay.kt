@@ -17,17 +17,35 @@ class NotificationRelay : NotificationListenerService() {
 
     private val lastSent = ConcurrentHashMap<String, String>()
     private val mirrored = ConcurrentHashMap.newKeySet<String>()
+    private var callKey: String? = null
 
     override fun onListenerConnected() {
+        LinkCore.init(this)
         instance = this
+        runCatching {
+            activeNotifications
+                ?.firstOrNull { isSystemCall(it, it.notification) }
+                ?.let { handleSystemCall(it, it.notification) }
+        }
     }
 
     override fun onListenerDisconnected() {
         if (instance === this) instance = null
+        if (callKey != null) {
+            callKey = null
+            CallHub.clearSystemCall()
+        }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val sbn = sbn ?: return
+        val notification = sbn.notification ?: return
+
+        if (isSystemCall(sbn, notification)) {
+            handleSystemCall(sbn, notification)
+            return
+        }
+
         val client = LinkCore.clientOrNull() ?: return
         if (!client.isReady) return
 
@@ -37,7 +55,6 @@ class NotificationRelay : NotificationListenerService() {
             return
         }
 
-        val notification = sbn.notification ?: return
         if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) {
             drop(key, client)
             return
@@ -128,10 +145,59 @@ class NotificationRelay : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         val sbn = sbn ?: return
+        if (sbn.key == callKey) {
+            callKey = null
+            CallHub.clearSystemCall()
+        }
         lastSent.remove(sbn.key)
         mirrored.remove(sbn.key)
         LinkCore.clientOrNull()?.sendNotificationDismissed(sbn.key)
     }
+
+    private fun isSystemCall(sbn: StatusBarNotification, notification: Notification): Boolean {
+        if (sbn.packageName == packageName) return false
+        val ongoing = sbn.isOngoing ||
+            notification.flags and Notification.FLAG_ONGOING_EVENT != 0
+        if (!ongoing) return false
+        if (notification.category == Notification.CATEGORY_CALL) return true
+        return notification.actions.orEmpty().any { action ->
+            val label = action.title?.toString()?.lowercase().orEmpty()
+            label.contains("answer") || label.contains("decline") ||
+                label.contains("reject") || label.contains("hang up") ||
+                label.contains("end call")
+        }
+    }
+
+    private fun handleSystemCall(sbn: StatusBarNotification, notification: Notification) {
+        val actions = notification.actions.orEmpty().mapNotNull { it.title?.toString() }
+        val ringing = actions.any { label ->
+            val lower = label.lowercase()
+            lower.contains("answer") || lower.contains("decline") || lower.contains("reject")
+        }
+        val extras = notification.extras
+        val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
+        val text = (
+            extras?.getCharSequence(Notification.EXTRA_TEXT)
+                ?: extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)
+            )?.toString()?.trim().orEmpty()
+        val number = extractNumber("$title $text") ?: title.ifBlank { text }
+        val displayName = title.ifBlank { text }.ifBlank { number }.ifBlank { "Unknown" }
+
+        callKey = sbn.key
+        CallHub.updateSystemCall(
+            PhoneCallInfo(
+                id = "system:${sbn.key}",
+                number = number,
+                displayName = displayName,
+                phase = if (ringing) PhoneCallPhase.RINGING else PhoneCallPhase.ACTIVE,
+                incoming = ringing,
+                startedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    private fun extractNumber(value: String): String? =
+        Regex("""\+?\d[\d\s()\-]{4,}\d""").find(value)?.value?.trim()
 
     private fun drop(key: String, client: LinkClient) {
         lastSent.remove(key)

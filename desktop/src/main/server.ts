@@ -253,7 +253,7 @@ export class LinkServer extends EventEmitter {
       this.peers.delete(peer)
       if (peer.phase === 'ready') {
         this.ringingCallIds.clear()
-        this.store.setCallState({ calls: [], dialerReady: false, outgoingReady: false, speaker: false, muted: false })
+        this.store.setCallState({ calls: [], dialerReady: false, outgoingReady: false, controlReady: false, speaker: false, muted: false })
         this.store.setCallPlaced(null)
         this.store.resetContacts()
         this.store.resetSims()
@@ -660,6 +660,7 @@ export class LinkServer extends EventEmitter {
           calls,
           dialerReady: bool(msg.dialerReady),
           outgoingReady: bool(msg.outgoingReady),
+          controlReady: bool(msg.controlReady),
           speaker: bool(msg.speaker),
           muted: bool(msg.muted)
         })

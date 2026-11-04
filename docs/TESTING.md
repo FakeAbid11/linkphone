@@ -164,39 +164,32 @@ With the phone connected, inspect its card in the desktop sidebar.
 
 ## 9. Calls
 
-On the phone tap **Set as default phone app**, accept Android's role prompt and grant Phone access.
-On Windows open **Calls**.
+Do **not** set LinkPhone as the default phone app. Grant **Allow call access** on the phone (this
+includes `ANSWER_PHONE_CALLS`) and keep notification access on. On Windows open **Calls**.
 
-Outgoing-only mode (no default-phone role): grant **Allow call access** on the phone but do not set
-the default phone app.
+Best-effort no-role control:
 
 * ✅ The PC dialer **Call**, recent-call redial and contact call buttons are enabled.
-* ✅ Dialing opens the phone's system call UI and places the call; the PC shows a dismissible
-  “Call sent to your phone” confirmation instead of an active-call card, which is expected without
-  the role.
-* ✅ A compact optional-role note replaces the old warning and can be dismissed; the phone card shows
-  “Call access ready — dial from Windows” plus an explanation that the live call screen, speaker and
-  hang-up need the default phone app.
-* ✅ **Show steps** in the role note expands the three setup steps; dismissing the note first still
-  leaves the same guidance and **Show steps** on the “Call sent to your phone” confirmation.
-* ✅ An incoming call is handled by the system dialer; the PC offers no answer/decline buttons.
-* ✅ Deny `CALL_PHONE` → the PC call buttons disable and the phone card asks for call access.
+* ✅ Dialing opens the phone's system call UI and places the call; once the system dialer posts its
+  ongoing call notification, the PC shows the active call card.
+* ✅ **Hang up** attempts `TelecomManager.endCall()`; the card clears when the system notification
+  disappears. If the OEM blocks it, a visible `call.error` appears and the phone still controls the
+  call.
+* ✅ An incoming call produces a ringing card; **Answer** uses `acceptRingingCall` and **Decline**
+  ends the ringing call. OEM blocks show an error instead of a false success.
+* ✅ **Phone speaker** attempts to route communication audio to the speaker and reports the requested
+  state. If routing is blocked, the call stays controllable on the phone and an error is shown.
+* ✅ Deny `ANSWER_PHONE_CALLS` → the live card shows disabled Answer/Decline/Hang up/Speaker controls
+  with “Allow call access on your phone”; dialing still works.
+* ✅ Turn notification access off → no synthetic live card; the “Call sent to your phone”
+  confirmation remains until dismissed.
+* ✅ `CALL_PHONE` denied → the PC call buttons disable and the phone card asks for call access.
+* ✅ No “Set as default phone app” text appears on the PC or phone.
+* ✅ Regression: if LinkPhone already holds the default-phone role, the real InCallService card and
+  controls still work and synthetic notification state is ignored.
 
-Full control mode: set LinkPhone as the default phone app and grant phone access.
-
-* ✅ Enter a non-emergency test number and press **Call**; the phone places the call and Windows shows
-  dialing/active state.
-* ✅ Call the phone from another number; both phone and Windows show the incoming call.
-* ✅ **Answer**, **Decline**, and **Hang up** work from Windows.
-* ✅ **Phone speaker** switches audio from the phone earpiece to its loudspeaker; switching it off
-  returns to the earpiece.
-* ✅ No microphone or call audio is heard on or sent to the PC.
-* ✅ Disconnect/close Windows and make an incoming call; the phone's own call notification and screen
-  still allow answering or declining.
-* ❌ “Set LinkPhone as the default phone app” → complete the role card in the Android app first.
-
-Do not use LinkPhone call control to test emergency numbers. Restore the previous dialer under
-Android Settings → Apps → Default apps → Phone app if you no longer want LinkPhone handling calls.
+Do not use LinkPhone call control to test emergency numbers. The system dialer remains the owner of
+the call; if a best-effort control fails, finish the call on the phone.
 
 ## 9b. Contacts and recent calls
 

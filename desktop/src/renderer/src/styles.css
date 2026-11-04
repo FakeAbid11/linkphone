@@ -1417,7 +1417,6 @@ button {
   color: var(--warn);
 }
 
-.call-role-note,
 .call-placed {
   display: flex;
   align-items: flex-start;
@@ -1441,17 +1440,6 @@ button {
   color: var(--muted);
 }
 
-.call-setup-steps {
-  margin: 2px 0 0;
-  padding-left: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  color: var(--muted);
-  font-size: 11.5px;
-}
-
-.call-role-note > .icon-btn,
 .call-placed > .icon-btn {
   flex: 0 0 auto;
 }

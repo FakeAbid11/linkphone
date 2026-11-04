@@ -175,7 +175,10 @@ the default phone app.
   “Call sent to your phone” confirmation instead of an active-call card, which is expected without
   the role.
 * ✅ A compact optional-role note replaces the old warning and can be dismissed; the phone card shows
-  “Call access ready — dial from Windows” with the role button as secondary.
+  “Call access ready — dial from Windows” plus an explanation that the live call screen, speaker and
+  hang-up need the default phone app.
+* ✅ **Show steps** in the role note expands the three setup steps; dismissing the note first still
+  leaves the same guidance and **Show steps** on the “Call sent to your phone” confirmation.
 * ✅ An incoming call is handled by the system dialer; the PC offers no answer/decline buttons.
 * ✅ Deny `CALL_PHONE` → the PC call buttons disable and the phone card asks for call access.
 
@@ -252,7 +255,7 @@ flight, the receiver acks every 512 KiB.
 
 ## 10b. Send to from Explorer
 
-Install v0.7.7, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
+Install v0.7.8, then right-click a file in Explorer → **Send to → LinkPhone** (Windows 11 may require
 **Show more options**).
 
 * ✅ The SendTo menu lists LinkPhone with the app icon.

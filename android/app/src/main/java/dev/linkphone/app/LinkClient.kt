@@ -911,6 +911,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("t", "call.state")
                 put("calls", calls)
                 put("dialerReady", snapshot.dialerReady)
+                put("outgoingReady", snapshot.outgoingReady)
                 put("speaker", snapshot.speaker)
                 put("muted", snapshot.muted)
             }

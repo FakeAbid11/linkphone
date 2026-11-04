@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.5** adds a three-step Android onboarding: intro, permissions and pairing.
-> v0.7.4 moved recent calls beside the dialer.
+> **v0.7.6** lets you dial from the PC without making LinkPhone the default phone app.
+> v0.7.5 added the three-step Android onboarding.
 
 ## Features
 
@@ -45,7 +45,7 @@ service or a relay server.
 | SMS | Partial | Existing threads only; no MMS or new conversations |
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
 | Contacts and call history | Yes | Recent calls and contacts share a switch beside the dialer |
-| Phone calls | Partial | Dial, answer, decline and hang up; audio stays on the phone |
+| Phone calls | Partial | Dial with call access; answer/decline/hang up need the default phone app; audio stays on the phone |
 | Photo albums | Yes | Thumbnails, paged albums, previews and original download |
 | Battery | Yes | Live percentage and charging state |
 | Background | Yes | Foreground service with boot start; optional battery-optimization exemption |
@@ -73,7 +73,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.7.5.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.7.6.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -120,12 +120,15 @@ missing.
 <details>
 <summary><strong>Phone calls stay on the phone</strong></summary>
 
-LinkPhone needs the default-dialer role for dependable call control. The phone includes a minimal
-dial/incoming/in-call screen and call notification, so calls remain usable when Windows is offline.
+LinkPhone can dial from Windows with just call access; the default-dialer role is optional and adds
+dependable call control. The phone includes a minimal dial/incoming/in-call screen and call
+notification, so calls remain usable when Windows is offline.
 
-Windows can dial, show incoming calls, answer, decline, hang up and toggle the **phone's** speaker.
-Microphone and call audio never cross the network. Do not depend on LinkPhone for emergency
-calling; use the phone's emergency interface directly.
+Without the role, a call placed from the PC opens the phone's system call UI; Windows shows no live
+call card and cannot hang up or switch the speaker. Set LinkPhone as the default phone app to show
+incoming calls, answer, decline, hang up and toggle the **phone's** speaker from Windows. Microphone
+and call audio never cross the network. Do not depend on LinkPhone for emergency calling; use the
+phone's emergency interface directly.
 
 </details>
 

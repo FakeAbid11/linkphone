@@ -268,7 +268,10 @@ private fun Screen(modifier: Modifier = Modifier) {
             if (nextContacts != contactsAccess) {
                 contactsAccess = nextContacts
                 ContactsRepository.get(context).invalidate()
-                if (nextContacts) ContactsRepository.get(context).preload()
+                if (nextContacts) {
+                    ContactsRepository.get(context).preload()
+                    LinkCore.clientOrNull()?.refreshContacts()
+                }
             }
             callLogAccess = hasCallLogAccess(context)
             simAccess = hasSimAccess(context)
@@ -276,6 +279,7 @@ private fun Screen(modifier: Modifier = Modifier) {
             outgoingReady = CallHub.isOutgoingReady(context)
             if (nextCallPermissions != callPermissionsGranted) {
                 callPermissionsGranted = nextCallPermissions
+                if (!simAccess) SystemCallWatcher.stop()
                 CallHub.refreshDialerRole(context)
             }
         }
@@ -305,6 +309,7 @@ private fun Screen(modifier: Modifier = Modifier) {
         contactsAccess = hasContactsAccess(context)
         ContactsRepository.get(context).invalidate()
         ContactsRepository.get(context).preload()
+        if (contactsAccess) LinkCore.clientOrNull()?.refreshContacts()
         if (!contactsAccess) {
             notice = "Contact access was denied. Names will show as numbers."
         }
@@ -742,8 +747,11 @@ internal fun hasCallPermissions(context: Context): Boolean =
         PackageManager.PERMISSION_GRANTED &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) ==
         PackageManager.PERMISSION_GRANTED &&
-        ContextCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS) ==
-        PackageManager.PERMISSION_GRANTED
+        (
+            CallHub.isDefaultDialer(context) ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS) ==
+                PackageManager.PERMISSION_GRANTED
+            )
 
 @Composable
 private fun UpdateCard(

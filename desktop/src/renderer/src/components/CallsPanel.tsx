@@ -36,6 +36,7 @@ interface Props {
   onRefreshContacts: () => void
   onCall: (number: string, accountId?: string) => void
   onMessage: (threadId: string, address: string) => void
+  onDismissPlaced: () => void
 }
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
@@ -65,12 +66,12 @@ export function CallsPanel({
   onRefreshHistory,
   onRefreshContacts,
   onCall,
-  onMessage
+  onMessage,
+  onDismissPlaced
 }: Props): JSX.Element {
   const [number, setNumber] = useState('')
   const [accountId, setAccountId] = useState('')
   const [sideView, setSideView] = useState<'recent' | 'contacts'>('recent')
-  const [placedDismissedAt, setPlacedDismissedAt] = useState(0)
   const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
@@ -107,19 +108,13 @@ export function CallsPanel({
         </div>
       )}
 
-      {!outgoingReady && (
-        <div className="call-warning">
-          Allow call access on your phone to dial from the PC.
-        </div>
-      )}
-
       {calls.length > 0 && !controlReady && (
         <div className="call-warning">
           Allow call access on your phone to answer, decline, hang up or use the speaker.
         </div>
       )}
 
-      {callPlaced && calls.length === 0 && callPlaced.at > placedDismissedAt && (
+      {callPlaced && calls.length === 0 && (
         <div className="call-placed">
           <Icon name="call" size={18} />
           <div className="call-note-body">
@@ -130,7 +125,7 @@ export function CallsPanel({
             className="icon-btn"
             type="button"
             title="Dismiss"
-            onClick={() => setPlacedDismissedAt(callPlaced.at)}
+            onClick={onDismissPlaced}
           >
             <Icon name="close" size={16} />
           </button>

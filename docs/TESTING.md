@@ -87,6 +87,10 @@ yourself a message from another app).
   from the desktop list.
 * ✅ **Clear** on an app header and **Clear all** dismiss the matching notifications from the phone.
 * ✅ With the phone disconnected, dismissing on the PC hides the card without an error.
+* ✅ Dismiss on the PC, then let the app repost the same notification key → it stays hidden on the
+  PC; a genuine phone-side dismissal still removes it.
+* ✅ Disconnect/reconnect while on Calls → contacts and call history reload without showing “off”.
+* ✅ Grant Contact access while Calls → Contacts is open → the list appears without pressing Refresh.
 * ✅ An ongoing/system-locked notification that Android refuses to cancel stays in the phone shade;
   its PC card is hidden.
 * ✅ **Reply** (on a messaging notification) sends the text from the phone's own app.
@@ -197,6 +201,10 @@ Best-effort no-role control:
   diagnostics.
 * ✅ `CALL_PHONE` denied → the PC call buttons disable and the phone card asks for call access.
 * ✅ No “Set as default phone app” text appears on the PC or phone.
+* ✅ A missed-call notification does not create a ringing/active PC card; a real incoming call does.
+* ✅ Place a call, dismiss “Call sent to your phone”, switch tabs and return → it stays dismissed;
+  it also does not reappear after the call ends.
+* ✅ Without call access the “Allow call access” warning appears only once.
 * ✅ Regression: if LinkPhone already holds the default-phone role, the real InCallService card and
   controls still work and synthetic notification state is ignored.
 

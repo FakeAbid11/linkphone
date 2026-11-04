@@ -72,6 +72,7 @@ const api: LinkPhoneApi = {
   rejectCall: (callId) => ipcRenderer.invoke('call:reject', callId) as Promise<void>,
   disconnectCall: (callId) => ipcRenderer.invoke('call:disconnect', callId) as Promise<void>,
   setCallSpeaker: (enabled) => ipcRenderer.invoke('call:speaker', enabled) as Promise<void>,
+  dismissCallPlaced: () => ipcRenderer.invoke('call:placed-dismiss') as Promise<void>,
   requestContacts: () => ipcRenderer.invoke('contacts:request') as Promise<void>,
   requestCallHistory: () => ipcRenderer.invoke('calllog:request') as Promise<void>,
   requestSims: () => ipcRenderer.invoke('sims:request') as Promise<void>,

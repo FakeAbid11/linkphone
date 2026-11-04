@@ -94,6 +94,7 @@ object CallHub {
         ContextCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS) ==
             PackageManager.PERMISSION_GRANTED
 
+    @Synchronized
     fun updateSystemCall(call: PhoneCallInfo) {
         if (PhoneCallService.instance != null) return
         val startedAt = systemCall?.startedAt ?: call.startedAt
@@ -106,6 +107,7 @@ object CallHub {
         publishSystemState()
     }
 
+    @Synchronized
     fun updateTelephonyCall(phase: PhoneCallPhase) {
         if (PhoneCallService.instance != null) return
         if (phase != PhoneCallPhase.RINGING && phase != PhoneCallPhase.ACTIVE) return
@@ -133,6 +135,7 @@ object CallHub {
         publishSystemState()
     }
 
+    @Synchronized
     fun clearTelephonyCall() {
         if (PhoneCallService.instance != null) return
         telephonyPhase = null
@@ -141,6 +144,7 @@ object CallHub {
         publishSystemState()
     }
 
+    @Synchronized
     fun clearSystemCall() {
         if (PhoneCallService.instance != null) return
         // The dialer notification can disappear while telephony still reports a live call.
@@ -210,6 +214,7 @@ object CallHub {
     fun answer(context: Context, callId: String): Result<Unit> = runCatching {
         val service = PhoneCallService.instance
         if (service != null) {
+            if (!service.hasCall(callId)) error("Call is no longer available")
             main.post { runCatching { service.answer(callId) } }
             return@runCatching
         }
@@ -225,6 +230,7 @@ object CallHub {
     fun reject(context: Context, callId: String): Result<Unit> = runCatching {
         val service = PhoneCallService.instance
         if (service != null) {
+            if (!service.hasCall(callId)) error("Call is no longer available")
             main.post { runCatching { service.reject(callId) } }
             return@runCatching
         }
@@ -241,6 +247,7 @@ object CallHub {
     fun disconnect(context: Context, callId: String): Result<Unit> = runCatching {
         val service = PhoneCallService.instance
         if (service != null) {
+            if (!service.hasCall(callId)) error("Call is no longer available")
             main.post { runCatching { service.disconnect(callId) } }
             return@runCatching
         }
@@ -378,6 +385,8 @@ class PhoneCallService : InCallService() {
         )
         super.onDestroy()
     }
+
+    fun hasCall(callId: String): Boolean = calls.containsKey(callId)
 
     fun answer(callId: String) {
         calls[callId]?.answer(VideoProfile.STATE_AUDIO_ONLY)

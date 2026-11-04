@@ -427,6 +427,10 @@ export class LinkServer extends EventEmitter {
       address: peer.address
     })
     this.emit('peer-ready', peer.deviceId)
+    setImmediate(() => {
+      this.requestContacts()
+      this.requestCallHistory()
+    })
   }
 
   /* ---------------------------------------------------------------- */
@@ -656,11 +660,12 @@ export class LinkServer extends EventEmitter {
           }
         }
         this.ringingCallIds = ringing
+        const dialerReady = bool(msg.dialerReady)
         this.store.setCallState({
           calls,
-          dialerReady: bool(msg.dialerReady),
-          outgoingReady: bool(msg.outgoingReady),
-          controlReady: bool(msg.controlReady),
+          dialerReady,
+          outgoingReady: msg.outgoingReady === undefined ? dialerReady : bool(msg.outgoingReady),
+          controlReady: msg.controlReady === undefined ? dialerReady : bool(msg.controlReady),
           speaker: bool(msg.speaker),
           muted: bool(msg.muted)
         })

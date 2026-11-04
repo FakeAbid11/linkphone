@@ -842,8 +842,10 @@ export class LinkServer extends EventEmitter {
   }
 
   /** Called by the desktop clipboard watcher. */
-  sendClipboard(text: string): void {
+  sendClipboard(text: string): boolean {
+    if (!this.hasConnectedPeer()) return false
     this.broadcast({ t: 'clip.set', text, ts: Date.now() })
+    return true
   }
 
   /** Forward a notification action (e.g. inline reply) back to the phone. */
@@ -902,9 +904,14 @@ export class LinkServer extends EventEmitter {
     this.broadcast({ t: 'sms.thread.request', threadId })
   }
 
-  sendSms(threadId: string, address: string, body: string, subscriptionId?: number): void {
+  sendSms(
+    threadId: string,
+    address: string,
+    body: string,
+    subscriptionId?: number
+  ): 'queued' | 'no-peer' {
     const peer = [...this.peers].find((p) => p.phase === 'ready')
-    if (!peer) return
+    if (!peer) return 'no-peer'
     const tempId = `tmp-${crypto.randomUUID()}`
     const simLabel = subscriptionId === undefined
       ? undefined
@@ -921,13 +928,18 @@ export class LinkServer extends EventEmitter {
       simLabel
     })
     this.send(peer, { t: 'sms.send', tempId, address, body, subscriptionId })
+    return 'queued'
   }
 
-  startSmsConversation(address: string, body: string, subscriptionId?: number): void {
+  startSmsConversation(
+    address: string,
+    body: string,
+    subscriptionId?: number
+  ): 'queued' | 'invalid' | 'no-peer' {
     const normalized = address.trim().slice(0, 64)
     const text = body.trim()
-    if (!/^[+]?[0-9][0-9\s()-]{1,}$/.test(normalized) || text.length === 0) return
-    if (!this.hasConnectedPeer()) return
+    if (!/^[+]?[0-9][0-9\s()-]{1,}$/.test(normalized) || text.length === 0) return 'invalid'
+    if (!this.hasConnectedPeer()) return 'no-peer'
     const threadId = `addr:${normalized}`
     this.store.openSmsThread({
       threadId,
@@ -936,7 +948,7 @@ export class LinkServer extends EventEmitter {
       messages: this.store.localSmsMessages(normalized)
     })
     this.broadcast({ t: 'sms.thread.request', threadId })
-    this.sendSms(threadId, normalized, text, subscriptionId)
+    return this.sendSms(threadId, normalized, text, subscriptionId)
   }
 
   /* ---------------------------------------------------------------- */

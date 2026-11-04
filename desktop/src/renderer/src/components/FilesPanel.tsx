@@ -4,6 +4,7 @@ import { Icon } from './Icon'
 interface Props {
   transfers: TransferItem[]
   downloadsDir: string
+  connected: boolean
   onSend: () => void
   onOpenFolder: () => void
 }
@@ -20,21 +21,38 @@ export function bytes(value: number): string {
   return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unit]}`
 }
 
-export function FilesPanel({ transfers, downloadsDir, onSend, onOpenFolder }: Props): JSX.Element {
+export function FilesPanel({
+  transfers,
+  downloadsDir,
+  connected,
+  onSend,
+  onOpenFolder
+}: Props): JSX.Element {
   return (
     <div className="files">
-      <div className="dropzone" onClick={onSend}>
+      <button
+        type="button"
+        className="dropzone"
+        onClick={onSend}
+        disabled={!connected}
+        aria-label="Choose files to send to your phone"
+        title={connected ? 'Choose files to send' : 'Connect your phone to send files'}
+      >
         <div className="empty-art"><Icon name="upload" size={30} /></div>
         <div>
-          <strong>Send a file to your phone</strong>
-          <p className="muted">Click to choose files — they land in your phone's Downloads.</p>
+          <strong>{connected ? 'Send a file to your phone' : 'Connect your phone to send files'}</strong>
+          <p className="muted">
+            {connected
+              ? "Click to choose files — they land in your phone's Downloads."
+              : 'LinkPhone needs an active connection before files can be sent.'}
+          </p>
         </div>
-      </div>
+      </button>
 
       <div className="files-head">
         <h2>Transfers</h2>
-        <button className="link-btn" onClick={onOpenFolder}>
-          Open {downloadsDir}
+        <button className="link-btn" onClick={onOpenFolder} title={downloadsDir}>
+          Open downloads folder
         </button>
       </div>
 

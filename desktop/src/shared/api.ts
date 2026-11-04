@@ -11,7 +11,7 @@ export interface LinkPhoneApi {
   sendFiles: () => Promise<number>
   pathForFile: (file: unknown) => string
   sendFilesFromPaths: (paths: string[]) => Promise<number>
-  sendClipboard: (text: string) => Promise<void>
+  sendClipboard: (text: string) => Promise<boolean>
   clearNotifications: () => Promise<void>
   getNotificationHistory: () => Promise<NotificationItem[]>
   clearNotificationHistory: () => Promise<void>
@@ -23,12 +23,17 @@ export interface LinkPhoneApi {
   requestSmsThreads: () => Promise<void>
   openSmsThread: (threadId: string, address: string) => Promise<void>
   closeSmsThread: () => Promise<void>
-  sendSms: (threadId: string, address: string, body: string, subscriptionId?: number) => Promise<void>
+  sendSms: (
+    threadId: string,
+    address: string,
+    body: string,
+    subscriptionId?: number
+  ) => Promise<'queued' | 'no-peer' | 'invalid'>
   startSmsConversation: (
     address: string,
     body: string,
     subscriptionId?: number
-  ) => Promise<void>
+  ) => Promise<'queued' | 'invalid' | 'no-peer'>
   requestGalleryAlbums: () => Promise<void>
   openGalleryAlbum: (albumId: string, name: string) => Promise<void>
   closeGalleryAlbum: () => Promise<void>

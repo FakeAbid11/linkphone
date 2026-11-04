@@ -283,6 +283,31 @@ Ring the phone from its device card, then use the phone.
 * ✅ Two paired phones: only the targeted phone rings, and only its device card flips.
 * ✅ An older 0.8.0 phone still rings; the PC cannot show Stop, and the Ring button remains usable.
 
+## 9e. Interface fixes (v0.8.2+)
+
+* ✅ Type in conversation A, switch to B, then switch tabs and return: each composer keeps its own
+  draft and no text follows you into the wrong conversation.
+* ✅ Disconnect the phone, try to send: the text stays in the composer, the button re-enables, and
+  an inline status explains that the phone is disconnected.
+* ✅ New message with an invalid number: the compose view stays open with an inline error and the
+  number/body intact.
+* ✅ **Clear all** appears only in Live mode, asks for confirmation, and does not touch history.
+  Switch to History and confirm no live-clearing action is offered.
+* ✅ History load failure (temporarily rename `notification-history.json`) shows a Retry state, not
+  "No history yet".
+* ✅ With the phone offline: Send file, the drop zone, clipboard Send and New message are disabled
+  or explain why; dropping files shows "Connect your phone to send files".
+* ✅ Tab through the desktop with the keyboard: buttons, inputs, tabs and the drop zone show a focus
+  ring; notification dismiss and device Forget have screen-reader labels.
+* ✅ Android: Reconnect appears inside the status card when offline and disappears while connected;
+  the old Reconnect button is gone from the Paired PC card.
+* ✅ Android: with everything granted the Setup section is collapsed and says "All set"; Show
+  reveals pairing and permissions; granting a permission updates the count.
+* ✅ Pairing by typed code keeps the dialog open with a spinner, shows the error on failure, and
+  closes when connected; discovery stops after 15 seconds with "No PCs found".
+* ✅ Transfer rows read Waiting/Sending/Receiving/Done/Failed, and long file names end with an
+  ellipsis.
+
 ## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.

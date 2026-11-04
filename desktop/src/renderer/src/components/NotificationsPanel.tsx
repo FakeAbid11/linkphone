@@ -13,6 +13,8 @@ interface Props {
   onClearApp: (pkg: string, app: string) => void
   onLoadHistory: () => Promise<NotificationItem[]>
   onClearHistory: () => Promise<void>
+  onClearAll: () => Promise<void>
+  connected: boolean
   media: { title: string; artist: string; playing: boolean; app: string } | null
   onMediaAction: (action: 'play' | 'pause' | 'next' | 'previous') => void
 }
@@ -40,6 +42,8 @@ export function NotificationsPanel({
   onClearApp,
   onLoadHistory,
   onClearHistory,
+  onClearAll,
+  connected,
   media,
   onMediaAction
 }: Props): JSX.Element {
@@ -50,17 +54,26 @@ export function NotificationsPanel({
   const [mode, setMode] = useState<'live' | 'history'>('live')
   const [history, setHistory] = useState<NotificationItem[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState(false)
   const [confirmClearHistory, setConfirmClearHistory] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
 
   const loadHistory = (): void => {
     setHistoryLoading(true)
+    setHistoryError(false)
     void onLoadHistory()
       .then((items) => setHistory(items))
-      .catch(() => setHistory([]))
+      .catch(() => {
+        setHistory([])
+        setHistoryError(true)
+      })
       .finally(() => setHistoryLoading(false))
   }
 
   useEffect(() => {
+    setQuery('')
+    setConfirmClear(false)
+    setConfirmClearHistory(false)
     if (mode === 'history') loadHistory()
   }, [mode])
 
@@ -135,12 +148,12 @@ export function NotificationsPanel({
 
   return (
     <div className="notif-center">
-      {media && (
+      {mode === 'live' && media && (
         <div className="media-card">
           <div className="media-icon"><Icon name="volume_up" size={22} /></div>
           <div className="media-body">
-            <strong>{media.title}</strong>
-            <span>{media.artist || media.app}</span>
+            <strong title={media.title}>{media.title}</strong>
+            <span>{[media.artist, media.app].filter(Boolean).join(' · ')}</span>
           </div>
           <div className="media-actions">
             <button
@@ -195,7 +208,7 @@ export function NotificationsPanel({
         </div>
         {mode === 'history' && (
           <div className="notif-history-actions">
-            <button type="button" className="link-btn" onClick={loadHistory} disabled={historyLoading}>
+            <button type="button" className="link-btn" onClick={loadHistory} disabled={historyLoading} aria-label="Refresh history">
               {historyLoading ? 'Loading…' : (<><Icon name="refresh" size={18} /> Refresh</>)}
             </button>
             {confirmClearHistory ? (
@@ -206,6 +219,7 @@ export function NotificationsPanel({
                   onClick={() => {
                     void onClearHistory().then(() => {
                       setHistory([])
+                      setHistoryError(false)
                       setConfirmClearHistory(false)
                     })
                   }}
@@ -227,6 +241,40 @@ export function NotificationsPanel({
                 onClick={() => setConfirmClearHistory(true)}
               >
                 Clear history
+              </button>
+            )}
+          </div>
+        )}
+        {mode === 'live' && notifications.length > 0 && (
+          <div className="notif-history-actions">
+            {confirmClear ? (
+              <>
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => {
+                    void onClearAll()
+                      .then(() => setConfirmClear(false))
+                      .catch(() => setConfirmClear(false))
+                  }}
+                >
+                  Confirm clear
+                </button>
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => setConfirmClear(false)}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => setConfirmClear(true)}
+              >
+                Clear all
               </button>
             )}
           </div>
@@ -291,6 +339,15 @@ export function NotificationsPanel({
             <div className="empty-art"><Icon name="notifications" size={34} /></div>
             <h2>Loading history…</h2>
           </div>
+        ) : historyError && history.length === 0 ? (
+          <div className="empty">
+            <div className="empty-art"><Icon name="warning" size={34} /></div>
+            <h2>Couldn’t load history</h2>
+            <p className="muted">LinkPhone could not read the local history file.</p>
+            <button type="button" className="link-btn" onClick={loadHistory}>
+              <Icon name="refresh" size={18} /> Retry
+            </button>
+          </div>
         ) : history.length === 0 ? (
           <div className="empty">
             <div className="empty-art"><Icon name="notifications" size={34} /></div>
@@ -311,11 +368,25 @@ export function NotificationsPanel({
           </ul>
         )
       ) : notifications.length === 0 ? (
-        <div className="empty">
-          <div className="empty-art"><Icon name="notifications" size={34} /></div>
-          <h2>No notifications from unmuted apps</h2>
-          <p className="muted">Unmute an app above to see its notifications again.</p>
-        </div>
+        !connected ? (
+          <div className="empty">
+            <div className="empty-art"><Icon name="smartphone" size={34} /></div>
+            <h2>Phone not connected</h2>
+            <p className="muted">Connect your phone to see notifications.</p>
+          </div>
+        ) : muted.length > 0 ? (
+          <div className="empty">
+            <div className="empty-art"><Icon name="notifications" size={34} /></div>
+            <h2>No notifications from unmuted apps</h2>
+            <p className="muted">Unmute an app above to see its notifications again.</p>
+          </div>
+        ) : (
+          <div className="empty">
+            <div className="empty-art"><Icon name="notifications" size={34} /></div>
+            <h2>No notifications yet</h2>
+            <p className="muted">Notifications from your phone appear here.</p>
+          </div>
+        )
       ) : filtered.length === 0 ? (
         <div className="empty">
           <div className="empty-art"><Icon name="search" size={34} /></div>
@@ -529,7 +600,13 @@ function NotificationCard({
           </div>
         )}
       </div>
-      <button type="button" className="icon-btn" title="Dismiss" onClick={onDismiss}>
+      <button
+        type="button"
+        className="icon-btn"
+        title="Dismiss"
+        aria-label={`Dismiss ${item.app || 'notification'}`}
+        onClick={onDismiss}
+      >
         <Icon name="close" />
       </button>
     </li>

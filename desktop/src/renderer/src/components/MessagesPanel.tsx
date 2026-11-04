@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { SimInfo, SmsActiveThread, SmsThread } from '@shared/protocol'
 import { Icon } from './Icon'
 
+type SmsResult = 'queued' | 'no-peer' | 'invalid'
+
 interface Props {
   threads: SmsThread[]
   active: SmsActiveThread | null
@@ -10,8 +12,32 @@ interface Props {
   onRefresh: () => void
   onOpen: (threadId: string, address: string) => void
   onClose: () => void
-  onSend: (threadId: string, address: string, body: string, subscriptionId?: number) => void
-  onStartConversation: (address: string, body: string, subscriptionId?: number) => void
+  onSend: (
+    threadId: string,
+    address: string,
+    body: string,
+    subscriptionId?: number
+  ) => Promise<SmsResult>
+  onStartConversation: (
+    address: string,
+    body: string,
+    subscriptionId?: number
+  ) => Promise<SmsResult>
+}
+
+/** Drafts survive the panel unmounting on tab switches; keys are thread ids. */
+const drafts = new Map<string, string>()
+
+function rememberDraft(threadId: string, value: string): void {
+  if (!value) {
+    drafts.delete(threadId)
+    return
+  }
+  if (!drafts.has(threadId) && drafts.size >= 20) {
+    const oldest = drafts.keys().next().value
+    if (oldest !== undefined) drafts.delete(oldest)
+  }
+  drafts.set(threadId, value)
 }
 
 function time(ts: number): string {
@@ -43,6 +69,10 @@ export function MessagesPanel({
   const [to, setTo] = useState('')
   const [newBody, setNewBody] = useState('')
   const [newSimId, setNewSimId] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState('')
+  const [composeSending, setComposeSending] = useState(false)
+  const [composeError, setComposeError] = useState('')
   const endRef = useRef<HTMLDivElement | null>(null)
   const defaultSimId = sims.find((sim) => sim.isDefault)?.id ?? sims[0]?.id ?? ''
 
@@ -53,6 +83,8 @@ export function MessagesPanel({
 
   useEffect(() => {
     setThreadQuery('')
+    setSendError('')
+    if (active) setDraft(drafts.get(active.threadId) ?? '')
   }, [active?.threadId])
 
   useEffect(() => {
@@ -80,16 +112,33 @@ export function MessagesPanel({
         )
       : active.messages
 
-    const send = (): void => {
+    const send = async (): Promise<void> => {
       const body = draft.trim()
-      if (!body) return
-      onSend(
-        active.threadId,
-        active.address,
-        body,
-        simId ? Number(simId) : undefined
-      )
-      setDraft('')
+      if (!body || sending) return
+      setSending(true)
+      setSendError('')
+      let result: SmsResult
+      try {
+        result = await onSend(
+          active.threadId,
+          active.address,
+          body,
+          simId ? Number(simId) : undefined
+        )
+      } catch {
+        result = 'invalid'
+      }
+      setSending(false)
+      if (result === 'queued') {
+        setDraft('')
+        rememberDraft(active.threadId, '')
+      } else {
+        setSendError(
+          result === 'no-peer'
+            ? 'Your phone is disconnected — your message is still here.'
+            : 'Could not send that message.'
+        )
+      }
     }
 
     return (
@@ -158,16 +207,29 @@ export function MessagesPanel({
           <input
             autoFocus
             value={draft}
+            disabled={sending}
             placeholder={`Message ${active.name || active.address}`}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              rememberDraft(active.threadId, e.target.value)
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') send()
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) void send()
             }}
           />
-          <button className="btn" onClick={send} disabled={draft.trim().length === 0}>
-            <Icon name="send" size={18} /> Send
+          <button
+            className="btn"
+            onClick={() => void send()}
+            disabled={draft.trim().length === 0 || sending}
+          >
+            <Icon name="send" size={18} /> {sending ? 'Sending…' : 'Send'}
           </button>
         </div>
+        {sendError && (
+          <p className="sms-send-error" role="status">
+            {sendError}
+          </p>
+        )}
       </div>
     )
   }
@@ -181,6 +243,35 @@ export function MessagesPanel({
       })
     : threads
 
+  const startConversation = async (): Promise<void> => {
+    if (composeSending) return
+    setComposeSending(true)
+    setComposeError('')
+    let result: SmsResult
+    try {
+      result = await onStartConversation(
+        to.trim(),
+        newBody.trim(),
+        newSimId ? Number(newSimId) : undefined
+      )
+    } catch {
+      result = 'invalid'
+    }
+    setComposeSending(false)
+    if (result === 'queued') {
+      setComposing(false)
+      setTo('')
+      setNewBody('')
+      setNewSimId(defaultSimId)
+      return
+    }
+    setComposeError(
+      result === 'invalid'
+        ? 'That phone number doesn’t look valid.'
+        : 'Your phone is disconnected — try again.'
+    )
+  }
+
   return (
     <div className="sms">
       <div className="files-head">
@@ -193,6 +284,7 @@ export function MessagesPanel({
               setTo('')
               setNewBody('')
               setNewSimId(defaultSimId)
+              setComposeError('')
             }}
           >
             <Icon name="chat" size={18} /> New message
@@ -216,6 +308,7 @@ export function MessagesPanel({
             id="sms-to"
             autoFocus
             value={to}
+            disabled={composeSending}
             placeholder="Phone number"
             onChange={(event) => setTo(event.target.value.slice(0, 64))}
           />
@@ -239,29 +332,26 @@ export function MessagesPanel({
             value={newBody}
             placeholder="Message"
             rows={4}
+            disabled={composeSending}
             onChange={(event) => setNewBody(event.target.value.slice(0, 2000))}
           />
           <div className="sms-new-actions">
             <button
               className="btn"
-              disabled={to.trim().length < 2 || newBody.trim().length === 0}
-              onClick={() => {
-                onStartConversation(
-                  to.trim(),
-                  newBody.trim(),
-                  newSimId ? Number(newSimId) : undefined
-                )
-                setComposing(false)
-                setTo('')
-                setNewBody('')
-              }}
+              disabled={to.trim().length < 2 || newBody.trim().length === 0 || composeSending}
+              onClick={() => void startConversation()}
             >
-              <Icon name="send" size={18} /> Send
+              <Icon name="send" size={18} /> {composeSending ? 'Sending…' : 'Send'}
             </button>
             <button className="btn btn-ghost" onClick={() => setComposing(false)}>
               Cancel
             </button>
           </div>
+          {composeError && (
+            <p className="sms-send-error" role="status">
+              {composeError}
+            </p>
+          )}
         </div>
       ) : threads.length === 0 ? (
         <div className="empty">

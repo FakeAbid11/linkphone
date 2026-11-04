@@ -3,12 +3,16 @@ package dev.linkphone.app
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -16,10 +20,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +33,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** QR, network scan and typed-code pairing, shared by the main screen and onboarding. */
 @Composable
@@ -43,13 +53,37 @@ fun PairingSection(
     var scanningQr by remember { mutableStateOf(false) }
     var pendingDevice by remember { mutableStateOf<Discovery.Target?>(null) }
     var code by remember { mutableStateOf("") }
+    var scanJob by remember { mutableStateOf<Job?>(null) }
+    var scanFinished by remember { mutableStateOf(false) }
+    val status by client.status.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val pairing = status.state == LinkState.CONNECTING || status.state == LinkState.PAIRING
+
+    LaunchedEffect(status.state) {
+        if (status.state == LinkState.CONNECTED) {
+            pendingDevice = null
+            code = ""
+        }
+    }
 
     DisposableEffect(Unit) {
-        onDispose { discovery.stop() }
+        onDispose {
+            scanJob?.cancel()
+            discovery.stop()
+        }
+    }
+
+    fun stopScan() {
+        scanJob?.cancel()
+        scanJob = null
+        discovery.stop()
+        scanning = false
     }
 
     fun scan() {
+        stopScan()
         devices.clear()
+        scanFinished = false
         scanning = true
         discovery.start(
             onFound = { target ->
@@ -57,20 +91,29 @@ fun PairingSection(
                     devices.add(target)
                 }
             },
-            onError = { scanning = false }
+            onError = {
+                scanning = false
+                scanFinished = true
+            }
         )
+        scanJob = scope.launch {
+            delay(15_000)
+            if (scanning) {
+                discovery.stop()
+                scanning = false
+                scanFinished = true
+            }
+        }
     }
 
     fun connect(target: Discovery.Target, pairingCode: String?) {
-        scanning = false
-        discovery.stop()
+        stopScan()
         LinkCore.startService(context)
         client.connect(target.host, target.port, pairingCode)
     }
 
     fun connectScanned(payload: PairPayload) {
-        scanning = false
-        discovery.stop()
+        stopScan()
         val preferred = preferredAddress(payload.addresses)
         val addresses = buildList {
             if (preferred != null) add(preferred)
@@ -106,6 +149,28 @@ fun PairingSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
+            if (scanning) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                    Text(
+                        "Looking for your PC…",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { stopScan(); scanFinished = true }) { Text("Stop") }
+                }
+            } else if (scanFinished && devices.isEmpty()) {
+                Text(
+                    "No PCs found on this network — try Scan again.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             if (devices.isNotEmpty()) {
                 devices.forEach { target ->
                     OutlinedButton(
@@ -141,6 +206,7 @@ fun PairingSection(
                         value = code,
                         onValueChange = { code = it.uppercase().take(12) },
                         singleLine = true,
+                        enabled = !pairing,
                         label = { Text("Pairing code") },
                         textStyle = androidx.compose.ui.text.TextStyle(
                             fontFamily = FontFamily.Monospace,
@@ -148,21 +214,38 @@ fun PairingSection(
                             letterSpacing = 4.sp
                         )
                     )
+                    if (pairing) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Text(
+                                "Connecting…",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else if (status.state == LinkState.ERROR && status.detail.isNotBlank()) {
+                        Text(
+                            status.detail,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        val value = code
-                        pendingDevice = null
-                        code = ""
-                        connect(target, value)
-                    },
-                    enabled = code.length >= 6
+                    onClick = { connect(target, code) },
+                    enabled = code.length >= 6 && !pairing
                 ) { ButtonLabel(Symbols.link, "Pair") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDevice = null }) { Text("Cancel") }
+                TextButton(onClick = {
+                    pendingDevice = null
+                    code = ""
+                }) { Text("Cancel") }
             }
         )
     }

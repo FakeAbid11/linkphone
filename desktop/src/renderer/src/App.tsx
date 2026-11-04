@@ -38,6 +38,8 @@ export default function App(): JSX.Element {
   const [dragActive, setDragActive] = useState(false)
   const [dropNotice, setDropNotice] = useState('')
   const dragDepth = useRef(0)
+  const connectedRef = useRef(false)
+  connectedRef.current = (state?.devices ?? []).some((device) => device.connected)
 
   useEffect(() => {
     let alive = true
@@ -98,6 +100,10 @@ export default function App(): JSX.Element {
       event.preventDefault()
       dragDepth.current = 0
       setDragActive(false)
+      if (!connectedRef.current) {
+        setDropNotice('Connect your phone to send files')
+        return
+      }
       const files = Array.from(event.dataTransfer?.files ?? [])
       const paths = files
         .map((file) => window.linkphone.pathForFile(file))
@@ -169,7 +175,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.8.1</div>
+            <div className="brand-sub">Local network · v0.8.2</div>
           </div>
         </div>
 
@@ -180,6 +186,7 @@ export default function App(): JSX.Element {
             <button
               key={t.id}
               className={`tab ${tab === t.id ? 'tab-active' : ''}`}
+              aria-current={tab === t.id ? 'page' : undefined}
               onClick={() => {
                 setTab(t.id)
                 if (t.id === 'messages') {
@@ -232,21 +239,24 @@ export default function App(): JSX.Element {
             <p className="muted">
               {connected.length > 0
                 ? `${connected.map((d) => d.name).join(', ')} connected`
-                : 'Waiting for your phone on this Wi-Fi'}
+                : state.devices.length > 0
+                  ? `${state.devices[0].name} is offline — open LinkPhone on your phone`
+                  : 'Waiting for your phone on this Wi-Fi'}
             </p>
           </div>
           <div className="head-actions">
             {tab === 'files' && (
-              <button className="btn" onClick={() => void window.linkphone.sendFiles()}>
-                <Icon name="upload" size={18} /> Send file
-              </button>
-            )}
-            {tab === 'notifications' && state.notifications.length > 0 && (
               <button
-                className="btn btn-ghost"
-                onClick={() => void window.linkphone.clearNotifications()}
+                className="btn"
+                disabled={connected.length === 0}
+                title={
+                  connected.length === 0
+                    ? 'Connect your phone to send files'
+                    : 'Choose files to send to your phone'
+                }
+                onClick={() => void window.linkphone.sendFiles()}
               >
-                <Icon name="delete_sweep" size={18} /> Clear all
+                <Icon name="upload" size={18} /> Send file
               </button>
             )}
           </div>
@@ -275,6 +285,8 @@ export default function App(): JSX.Element {
               }
               onLoadHistory={() => window.linkphone.getNotificationHistory()}
               onClearHistory={() => window.linkphone.clearNotificationHistory()}
+              onClearAll={() => window.linkphone.clearNotifications()}
+              connected={connected.length > 0}
               media={state.media}
               onMediaAction={(action) => void window.linkphone.sendMediaAction(action)}
             />
@@ -283,6 +295,7 @@ export default function App(): JSX.Element {
             <FilesPanel
               transfers={state.transfers}
               downloadsDir={state.downloadsDir}
+              connected={connected.length > 0}
               onSend={() => void window.linkphone.sendFiles()}
               onOpenFolder={() => void window.linkphone.openDownloads()}
             />
@@ -301,10 +314,10 @@ export default function App(): JSX.Element {
                 void window.linkphone.closeSmsThread()
               }}
               onSend={(threadId, address, body, subscriptionId) =>
-                void window.linkphone.sendSms(threadId, address, body, subscriptionId)
+                window.linkphone.sendSms(threadId, address, body, subscriptionId)
               }
               onStartConversation={(address, body, subscriptionId) =>
-                void window.linkphone.startSmsConversation(address, body, subscriptionId)
+                window.linkphone.startSmsConversation(address, body, subscriptionId)
               }
             />
           )}
@@ -379,8 +392,9 @@ export default function App(): JSX.Element {
           {tab === 'clipboard' && (
             <ClipboardPanel
               enabled={state.clipboardEnabled}
+              connected={connected.length > 0}
               onToggle={(enabled) => void window.linkphone.setClipboardEnabled(enabled)}
-              onSend={(text) => void window.linkphone.sendClipboard(text)}
+              onSend={(text) => window.linkphone.sendClipboard(text)}
             />
           )}
           {tab === 'settings' && (

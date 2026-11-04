@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.11** makes dismissing or clearing a notification on the PC dismiss it on the phone too.
-> v0.7.10 added the telephony fallback for the PC call card.
+> **v0.7.12** makes **Restart & install** update silently and relaunch LinkPhone.
+> v0.7.11 added notification dismissal from the PC to the phone.
 
 ## Features
 
@@ -73,7 +73,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.7.11.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.7.12.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -189,7 +189,8 @@ v0.4 must be installed manually once because older versions do not contain updat
 
 - **Windows:** LinkPhone checks about 20 seconds after launch, every six hours, and after sleep;
   a notification appears when a newer version is available. Choose **Download**, then
-  **Restart & install** in Settings.
+  **Restart & install** in Settings: LinkPhone closes, the update installs silently, and the app
+  relaunches. A downloaded update no longer installs automatically when you quit LinkPhone.
 - **Android:** a background check runs about every six hours even when LinkPhone is closed, and the
   App update card checks when the app opens. A notification appears when a newer version is
   available; choose **Download**, then **Install**. Android always shows its system installer

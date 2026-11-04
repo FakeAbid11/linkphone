@@ -298,6 +298,11 @@ Drag files from Explorer onto any part of the LinkPhone window.
 v0.4 is the first updater-enabled build. Use it to test the v0.4.5 update:
 
 * ✅ Windows v0.4 detects v0.4.5, downloads with progress, and **Restart & install** relaunches it.
+* ✅ Windows **Restart & install** runs the NSIS installer silently (no wizard), then relaunches the
+  new version; the sidebar shows the new version.
+* ✅ Download an update, close LinkPhone normally → no installer process starts; reopen and use
+  **Restart & install** when ready.
+* ✅ A first-time install still shows the assisted installer and lets you choose a directory.
 * ✅ Android v0.4 detects v0.4.5, downloads the APK, verifies SHA-256 + signing certificate, then opens the
   Android installer confirmation.
 * ❌ Android opens “Install unknown apps” first → allow LinkPhone and tap **Install** again. This is

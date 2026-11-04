@@ -830,6 +830,13 @@ export class LinkServer extends EventEmitter {
     this.broadcast({ t: 'notif.action', key, actionId, replyText })
   }
 
+  /** Ask the phone to dismiss mirrored notifications from its shade. */
+  sendNotificationCancel(keys: string[]): void {
+    const unique = [...new Set(keys.filter((key) => key.length > 0))]
+    if (unique.length === 0) return
+    this.broadcast({ t: 'notif.cancel', keys: unique })
+  }
+
   /* ---------------------------------------------------------------- */
   /* SMS                                                               */
   /* ---------------------------------------------------------------- */

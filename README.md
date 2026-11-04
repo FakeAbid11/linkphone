@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.7.10** shows the PC call card even when the phone hides its dialer notification.
-> v0.7.9 added best-effort call control without the default-dialer role.
+> **v0.7.11** makes dismissing or clearing a notification on the PC dismiss it on the phone too.
+> v0.7.10 added the telephony fallback for the PC call card.
 
 ## Features
 
@@ -73,7 +73,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.7.10.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.7.11.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -173,10 +173,12 @@ are sent when it connects; quitting LinkPhone discards them. Folders are not sup
 <summary><strong>Notification center</strong></summary>
 
 Search notifications by app, title or text, and switch between **Newest** and **By app** views.
-By-app headers show a count plus **Clear** and **Mute**: Clear removes that app's current cards,
-while Mute also hides future notifications and Windows toasts. Unmute an app from the **Muted**
-chips; muted settings persist on this PC. Live progress, quick actions, opening and inline reply
-work in both views.
+By-app headers show a count plus **Clear** and **Mute**: Clear removes that app's current cards and
+dismisses them from the phone shade, while Mute also hides future notifications and Windows toasts.
+Unmute an app from the **Muted** chips; muted settings persist on this PC. The single **Dismiss** and
+Windows toast click also dismiss the notification on the phone. Ongoing or system-locked
+notifications may refuse dismissal on the phone; the PC card still hides. Live progress, quick
+actions, opening and inline reply work in both views.
 
 </details>
 

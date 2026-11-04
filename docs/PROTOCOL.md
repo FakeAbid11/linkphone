@@ -134,6 +134,7 @@ the socket; the frames above are unchanged.
 | `notif.post` | phone → PC | `notif{key,app,pkg,title,text,when,canReply,actions[],progress?,progressMax?,indeterminate?,ongoing?}` |
 | `notif.dismiss` | phone → PC | `key` |
 | `notif.action` | PC → phone | `key`, `actionId`, `replyText?` |
+| `notif.cancel` | PC → phone | `keys[]` — dismiss these notifications in the phone shade (best effort) |
 | `clip.set` | both | `text`, `ts` |
 | `file.offer` | both | `id`, `name`, `size`, `mime` |
 | `file.accept` | both | `id` |

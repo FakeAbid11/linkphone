@@ -347,6 +347,11 @@ export interface NotifActionMsg {
   replyText?: string
 }
 
+export interface NotifCancelMsg {
+  t: 'notif.cancel'
+  keys: string[]
+}
+
 export interface ClipSetMsg {
   t: 'clip.set'
   text: string
@@ -631,6 +636,7 @@ export type ControlMsg =
   | NotifPostMsg
   | NotifDismissMsg
   | NotifActionMsg
+  | NotifCancelMsg
   | ClipSetMsg
   | FileOfferMsg
   | FileAcceptMsg

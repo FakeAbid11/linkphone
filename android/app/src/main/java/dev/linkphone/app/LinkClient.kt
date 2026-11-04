@@ -37,6 +37,7 @@ import okio.ByteString.Companion.toByteString
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.OutputStream
+import java.io.File
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.NetworkInterface
@@ -1100,6 +1101,12 @@ class LinkClient(context: Context, private val store: PairStore) {
     }
 
     private fun queryMeta(uri: Uri): Pair<String, Long> {
+        if (uri.scheme == "file") {
+            val file = uri.path?.let { File(it) }
+            if (file != null && file.exists()) {
+                return (file.name.ifBlank { "file" }) to file.length()
+            }
+        }
         var name = uri.lastPathSegment ?: "file"
         var size = 0L
         resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)

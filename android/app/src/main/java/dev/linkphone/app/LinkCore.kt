@@ -31,7 +31,7 @@ object LinkCore {
         runCatching {
             val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000
             context.cacheDir.resolve("share").listFiles()?.forEach { file ->
-                if (file.lastModified() < cutoff) file.delete()
+                if (file.lastModified() < cutoff) file.deleteRecursively()
             }
         }
     }

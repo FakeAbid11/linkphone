@@ -86,7 +86,10 @@ object ShareSender {
                     val safe = name.replace(Regex("[^A-Za-z0-9._ -]"), "_")
                         .take(120)
                         .ifBlank { "file" }
-                    val target = File(cache, "${UUID.randomUUID()}-$safe")
+                    val target = File(
+                        File(cache, UUID.randomUUID().toString()).apply { mkdirs() },
+                        safe
+                    )
                     app.contentResolver.openInputStream(uri)?.use { input ->
                         target.outputStream().use { output -> input.copyTo(output, 64 * 1024) }
                     } ?: throw IllegalStateException("Could not read $name")
@@ -151,7 +154,12 @@ object ShareSender {
                     message = e.message ?: "Could not share those files."
                 )
             } finally {
-                files.forEach { runCatching { it.delete() } }
+                files.forEach { file ->
+                    runCatching {
+                        val parent = file.parentFile
+                        if (parent != null) parent.deleteRecursively() else file.delete()
+                    }
+                }
             }
         }
     }

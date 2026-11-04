@@ -627,7 +627,8 @@ export class LinkServer extends EventEmitter {
       }
 
       case 'file.decline': {
-        const id = str(msg.id)        this.outbound.get(id)?.decline()
+        const id = str(msg.id)
+        this.outbound.get(id)?.decline()
         this.finishOutbound(id, 'declined', str(msg.reason, 'declined by phone'))
         return
       }

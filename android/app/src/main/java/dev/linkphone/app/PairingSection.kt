@@ -129,26 +129,30 @@ fun PairingSection(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CardTitle(Symbols.search, "Find your PC")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { scanningQr = true }) {
-                        ButtonLabel(Symbols.qr_code_scanner, "Scan QR")
-                    }
-                    Button(onClick = { scan() }, enabled = !scanning) {
-                        ButtonLabel(Symbols.search, if (scanning) "Scanning…" else "Scan")
-                    }
-                }
-            }
+            CardTitle(Symbols.search, "Find your PC")
             Text(
                 "Scan the QR code on your PC for one-tap pairing, or look for it on your network.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = { scanningQr = true }
+                ) {
+                    ButtonLabel(Symbols.qr_code_scanner, "Scan QR")
+                }
+                Button(
+                    modifier = Modifier.weight(1f),
+                    onClick = { scan() },
+                    enabled = !scanning
+                ) {
+                    ButtonLabel(Symbols.search, if (scanning) "Scanning…" else "Scan")
+                }
+            }
             if (scanning) {
                 Row(
                     Modifier.fillMaxWidth(),

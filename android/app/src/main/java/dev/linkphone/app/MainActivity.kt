@@ -736,41 +736,36 @@ private fun Screen(modifier: Modifier = Modifier) {
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                CardTitle(Symbols.call, "Calls from your PC")
-                Text(
-                    "Dial, answer, decline, hang up and switch the phone speaker from Windows. " +
-                        "Audio always stays on this phone. No default-phone role is required.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp
-                )
-                when {
-                    !outgoingReady -> OutlinedButton(onClick = {
-                        callPermission.launch(
-                            arrayOf(
-                                Manifest.permission.CALL_PHONE,
-                                Manifest.permission.READ_PHONE_STATE,
-                                Manifest.permission.ANSWER_PHONE_CALLS
-                            )
-                        )
-                    }) { ButtonLabel(Symbols.call, "Allow call access") }
-
-                    !callPermissionsGranted -> OutlinedButton(onClick = {
-                        callPermission.launch(
-                            arrayOf(
-                                Manifest.permission.READ_PHONE_STATE,
-                                Manifest.permission.ANSWER_PHONE_CALLS
-                            )
-                        )
-                    }) { ButtonLabel(Symbols.call, "Allow call control") }
-
-                    else -> Text(
-                        "Call control is ready",
-                        color = Primary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
+        if (!outgoingReady || !callPermissionsGranted) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CardTitle(Symbols.call, "Calls from your PC")
+                    Text(
+                        "Dial, answer, decline, hang up and switch the phone speaker from Windows. " +
+                            "Audio always stays on this phone. No default-phone role is required.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
                     )
+                    if (!outgoingReady) {
+                        OutlinedButton(onClick = {
+                            callPermission.launch(
+                                arrayOf(
+                                    Manifest.permission.CALL_PHONE,
+                                    Manifest.permission.READ_PHONE_STATE,
+                                    Manifest.permission.ANSWER_PHONE_CALLS
+                                )
+                            )
+                        }) { ButtonLabel(Symbols.call, "Allow call access") }
+                    } else {
+                        OutlinedButton(onClick = {
+                            callPermission.launch(
+                                arrayOf(
+                                    Manifest.permission.READ_PHONE_STATE,
+                                    Manifest.permission.ANSWER_PHONE_CALLS
+                                )
+                            )
+                        }) { ButtonLabel(Symbols.call, "Allow call control") }
+                    }
                 }
             }
         }

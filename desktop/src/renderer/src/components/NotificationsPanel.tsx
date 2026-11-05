@@ -15,6 +15,8 @@ interface Props {
   onClearHistory: () => Promise<void>
   onClearAll: () => Promise<void>
   connected: boolean
+  pausedUntil: number
+  onPause: (until: number | null) => void
   media: { title: string; artist: string; playing: boolean; app: string } | null
   onMediaAction: (action: 'play' | 'pause' | 'next' | 'previous') => void
 }
@@ -44,6 +46,8 @@ export function NotificationsPanel({
   onClearHistory,
   onClearAll,
   connected,
+  pausedUntil,
+  onPause,
   media,
   onMediaAction
 }: Props): JSX.Element {
@@ -57,6 +61,27 @@ export function NotificationsPanel({
   const [historyError, setHistoryError] = useState(false)
   const [confirmClearHistory, setConfirmClearHistory] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [pauseTick, setPauseTick] = useState(0)
+  const paused = pausedUntil > Date.now()
+  const pausedLabel = new Date(pausedUntil).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+  const minutesLeft = Math.max(0, Math.ceil((pausedUntil - Date.now()) / 60000))
+
+  useEffect(() => {
+    if (!paused) return
+    const timer = setInterval(() => setPauseTick((value) => value + 1), 1000)
+    return () => clearInterval(timer)
+  }, [paused])
+  void pauseTick
+
+  const untilTomorrow = (): void => {
+    const date = new Date()
+    date.setDate(date.getDate() + 1)
+    date.setHours(8, 0, 0, 0)
+    onPause(date.getTime())
+  }
 
   const loadHistory = (): void => {
     setHistoryLoading(true)
@@ -187,6 +212,17 @@ export function NotificationsPanel({
         </div>
       )}
 
+      {paused && (
+        <div className="notif-paused">
+          <span>
+            Notifications paused until {pausedLabel} ({minutesLeft} min)
+          </span>
+          <button type="button" className="link-btn" onClick={() => onPause(null)}>
+            Resume
+          </button>
+        </div>
+      )}
+
       <div className="notif-toolbar">
         <div className="notif-view" role="group" aria-label="Notification source">
           <button
@@ -280,6 +316,29 @@ export function NotificationsPanel({
           </div>
         )}
       </div>
+
+      {!paused && (
+        <div className="notif-pause-actions">
+          <span className="muted">Pause toasts</span>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => onPause(Date.now() + 30 * 60 * 1000)}
+          >
+            30 min
+          </button>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => onPause(Date.now() + 60 * 60 * 1000)}
+          >
+            1 hour
+          </button>
+          <button type="button" className="link-btn" onClick={untilTomorrow}>
+            Until tomorrow
+          </button>
+        </div>
+      )}
 
       {(source.length > 0 || query.length > 0) && (
         <div className="notif-toolbar">

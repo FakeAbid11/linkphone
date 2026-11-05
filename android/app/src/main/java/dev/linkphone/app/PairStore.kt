@@ -30,6 +30,10 @@ class PairStore(context: Context) {
             prefs.edit().putString("deviceId", it).apply()
         }
 
+    var deviceName: String?
+        get() = prefs.getString("deviceName", null)
+        set(value) = prefs.edit().putString("deviceName", value).apply()
+
     var serverId: String?
         get() = prefs.getString("serverId", null)
         set(value) = prefs.edit().putString("serverId", value).apply()

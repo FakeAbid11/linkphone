@@ -25,6 +25,8 @@ import type {
   TransferItem
 } from '../shared/protocol'
 
+import { sanitizeDeviceName } from '../shared/device-name'
+
 export interface PairedDevice {
   deviceId: string
   name: string
@@ -40,6 +42,7 @@ interface Persisted {
   paired: PairedDevice[]
   clipboardEnabled: boolean
   mutedNotifications: MutedApp[]
+  notificationsPausedUntil?: number
 }
 
 const MAX_NOTIFICATIONS = 200
@@ -140,6 +143,9 @@ export class AppStore extends EventEmitter {
   port = 0
   pairingCode = ''
   private changeTimer: NodeJS.Timeout | null = null
+  private pauseTimer: NodeJS.Timeout | null = null
+  private lowBatteryLatched = new Set<string>()
+  private notificationsPausedUntil = 0
 
   constructor(dir: string, currentVersion = '') {
     super()
@@ -157,6 +163,8 @@ export class AppStore extends EventEmitter {
     this.smsLocalMessages = smsLocal.messages
     this.smsThreads = [...smsLocal.threads]
     this.desktopUpdate = { status: 'idle', currentVersion }
+    this.notificationsPausedUntil = this.persisted.notificationsPausedUntil ?? 0
+    this.schedulePauseExpiry()
   }
 
   private loadNotificationHistory(): NotificationItem[] {    try {
@@ -335,7 +343,11 @@ export class AppStore extends EventEmitter {
         serverName: parsed.serverName ?? os.hostname(),
         paired: Array.isArray(parsed.paired) ? parsed.paired : [],
         clipboardEnabled: parsed.clipboardEnabled ?? true,
-        mutedNotifications: sanitizeMuted(parsed.mutedNotifications)
+        mutedNotifications: sanitizeMuted(parsed.mutedNotifications),
+        notificationsPausedUntil:
+          typeof parsed.notificationsPausedUntil === 'number'
+            ? Math.max(0, parsed.notificationsPausedUntil)
+            : 0
       }
     } catch {
       const fresh: Persisted = {
@@ -343,7 +355,8 @@ export class AppStore extends EventEmitter {
         serverName: os.hostname() || 'This PC',
         paired: [],
         clipboardEnabled: true,
-        mutedNotifications: []
+        mutedNotifications: [],
+        notificationsPausedUntil: 0
       }
       try {
         fs.mkdirSync(dir, { recursive: true })
@@ -403,6 +416,7 @@ export class AppStore extends EventEmitter {
   forget(deviceId: string): void {
     this.persisted.paired = this.persisted.paired.filter((d) => d.deviceId !== deviceId)
     this.live.delete(deviceId)
+    this.lowBatteryLatched.delete(deviceId)
     this.clearRingTimer(deviceId)
     this.save()
     this.changed()
@@ -428,6 +442,38 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  pauseNotifications(until: number): void {
+    const value = Math.max(0, Math.floor(until))
+    this.notificationsPausedUntil = value
+    this.persisted.notificationsPausedUntil = value
+    this.save()
+    this.schedulePauseExpiry()
+    this.changed()
+  }
+
+  resumeNotifications(): void {
+    this.pauseNotifications(0)
+  }
+
+  isNotificationsPaused(): boolean {
+    return this.notificationsPausedUntil > Date.now()
+  }
+
+  private schedulePauseExpiry(): void {
+    if (this.pauseTimer) {
+      clearTimeout(this.pauseTimer)
+      this.pauseTimer = null
+    }
+    const remaining = this.notificationsPausedUntil - Date.now()
+    if (remaining <= 0) return
+    const timer = setTimeout(() => {
+      this.pauseTimer = null
+      this.changed()
+    }, remaining + 250)
+    timer.unref?.()
+    this.pauseTimer = timer
+  }
+
   markConnected(device: DeviceInfo): void {
     const current = this.live.get(device.deviceId)
     this.live.set(device.deviceId, {
@@ -439,14 +485,40 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  setPairedName(deviceId: string, name: string): void {
+    const clean = sanitizeDeviceName(name)
+    if (!clean) return
+    const paired = this.persisted.paired.find((device) => device.deviceId === deviceId)
+    const live = this.live.get(deviceId)
+    if (live && live.name !== clean) {
+      this.live.set(deviceId, { ...live, name: clean })
+    }
+    if (paired && paired.name !== clean) {
+      paired.name = clean
+      this.save()
+      this.changed()
+    }
+  }
+
   updateDeviceStatus(deviceId: string, batteryLevel: number, charging: boolean): void {
     const current = this.live.get(deviceId)
     if (!current) return
+    const level = Math.max(0, Math.min(100, Math.round(batteryLevel)))
     this.live.set(deviceId, {
       ...current,
-      batteryLevel: Math.max(0, Math.min(100, Math.round(batteryLevel))),
+      batteryLevel: level,
       charging
     })
+    if (charging || level >= 20) {
+      this.lowBatteryLatched.delete(deviceId)
+    } else if (level <= 15 && current.connected && !this.lowBatteryLatched.has(deviceId)) {
+      this.lowBatteryLatched.add(deviceId)
+      this.emit('batteryLow', {
+        deviceId,
+        name: current.name,
+        batteryLevel: level
+      })
+    }
     this.changed()
   }
 
@@ -472,6 +544,7 @@ export class AppStore extends EventEmitter {
 
   markDisconnected(deviceId: string): void {
     this.clearRingTimer(deviceId)
+    this.lowBatteryLatched.delete(deviceId)
     this.storageFiles = []
     this.storageLoading = false
     this.storageError = ''
@@ -1233,6 +1306,7 @@ export class AppStore extends EventEmitter {
       galleryHasMore: this.galleryHasMore,
       galleryLoading: this.galleryLoading,
       galleryError: this.galleryError,
+      notificationsPausedUntil: this.notificationsPausedUntil,
       desktopUpdate: this.desktopUpdate,
       phoneCalls: this.phoneCalls,
       callDialerReady: this.callDialerReady,

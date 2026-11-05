@@ -161,11 +161,40 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     val isReady: Boolean get() = ready
 
+    private val _deviceName = MutableStateFlow(
+        store.deviceName?.takeIf { it.isNotBlank() } ?: derivedDeviceName()
+    )
+    val deviceNameFlow: StateFlow<String> = _deviceName.asStateFlow()
     val deviceName: String
-        get() = listOfNotNull(Build.MANUFACTURER, Build.MODEL)
+        get() = _deviceName.value
+
+    private fun derivedDeviceName(): String =
+        listOfNotNull(Build.MANUFACTURER, Build.MODEL)
             .joinToString(" ")
             .ifBlank { "Android phone" }
             .replaceFirstChar { it.uppercase() }
+
+    fun renameDevice(raw: String): Boolean {
+        val name = sanitizeDeviceName(raw)
+        if (name.isEmpty()) return false
+        store.deviceName = name
+        _deviceName.value = name
+        if (ready) {
+            send(
+                JSONObject().apply {
+                    put("t", "device.rename.state")
+                    put("name", name)
+                }
+            )
+        }
+        return true
+    }
+
+    private fun sanitizeDeviceName(raw: String): String =
+        raw.replace(Regex("[\\u0000-\\u001F\\u007F\\u200B-\\u200D\\uFEFF]"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+            .take(32)
 
     /* ------------------------------------------------------------ */
     /* connection                                                    */
@@ -515,6 +544,7 @@ class LinkClient(context: Context, private val store: PairStore) {
             JSONObject().apply {
                 put("t", "auth.response")
                 put("proof", b64(Crypto.hmac(stored, "auth:$nonce")))
+                put("deviceName", deviceName)
             }
         )
     }
@@ -705,6 +735,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 msg.optLong("durationMs", 15_000L)
             )
             "phone.ring.stop" -> PhoneRinger.stop()
+            "device.rename" -> renameDevice(msg.optString("name"))
             "media.action" -> MediaWatcher.action(msg.optString("action"))
         }
     }

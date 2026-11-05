@@ -318,6 +318,8 @@ export default function App(): JSX.Element {
               onClearHistory={() => window.linkphone.clearNotificationHistory()}
               onClearAll={() => window.linkphone.clearNotifications()}
               connected={connected.length > 0}
+              pausedUntil={state.notificationsPausedUntil}
+              onPause={(until) => void window.linkphone.pauseNotifications(until)}
               media={state.media}
               onMediaAction={(action) => void window.linkphone.sendMediaAction(action)}
             />

@@ -287,6 +287,7 @@ export interface AppState {
   galleryHasMore: boolean
   galleryLoading: boolean
   galleryError: string
+  notificationsPausedUntil: number
   desktopUpdate: DesktopUpdateState
   phoneCalls: PhoneCallInfo[]
   callDialerReady: boolean
@@ -657,6 +658,16 @@ export interface PhoneRingMsg {
   durationMs?: number
 }
 
+export interface DeviceRenameMsg {
+  t: 'device.rename'
+  name: string
+}
+
+export interface DeviceRenameStateMsg {
+  t: 'device.rename.state'
+  name: string
+}
+
 export interface PhoneRingStopMsg {
   t: 'phone.ring.stop'
 }
@@ -760,6 +771,8 @@ export type ControlMsg =
   | NotifActionMsg
   | NotifCancelMsg
   | PhoneRingMsg
+  | DeviceRenameMsg
+  | DeviceRenameStateMsg
   | PhoneRingStopMsg
   | PhoneRingStateMsg
   | MediaStateMsg

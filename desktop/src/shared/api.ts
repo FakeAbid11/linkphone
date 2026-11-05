@@ -10,6 +10,7 @@ export interface LinkPhoneApi {
   newPairingCode: () => Promise<string>
   refreshAddresses: () => Promise<void>
   forgetDevice: (deviceId: string) => Promise<void>
+  renameDevice: (deviceId: string, name: string) => Promise<void>
   sendFiles: () => Promise<number>
   sendPhotosToPhone: () => Promise<number>
   retryTransfer: (id: string) => Promise<void>
@@ -19,6 +20,7 @@ export interface LinkPhoneApi {
   sendFilesFromPaths: (paths: string[]) => Promise<number>
   sendClipboard: (text: string) => Promise<boolean>
   clearNotifications: () => Promise<void>
+  pauseNotifications: (until: number | null) => Promise<void>
   getNotificationHistory: () => Promise<NotificationItem[]>
   clearNotificationHistory: () => Promise<void>
   dismissNotification: (key: string) => Promise<void>

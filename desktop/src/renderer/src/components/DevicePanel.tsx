@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { DeviceInfo } from '@shared/protocol'
 import { Icon } from './Icon'
 
@@ -8,6 +8,42 @@ interface Props {
 
 export function DevicePanel({ devices }: Props): JSX.Element {
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [pending, setPending] = useState<{ id: string; name: string } | null>(null)
+  const [editErrorId, setEditErrorId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!pending) return
+    const device = devices.find((candidate) => candidate.deviceId === pending.id)
+    if (device && device.name === pending.name) {
+      setPending(null)
+      setEditErrorId(null)
+    }
+  }, [devices, pending])
+
+  useEffect(() => {
+    if (!pending) return
+    const timer = setTimeout(() => {
+      setPending(null)
+      setEditErrorId(pending.id)
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [pending])
+
+  const startEdit = (device: DeviceInfo): void => {
+    setEditingId(device.deviceId)
+    setEditName(device.name)
+    setEditErrorId(null)
+  }
+
+  const saveName = (device: DeviceInfo): void => {
+    const name = editName.trim().slice(0, 32)
+    if (!name) return
+    void window.linkphone.renameDevice(device.deviceId, name)
+    setPending({ id: device.deviceId, name })
+    setEditingId(null)
+  }
 
   if (devices.length === 0) {
     return (
@@ -28,9 +64,56 @@ export function DevicePanel({ devices }: Props): JSX.Element {
           <div className="device-icon"><Icon name="smartphone" /></div>
           <div className="device-body">
             <div className="device-name">
-              {device.name}
-              <span className={`dot ${device.connected ? 'dot-on' : 'dot-off'}`} />
+              {editingId === device.deviceId ? (
+                <div className="device-rename">
+                  <input
+                    autoFocus
+                    value={editName}
+                    maxLength={32}
+                    aria-label="Phone name"
+                    onChange={(event) => setEditName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') saveName(device)
+                      if (event.key === 'Escape') setEditingId(null)
+                    }}
+                  />
+                  <button type="button" className="link-btn" onClick={() => saveName(device)}>
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => setEditingId(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {device.name}
+                  <span className={`dot ${device.connected ? 'dot-on' : 'dot-off'}`} />
+                  {device.connected && device.paired && (
+                    <button
+                      type="button"
+                      className="icon-btn device-edit"
+                      title="Rename phone"
+                      aria-label={`Rename ${device.name}`}
+                      onClick={() => startEdit(device)}
+                    >
+                      <Icon name="edit" size={16} />
+                    </button>
+                  )}
+                </>
+              )}
             </div>
+            {pending?.id === device.deviceId && (
+              <div className="device-meta">Saving name…</div>
+            )}
+            {editErrorId === device.deviceId && (
+              <div className="device-meta">
+                Update the LinkPhone app to rename from your PC.
+              </div>
+            )}
             <div className="device-meta">
               {device.connected ? 'Connected' : 'Offline'}
               {device.address ? ` · ${device.address}` : ''}

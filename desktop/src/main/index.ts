@@ -351,6 +351,12 @@ function registerIpc(): void {
     if (typeof deviceId === 'string') store.forget(deviceId)
   })
 
+  ipcMain.handle('device:rename', (_event, deviceId: unknown, name: unknown) => {
+    if (typeof deviceId === 'string' && typeof name === 'string') {
+      server.renameDevice(deviceId, name)
+    }
+  })
+
   ipcMain.handle('files:send', async () => {
     const result = await dialog.showOpenDialog({
       title: 'Send to phone',
@@ -454,6 +460,14 @@ function registerIpc(): void {
   ipcMain.handle('notifications:clear', () => {
     const keys = store.clearNotifications()
     server.sendNotificationCancel(keys)
+  })
+
+  ipcMain.handle('notifications:pause', (_event, until: unknown) => {
+    if (typeof until !== 'number' || !Number.isFinite(until) || until <= 0) {
+      store.resumeNotifications()
+      return
+    }
+    store.pauseNotifications(until)
   })
   ipcMain.handle('notifications:history', () => store.getNotificationHistory())
   ipcMain.handle('notifications:history-clear', () => store.clearNotificationHistory())
@@ -655,6 +669,7 @@ async function bootstrap(): Promise<void> {
   server.on('clipboardIn', (text: string) => watcher.applyRemote(text))
 
   server.on('notification', (item) => {
+    if (store.isNotificationsPaused()) return
     if (!Notification.isSupported()) return
     try {
       const n = new Notification({
@@ -695,6 +710,23 @@ async function bootstrap(): Promise<void> {
   store.on('gallery-preview', (preview: GalleryPreview | null) => {
     win?.webContents.send('gallery:preview', preview)
   })
+  store.on(
+    'batteryLow',
+    (event: { deviceId: string; name: string; batteryLevel: number }) => {
+      if (!Notification.isSupported()) return
+      try {
+        const toast = new Notification({
+          title: 'Phone battery low',
+          body: `${event.name || 'Your phone'} is at ${event.batteryLevel}%. Plug it in.`,
+          silent: false
+        })
+        toast.on('click', () => showWindow())
+        toast.show()
+      } catch {
+        /* notifications unavailable */
+      }
+    }
+  )
   watcher.start()
 
   createWindow()

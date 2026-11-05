@@ -320,7 +320,9 @@ class LinkClient(context: Context, private val store: PairStore) {
             runCatching { resolver.delete(sink.uri, null, null) }
         }
         incoming.clear()
-        outgoing.values.forEach { it.attempt?.complete(-1L) }
+        // -2 is "interrupted" rather than -1 ("declined") so an intentional disconnect does
+        // not leave outgoing transfers looking like failures.
+        outgoing.values.forEach { it.attempt?.complete(-2L) }
         outgoing.clear()
         _status.value = LinkStatus(LinkState.IDLE)
     }
@@ -475,13 +477,23 @@ class LinkClient(context: Context, private val store: PairStore) {
             "auth.ok" -> markConnected()
             "auth.reject" -> onAuthRejected(msg)
             "pair.reject" -> {
+                val reason = msg.optString("reason")
                 wantConnection = false
-                store.clearPair()
-                _status.value = LinkStatus(
-                    LinkState.ERROR,
-                    serverName,
-                    if (msg.optString("reason") == "code") "Wrong pairing code" else "Pairing rejected"
-                )
+                if (reason == "rate") {
+                    _status.value = LinkStatus(
+                        LinkState.ERROR,
+                        serverName,
+                        "Too many pairing attempts. Wait a minute, then try again."
+                    )
+                } else {
+                    store.clearPair()
+                    _status.value = LinkStatus(
+                        LinkState.ERROR,
+                        serverName,
+                        if (reason == "code") "Wrong pairing code" else "Pairing rejected"
+                    )
+                }
+                runCatching { ws?.close(1000, "pair rejected") }
             }
         }
     }
@@ -506,6 +518,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 serverName,
                 "This PC no longer knows this phone. Scan the QR to pair again."
             )
+            runCatching { ws?.close(1000, "pair required") }
             return
         }
 
@@ -535,6 +548,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 serverName,
                 "Pairing is required. Scan the QR to pair again."
             )
+            runCatching { ws?.close(1000, "pair required") }
             return
         }
         key = stored
@@ -564,6 +578,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 "This PC no longer knows this phone. Scan the QR to pair again."
             }
         )
+        runCatching { ws?.close(1000, "auth rejected") }
     }
 
     private fun onPaired() {

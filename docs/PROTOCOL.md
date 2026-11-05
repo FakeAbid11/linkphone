@@ -310,6 +310,9 @@ Android.
 * An attacker who captures a handshake can brute-force the code offline. With a 40-bit code and
   600k PBKDF2 rounds that is not practical; a 6-digit code is much weaker and should be treated as
   "guest" pairing.
+* Pairing attempts are rate-limited per source IP (six per minute), unauthenticated connections are
+  capped, and PBKDF2 runs off the main thread. This limits online CPU exhaustion but does not
+  replace TLS + pinning.
 * An attacker on the LAN can advertise a fake `_linkphone._tcp` service. Verify the PC name and
   code out-of-band. Certificate pinning (roadmap) closes this.
 * Anything the phone shares is readable by the desktop process, which is the point.

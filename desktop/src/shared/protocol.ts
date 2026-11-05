@@ -324,7 +324,6 @@ export interface AppState {
   ringDurationMs: number
   clipboardEnabled: boolean
   downloadsDir: string
-  clippingInFlight: boolean
 }
 
 /* ------------------------------------------------------------------ */

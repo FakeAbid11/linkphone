@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,6 +58,7 @@ object ShareSender {
         val app = context.applicationContext
         scope.launch {
             val files = mutableListOf<File>()
+            var keepCache = false
             try {
                 LinkCore.init(app)
                 if (!LinkCore.requireStore().hasPairing()) {
@@ -135,16 +137,20 @@ object ShareSender {
                         running = true,
                         message = "Sending ${index + 1} of ${files.size}…"
                     )
-                    if (!client.sendFileAndWait(Uri.fromFile(file), "downloads")) failures += 1
+                    if (!client.sendFileAndWait(Uri.fromFile(file), "downloads")) {
+                        failures += 1
+                        keepCache = true
+                    }
                 }
+                val limitNote = if (uris.distinct().size > 20) " Only the first 20 files were sent." else ""
                 _state.value = ShareState(
                     total = files.size,
                     done = files.size - failures,
                     names = names.toList(),
                     message = if (failures == 0) {
-                        "Sent to your PC."
+                        "Sent to your PC.$limitNote"
                     } else {
-                        "Sent ${files.size - failures} of ${files.size}; $failures failed."
+                        "Sent ${files.size - failures} of ${files.size}; $failures failed.$limitNote"
                     }
                 )
             } catch (e: Exception) {
@@ -154,10 +160,12 @@ object ShareSender {
                     message = e.message ?: "Could not share those files."
                 )
             } finally {
-                files.forEach { file ->
-                    runCatching {
-                        val parent = file.parentFile
-                        if (parent != null) parent.deleteRecursively() else file.delete()
+                if (!keepCache) {
+                    files.forEach { file ->
+                        runCatching {
+                            val parent = file.parentFile
+                            if (parent != null) parent.deleteRecursively() else file.delete()
+                        }
                     }
                 }
             }
@@ -231,10 +239,19 @@ private fun ShareScreen(onClose: () -> Unit) {
             Text("Send to LinkPhone", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             if (state.names.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    state.names.take(20).forEach { name ->
+                    state.names.take(5).forEach { name ->
                         Text(
                             name,
                             fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (state.names.size > 5) {
+                        Text(
+                            "+${state.names.size - 5} more…",
+                            fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

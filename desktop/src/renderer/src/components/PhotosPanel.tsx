@@ -121,6 +121,17 @@ export function PhotosPanel({
     : undefined
   const videoDone = !videoTransfer && Boolean(completedVideo || videoDownload?.status === 'done')
   const videoTransferId = completedVideo?.id ?? videoDownload?.transferId
+  const previewDownload = preview ? downloads[`image:${preview.photoId}`] : undefined
+  const previewTransfer = preview
+    ? transfers.find(
+        (item) =>
+          item.photoId === preview.photoId &&
+          item.mediaKind === 'image' &&
+          (item.status === 'pending' || item.status === 'active')
+      )
+    : undefined
+  const previewDone = previewDownload?.status === 'done'
+  const previewFailed = previewDownload?.status === 'failed'
   const visibleIds = useMemo(
     () =>
       albumId
@@ -145,6 +156,15 @@ export function PhotosPanel({
     window.addEventListener('keydown', close)
     return () => window.removeEventListener('keydown', close)
   }, [preview, onClosePreview])
+
+  useEffect(() => {
+    if (!video) return
+    const close = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setVideo(null)
+    }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [video])
 
   useEffect(() => {
     requested.current.clear()
@@ -174,7 +194,8 @@ export function PhotosPanel({
               kind={kind}
               granted={granted}
               partial={partial}
-              onRefresh={onRefresh}
+              connected={connected}
+              onRefresh={() => onOpenAlbum(albumId, albumName)}
             />
           ) : (
             <div className="photo-grid">
@@ -203,9 +224,7 @@ export function PhotosPanel({
                       {duration(photo.durationMs)}
                     </span>
                   )}
-                  <span className="photo-caption">
-                    {isVideo ? duration(photo.durationMs) || photoDate(photo.dateTaken) : photoDate(photo.dateTaken)}
-                  </span>
+                  <span className="photo-caption">{photoDate(photo.dateTaken)}</span>
                 </button>
               ))}
             </div>
@@ -269,7 +288,7 @@ export function PhotosPanel({
           </div>
           {uploading > 0 && (
             <p className="muted gallery-uploading">
-              Uploading {uploading} photo{uploading === 1 ? '' : 's'} to your phone…
+              Uploading {uploading} item{uploading === 1 ? '' : 's'} to your phone…
             </p>
           )}
 
@@ -279,6 +298,7 @@ export function PhotosPanel({
               kind={kind}
               granted={granted}
               partial={partial}
+              connected={connected}
               onRefresh={onRefresh}
             />
           ) : (
@@ -355,8 +375,8 @@ export function PhotosPanel({
                       {failedVideo?.error || videoDownload?.error || 'Download failed'}
                     </div>
                   ) : (
-                    <button className="btn" onClick={() => onDownload(video.id)}>
-                      <Icon name="play_arrow" size={18} /> Play video
+                    <button className="btn" onClick={() => onDownload(video.id)} disabled={!connected}>
+                      <Icon name="play_arrow" size={18} /> Download to play
                     </button>
                   )}
                 </>
@@ -364,7 +384,8 @@ export function PhotosPanel({
             </div>
             <div className="photo-lightbox-actions">
               <span className="muted">
-                {duration(video.durationMs)} · saved to Downloads/LinkPhone
+                {duration(video.durationMs)}
+                {videoDone ? ' · saved to Downloads/LinkPhone' : ' · download to play'}
               </span>
               {videoError || failedVideo || videoDownload?.status === 'failed' ? (
                 <button
@@ -373,21 +394,13 @@ export function PhotosPanel({
                     setVideoError('')
                     onDownload(video.id)
                   }}
+                  disabled={!connected}
                 >
                   <Icon name="download" size={18} /> Download again
                 </button>
               ) : videoDone ? (
                 <span className="muted">Downloaded</span>
-              ) : (
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => onDownload(video.id)}
-                  disabled={Boolean(videoTransfer)}
-                >
-                  <Icon name="download" size={18} />{' '}
-                  {videoTransfer ? 'Downloading…' : 'Download'}
-                </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -408,9 +421,32 @@ export function PhotosPanel({
               {preview.dataUrl && <img src={preview.dataUrl} alt={preview.name} />}
             </div>
             <div className="photo-lightbox-actions">
-              <span className="muted">Original will be saved to Downloads/LinkPhone</span>
-              <button className="btn" onClick={() => onDownload(preview.photoId)}>
-                <Icon name="download" size={18} /> Download original
+              <span className="muted">
+                {previewDone
+                  ? 'Saved to Downloads/LinkPhone'
+                  : previewTransfer
+                    ? `Downloading ${
+                        previewTransfer.size > 0
+                          ? Math.round((previewTransfer.received / previewTransfer.size) * 100)
+                          : 0
+                      }%…`
+                    : previewFailed
+                      ? previewDownload?.error || 'Download failed'
+                      : 'Original will be saved to Downloads/LinkPhone'}
+              </span>
+              <button
+                className="btn"
+                onClick={() => onDownload(preview.photoId)}
+                disabled={!connected || Boolean(previewTransfer) || previewDone}
+              >
+                <Icon name={previewDone ? 'check' : 'download'} size={18} />{' '}
+                {previewDone
+                  ? 'Downloaded'
+                  : previewTransfer
+                    ? 'Downloading…'
+                    : previewFailed
+                      ? 'Retry'
+                      : 'Download original'}
               </button>
             </div>
           </div>
@@ -425,41 +461,47 @@ function GalleryEmpty({
   kind,
   granted,
   partial,
+  connected,
   onRefresh
 }: {
   error: string
   kind: GalleryKind
   granted: boolean
   partial: boolean
+  connected: boolean
   onRefresh: () => void
 }): JSX.Element {
   const video = kind === 'video'
-  const title = error
-    ? video
-      ? 'Videos unavailable'
-      : 'Photos unavailable'
-    : video
-      ? !granted
-        ? 'Videos need access'
-        : partial
-          ? 'Only selected videos'
-          : 'No videos found'
-      : 'No photos found'
-  const detail = error
-    ? error
-    : video
-      ? !granted
-        ? 'On the phone, open LinkPhone → Setup → Videos → Allow video access, then refresh.'
-        : partial
-          ? 'Only the videos you selected are visible. Open LinkPhone → Setup → Videos → Allow all videos, then refresh.'
-          : 'No videos found on this phone. Check that the videos are in the phone gallery, then refresh.'
-      : 'On the phone, allow media access for LinkPhone, then refresh this page.'
+  const title = !connected
+    ? 'Phone offline'
+    : error
+      ? video
+        ? 'Videos unavailable'
+        : 'Photos unavailable'
+      : video
+        ? !granted
+          ? 'Videos need access'
+          : partial
+            ? 'Only selected videos'
+            : 'No videos found'
+        : 'No photos found'
+  const detail = !connected
+    ? 'Open LinkPhone on your phone, then refresh this page.'
+    : error
+      ? error
+      : video
+        ? !granted
+          ? 'On the phone, open LinkPhone → Setup → Videos → Allow video access, then refresh.'
+          : partial
+            ? 'Only the videos you selected are visible. Open LinkPhone → Setup → Videos → Allow all videos, then refresh.'
+            : 'No videos found on this phone. Check that the videos are in the phone gallery, then refresh.'
+        : 'On the phone, allow media access for LinkPhone, then refresh this page.'
   return (
     <div className="empty">
       <div className="empty-art"><Icon name="photo_library" size={34} /></div>
       <h2>{title}</h2>
       <p className="muted">{detail}</p>
-      <button type="button" className="link-btn" onClick={onRefresh}>
+      <button type="button" className="link-btn" onClick={onRefresh} disabled={!connected}>
         <Icon name="refresh" size={18} /> Refresh
       </button>
     </div>

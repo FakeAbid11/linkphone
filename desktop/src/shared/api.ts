@@ -1,8 +1,10 @@
-import type { AppState, NotificationItem, TransferItem } from './protocol'
+import type { AppState, GalleryPreview, NotificationItem, TransferItem } from './protocol'
 
 export interface LinkPhoneApi {
   getState: () => Promise<AppState>
   onState: (cb: (state: AppState) => void) => () => void
+  onGalleryThumbs: (cb: (items: Array<{ photoId: string; dataUrl: string }>) => void) => () => void
+  onGalleryPreview: (cb: (preview: GalleryPreview | null) => void) => () => void
   onNavigate: (cb: (tab: 'files' | 'settings') => void) => () => void
   uiReady: () => Promise<'files' | 'settings' | null>
   newPairingCode: () => Promise<string>

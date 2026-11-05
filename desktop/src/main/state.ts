@@ -11,6 +11,7 @@ import type {
   DeviceInfo,
   GalleryAlbum,
   GalleryPhoto,
+  GalleryPreview,
   MutedApp,
   NotificationItem,
   PhoneCallInfo,
@@ -108,7 +109,7 @@ export class AppStore extends EventEmitter {
   private galleryHasMore = false
   private galleryLoading = false
   private galleryThumbs: Record<string, string> = {}
-  private galleryPreview: AppState['galleryPreview'] = null
+  private galleryPreview: GalleryPreview | null = null
   private galleryError = ''
   private desktopUpdate: DesktopUpdateState
   private phoneCalls: PhoneCallInfo[] = []
@@ -138,6 +139,7 @@ export class AppStore extends EventEmitter {
   private launchAtLoginSupported = false
   port = 0
   pairingCode = ''
+  private changeTimer: NodeJS.Timeout | null = null
 
   constructor(dir: string, currentVersion = '') {
     super()
@@ -256,7 +258,18 @@ export class AppStore extends EventEmitter {
         for (const [key, value] of Object.entries(parsed.messages as Record<string, unknown>)) {
           if (!Array.isArray(value)) continue
           messages[key] = value
-            .filter((item): item is SmsMessage => !!item && typeof item === 'object')
+            .filter(
+              (item): item is SmsMessage =>
+                !!item &&
+                typeof item === 'object' &&
+                typeof (item as SmsMessage).id === 'string' &&
+                typeof (item as SmsMessage).body === 'string'
+            )
+            .map((item) => ({
+              ...item,
+              pending: false,
+              failed: Boolean(item.failed || item.pending)
+            }))
             .slice(-200)
         }
       }
@@ -721,11 +734,13 @@ export class AppStore extends EventEmitter {
           deviceId: typeof item.deviceId === 'string' ? item.deviceId : '',
           startedAt: Number(item.startedAt) || Date.now(),
           target:
-            item.target === 'pictures'
-              ? 'pictures'
-              : item.target === 'downloads'
-                ? 'downloads'
-                : undefined,
+            item.target === 'videos'
+              ? 'videos'
+              : item.target === 'pictures'
+                ? 'pictures'
+                : item.target === 'downloads'
+                  ? 'downloads'
+                  : undefined,
           sourcePath: typeof item.sourcePath === 'string' ? item.sourcePath : undefined,
           resumeOffset: Number(item.resumeOffset) || undefined,
           mtimeMs: Number(item.mtimeMs) || undefined,
@@ -787,10 +802,19 @@ export class AppStore extends EventEmitter {
       const local = this.localSmsMessages(active.address)
       if (local.length > 0) {
         const ids = new Set(active.messages.map((message) => message.id))
+        const provider = active.messages
+        const fresh = local.filter((message) => {
+          if (ids.has(message.id)) return false
+          return !provider.some(
+            (entry) =>
+              entry.address === message.address &&
+              entry.body === message.body &&
+              Math.abs(entry.date - message.date) < 15_000
+          )
+        })
         active = {
           ...active,
-          messages: [...active.messages, ...local.filter((message) => !ids.has(message.id))]
-            .sort((left, right) => left.date - right.date)
+          messages: [...active.messages, ...fresh].sort((left, right) => left.date - right.date)
         }
       }
       if (!active.name) {
@@ -844,6 +868,13 @@ export class AppStore extends EventEmitter {
   }
 
   markSmsResult(tempId: string, ok: boolean): void {
+    for (const list of Object.values(this.smsLocalMessages)) {
+      const found = list.find((message) => message.id === tempId)
+      if (found) {
+        this.recordLocalSms({ ...found, pending: false, failed: !ok })
+        break
+      }
+    }
     if (!this.smsActive) return
     this.smsActive = {
       ...this.smsActive,
@@ -879,7 +910,17 @@ export class AppStore extends EventEmitter {
 
   setGalleryKinds(kinds: AppState['galleryKinds']): void {
     this.galleryKinds = kinds.length > 0 ? kinds : ['image']
+    if (!this.galleryKinds.includes(this.galleryKind)) {
+      this.galleryKind = this.galleryKinds[0]
+      this.galleryPhotos = []
+      this.galleryThumbs = {}
+      this.galleryPreview = null
+    }
     this.changed()
+  }
+
+  isGalleryKind(kind: string): boolean {
+    return kind === this.galleryKind
   }
 
   setGalleryAccess(granted: boolean, partial: boolean): void {
@@ -946,10 +987,12 @@ export class AppStore extends EventEmitter {
 
   appendGalleryPhotos(
     albumId: string,
+    kind: AppState['galleryKind'],
     offset: number,
     photos: GalleryPhoto[],
     hasMore: boolean
   ): void {
+    if (kind !== this.galleryKind) return
     if (this.galleryAlbumId !== albumId) return
     if (offset === 0) {
       this.galleryPhotos = photos
@@ -970,24 +1013,25 @@ export class AppStore extends EventEmitter {
     if (keys.length > 500) {
       for (const key of keys.slice(0, keys.length - 500)) delete this.galleryThumbs[key]
     }
-    this.changed()
+    this.emit('gallery-thumbs', items)
   }
 
   openGalleryPreview(photoId: string, name: string): void {
     this.galleryPreview = { photoId, name, dataUrl: '', loading: true }
     this.galleryError = ''
+    this.emit('gallery-preview', this.galleryPreview)
     this.changed()
   }
 
   setGalleryPreview(photoId: string, dataUrl: string): void {
     if (!this.galleryPreview || this.galleryPreview.photoId !== photoId) return
     this.galleryPreview = { ...this.galleryPreview, dataUrl, loading: false, error: undefined }
-    this.changed()
+    this.emit('gallery-preview', this.galleryPreview)
   }
 
   closeGalleryPreview(): void {
     this.galleryPreview = null
-    this.changed()
+    this.emit('gallery-preview', null)
   }
 
   setGalleryError(error: string): void {
@@ -995,6 +1039,7 @@ export class AppStore extends EventEmitter {
     this.galleryError = error
     if (this.galleryPreview?.loading) {
       this.galleryPreview = { ...this.galleryPreview, loading: false, error }
+      this.emit('gallery-preview', this.galleryPreview)
     }
     this.changed()
   }
@@ -1187,8 +1232,6 @@ export class AppStore extends EventEmitter {
       galleryNextOffset: this.galleryNextOffset,
       galleryHasMore: this.galleryHasMore,
       galleryLoading: this.galleryLoading,
-      galleryThumbs: this.galleryThumbs,
-      galleryPreview: this.galleryPreview,
       galleryError: this.galleryError,
       desktopUpdate: this.desktopUpdate,
       phoneCalls: this.phoneCalls,
@@ -1219,6 +1262,18 @@ export class AppStore extends EventEmitter {
   }
 
   private changed(): void {
+    if (this.changeTimer) return
+    this.changeTimer = setTimeout(() => {
+      this.changeTimer = null
+      this.emit('change', this.snapshot())
+    }, 120)
+  }
+
+  flushChanges(): void {
+    if (this.changeTimer) {
+      clearTimeout(this.changeTimer)
+      this.changeTimer = null
+    }
     this.emit('change', this.snapshot())
   }
 }

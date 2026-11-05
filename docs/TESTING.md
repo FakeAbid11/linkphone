@@ -353,6 +353,10 @@ Ring the phone from its device card, then use the phone.
 * ✅ Switch Photos/Videos repeatedly: posters never come from the wrong media kind.
 * ✅ Disconnect and reconnect: the Videos permission hint reflects the current phone state.
 * ✅ Complete onboarding with only photo access: the Photos and videos row still asks for access.
+* ✅ Pull a large video with many cached posters: the desktop stays responsive during progress.
+* ✅ Send an SMS, switch threads before the ack, refresh: no duplicate and no permanent sending row.
+* ✅ Retry an interrupted video upload after a restart: it still lands in Movies/LinkPhone.
+* ✅ Photos offline: clear phone-offline state with disabled actions; image downloads show progress.
 
 ## 10. Files
 

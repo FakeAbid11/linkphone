@@ -36,7 +36,8 @@ object LinkCore {
             val cutoff = (System.currentTimeMillis() / 1000L) - 48 * 60 * 60
             listOf(
                 MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             ).forEach { collection ->
                 runCatching {
                     resolver.query(

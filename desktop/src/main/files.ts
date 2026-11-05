@@ -49,6 +49,10 @@ export class FileReceiver {
 
   offer(msg: FileOfferMsg, deviceId: string): void {
     if (!msg.id || typeof msg.id !== 'string') return
+    if (this.sinks.size >= 100) {
+      this.onDecline(msg.id, 'busy', deviceId)
+      return
+    }
     if (!Number.isFinite(msg.size) || msg.size < 0 || msg.size > 8 * 1024 * 1024 * 1024) {
       this.onDecline(msg.id, 'size', deviceId)
       return
@@ -121,6 +125,10 @@ export class FileReceiver {
     if (!sink || sink.aborted || sink.fd === null) return
     if (offset !== sink.received) {
       // Out-of-order or duplicate chunk: drop, the sender will resend from the ack.
+      return
+    }
+    if (offset + data.length > sink.size) {
+      this.abort(id, 'size exceeded')
       return
     }
     try {

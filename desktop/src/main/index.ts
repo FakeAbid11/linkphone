@@ -15,7 +15,7 @@ import {
   shell,
   Tray
 } from 'electron'
-import type { AppState, PhoneCallInfo } from '../shared/protocol'
+import type { AppState, GalleryPreview, PhoneCallInfo } from '../shared/protocol'
 import { mimeForPath } from '../shared/mime'
 import { ClipboardWatcher } from './clipboard'
 import { newPairCode } from './crypto'
@@ -689,6 +689,12 @@ async function bootstrap(): Promise<void> {
   })
 
   store.on('change', (state: AppState) => sendState(state))
+  store.on('gallery-thumbs', (items: Array<{ photoId: string; dataUrl: string }>) => {
+    win?.webContents.send('gallery:thumbs', items)
+  })
+  store.on('gallery-preview', (preview: GalleryPreview | null) => {
+    win?.webContents.send('gallery:preview', preview)
+  })
   watcher.start()
 
   createWindow()
@@ -808,6 +814,7 @@ if (!gotLock) {
 
   app.on('before-quit', () => {
     quitting = true
+    store.flushChanges()
     watcher?.stop()
     updater?.stop()
     advertisement?.stop()

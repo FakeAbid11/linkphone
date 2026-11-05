@@ -90,6 +90,7 @@ export function PhotosPanel({
 }: Props): JSX.Element {
   const requested = useRef(new Set<string>())
   const [video, setVideo] = useState<GalleryPhoto | null>(null)
+  const [videoError, setVideoError] = useState('')
   const isVideo = kind === 'video'
   const videoKey = video ? `${kind}:${video.id}` : ''
   const videoDownload = videoKey ? downloads[videoKey] : undefined
@@ -101,6 +102,25 @@ export function PhotosPanel({
           (item.status === 'pending' || item.status === 'active')
       )
     : undefined
+  const completedVideo = video
+    ? transfers.find(
+        (item) =>
+          item.photoId === video.id &&
+          item.mediaKind === 'video' &&
+          item.status === 'done' &&
+          Boolean(item.path)
+      )
+    : undefined
+  const failedVideo = video
+    ? transfers.find(
+        (item) =>
+          item.photoId === video.id &&
+          item.mediaKind === 'video' &&
+          (item.status === 'failed' || item.status === 'interrupted')
+      )
+    : undefined
+  const videoDone = !videoTransfer && Boolean(completedVideo || videoDownload?.status === 'done')
+  const videoTransferId = completedVideo?.id ?? videoDownload?.transferId
   const visibleIds = useMemo(
     () =>
       albumId
@@ -127,7 +147,9 @@ export function PhotosPanel({
   }, [preview, onClosePreview])
 
   useEffect(() => {
+    requested.current.clear()
     setVideo(null)
+    setVideoError('')
   }, [kind, albumId])
 
   return (
@@ -160,7 +182,14 @@ export function PhotosPanel({
                 <button
                   key={photo.id}
                   className="photo-tile"
-                  onClick={() => (isVideo ? setVideo(photo) : onPreview(photo.id, photo.name))}
+                  onClick={() => {
+                    if (isVideo) {
+                      setVideoError('')
+                      setVideo(photo)
+                    } else {
+                      onPreview(photo.id, photo.name)
+                    }
+                  }}
                   title={`${photo.name} · ${bytes(photo.size)}`}
                 >
                   {thumbs[photo.id] ? (
@@ -289,15 +318,20 @@ export function PhotosPanel({
               </button>
             </div>
             <div className="photo-preview-body">
-              {videoDownload?.status === 'done' && videoDownload.transferId ? (
+              {videoDone && videoTransferId && !videoError ? (
                 <video
-                  key={videoDownload.transferId}
+                  key={videoTransferId}
                   className="video-player"
                   controls
                   autoPlay
                   playsInline
                   preload="metadata"
-                  src={`linkphone-media://media/${videoDownload.transferId}`}
+                  src={`linkphone-media://media/${videoTransferId}`}
+                  onError={() =>
+                    setVideoError(
+                      'Could not play this video. The file may have moved or the codec is not supported.'
+                    )
+                  }
                 />
               ) : (
                 <>
@@ -306,7 +340,9 @@ export function PhotosPanel({
                   ) : (
                     <div className="photo-placeholder">Video</div>
                   )}
-                  {videoTransfer ? (
+                  {videoError ? (
+                    <div className="gallery-error">{videoError}</div>
+                  ) : videoTransfer ? (
                     <div className="gallery-loading">
                       Downloading{' '}
                       {videoTransfer.size > 0
@@ -314,9 +350,9 @@ export function PhotosPanel({
                         : 0}
                       %…
                     </div>
-                  ) : videoDownload?.status === 'failed' ? (
+                  ) : failedVideo || videoDownload?.status === 'failed' ? (
                     <div className="gallery-error">
-                      {videoDownload.error || 'Download failed'}
+                      {failedVideo?.error || videoDownload?.error || 'Download failed'}
                     </div>
                   ) : (
                     <button className="btn" onClick={() => onDownload(video.id)}>
@@ -330,9 +366,28 @@ export function PhotosPanel({
               <span className="muted">
                 {duration(video.durationMs)} · saved to Downloads/LinkPhone
               </span>
-              <button className="btn btn-ghost" onClick={() => onDownload(video.id)}>
-                <Icon name="download" size={18} /> Download
-              </button>
+              {videoError || failedVideo || videoDownload?.status === 'failed' ? (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setVideoError('')
+                    onDownload(video.id)
+                  }}
+                >
+                  <Icon name="download" size={18} /> Download again
+                </button>
+              ) : videoDone ? (
+                <span className="muted">Downloaded</span>
+              ) : (
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => onDownload(video.id)}
+                  disabled={Boolean(videoTransfer)}
+                >
+                  <Icon name="download" size={18} />{' '}
+                  {videoTransfer ? 'Downloading…' : 'Download'}
+                </button>
+              )}
             </div>
           </div>
         </div>

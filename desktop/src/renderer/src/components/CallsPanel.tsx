@@ -16,6 +16,7 @@ interface Props {
   controlReady: boolean
   callPlaced: { number: string; at: number } | null
   speaker: boolean
+  muted: boolean
   error: string
   connected: boolean
   history: CallLogEntry[]
@@ -32,6 +33,7 @@ interface Props {
   onReject: (callId: string) => void
   onDisconnect: (callId: string) => void
   onSpeaker: (enabled: boolean) => void
+  onMute: (enabled: boolean) => void
   onRefreshHistory: () => void
   onRefreshContacts: () => void
   onCall: (number: string, accountId?: string) => void
@@ -48,6 +50,7 @@ export function CallsPanel({
   controlReady,
   callPlaced,
   speaker,
+  muted,
   error,
   connected,
   history,
@@ -64,6 +67,7 @@ export function CallsPanel({
   onReject,
   onDisconnect,
   onSpeaker,
+  onMute,
   onRefreshHistory,
   onRefreshContacts,
   onCall,
@@ -180,11 +184,13 @@ export function CallsPanel({
                   call={call}
                   now={now}
                   speaker={speaker}
+                  muted={muted}
                   controlReady={controlReady}
                   onAnswer={onAnswer}
                   onReject={onReject}
                   onDisconnect={onDisconnect}
                   onSpeaker={onSpeaker}
+                  onMute={onMute}
                 />
               ))}
             </div>
@@ -365,20 +371,24 @@ function CallCard({
   call,
   now,
   speaker,
+  muted,
   controlReady,
   onAnswer,
   onReject,
   onDisconnect,
-  onSpeaker
+  onSpeaker,
+  onMute
 }: {
   call: PhoneCallInfo
   now: number
   speaker: boolean
+  muted: boolean
   controlReady: boolean
   onAnswer: (callId: string) => void
   onReject: (callId: string) => void
   onDisconnect: (callId: string) => void
   onSpeaker: (enabled: boolean) => void
+  onMute: (enabled: boolean) => void
 }): JSX.Element {
   const ringing = call.phase === 'ringing'
   const ended = call.phase === 'disconnected'
@@ -425,6 +435,14 @@ function CallCard({
           >
             <Icon name={speaker ? 'volume_off' : 'volume_up'} size={18} />
             {speaker ? 'Speaker on' : 'Phone speaker'}
+          </button>
+          <button
+            className={`call-speaker ${muted ? 'call-speaker-on' : ''}`}
+            disabled={ended || !controlReady}
+            title={controlReady ? undefined : 'Allow call access on your phone'}
+            onClick={() => onMute(!muted)}
+          >
+            {muted ? 'Unmute' : 'Mute'}
           </button>
           <button
             className="call-decline"

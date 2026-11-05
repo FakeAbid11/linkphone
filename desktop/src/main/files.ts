@@ -181,12 +181,12 @@ export class FileReceiver {
     this.onUpdate({ id, status: 'interrupted', error: reason })
   }
 
-  abort(id: string, reason: string): void {
+  abort(id: string, reason: string, status: TransferItem['status'] = 'failed'): void {
     const sink = this.sinks.get(id)
     if (!sink) return
     sink.aborted = true
     this.discard(sink)
-    this.onUpdate({ id, status: 'failed', error: reason })
+    this.onUpdate({ id, status, error: reason })
   }
 
   pauseAllForDevice(deviceId: string): void {

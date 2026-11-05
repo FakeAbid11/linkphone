@@ -15,6 +15,7 @@ interface Props {
   onRefreshStorage: () => void
   onPull: (entry: StorageEntry) => void
   onRetry: (id: string) => void
+  onCancel: (id: string) => void
 }
 
 function statusLabel(item: TransferItem): string {
@@ -61,7 +62,8 @@ export function FilesPanel({
   onOpenFolder,
   onRefreshStorage,
   onPull,
-  onRetry
+  onRetry,
+  onCancel
 }: Props): JSX.Element {
   return (
     <div className="files">
@@ -104,6 +106,11 @@ export function FilesPanel({
                     {t.direction === 'in' ? '↓' : '↑'} {t.name}
                   </span>
                   <span className={`pill pill-${t.status}`}>{statusLabel(t)}</span>
+                  {(t.status === 'pending' || t.status === 'active') && (
+                    <button className="link-btn" onClick={() => onCancel(t.id)}>
+                      Cancel
+                    </button>
+                  )}
                   {t.direction === 'out' &&
                     connected &&
                     (t.status === 'failed' || t.status === 'interrupted') && (

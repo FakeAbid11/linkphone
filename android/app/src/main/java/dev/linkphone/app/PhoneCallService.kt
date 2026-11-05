@@ -296,6 +296,20 @@ object CallHub {
     fun setSpeaker(enabled: Boolean) = main.post {
         runCatching { PhoneCallService.instance?.setSpeaker(enabled) }
     }
+
+    /**
+     * Muting has no reliable non-dialer fallback: AudioManager.setMicrophoneMute is device-global and
+     * often ignored on modern OEMs, so require the InCallService instead of claiming success.
+     */
+    fun setMute(context: Context, enabled: Boolean): Result<Unit> = runCatching {
+        val service = PhoneCallService.instance
+            ?: error("Allow call access on your phone")
+        main.post { runCatching { service.setMute(enabled) } }
+    }
+
+    fun setMute(enabled: Boolean) = main.post {
+        runCatching { PhoneCallService.instance?.setMute(enabled) }
+    }
 }
 
 /**
@@ -406,6 +420,12 @@ class PhoneCallService : InCallService() {
         publish()
     }
 
+    fun setMute(enabled: Boolean) {
+        if (calls.values.none { it.state == Call.STATE_ACTIVE || it.state == Call.STATE_HOLDING }) return
+        setMuted(enabled)
+        publish()
+    }
+
     private fun publish() {
         val audio = callAudioState
         val snapshot = PhoneCallSnapshot(
@@ -471,6 +491,7 @@ class CallActionReceiver : BroadcastReceiver() {
             ACTION_REJECT -> CallHub.reject(callId)
             ACTION_DISCONNECT -> CallHub.disconnect(callId)
             ACTION_SPEAKER -> CallHub.setSpeaker(intent.getBooleanExtra(EXTRA_ENABLED, false))
+            ACTION_MUTE -> CallHub.setMute(intent.getBooleanExtra(EXTRA_ENABLED, false))
         }
     }
 
@@ -479,6 +500,7 @@ class CallActionReceiver : BroadcastReceiver() {
         const val ACTION_REJECT = "dev.linkphone.app.call.REJECT"
         const val ACTION_DISCONNECT = "dev.linkphone.app.call.DISCONNECT"
         const val ACTION_SPEAKER = "dev.linkphone.app.call.SPEAKER"
+        const val ACTION_MUTE = "dev.linkphone.app.call.MUTE"
         const val EXTRA_CALL_ID = "callId"
         const val EXTRA_ENABLED = "enabled"
     }

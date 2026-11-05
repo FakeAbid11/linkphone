@@ -77,6 +77,7 @@ export interface SmsMessage {
   outgoing: boolean
   pending?: boolean
   failed?: boolean
+  retried?: boolean
   subscriptionId?: number
   simLabel?: string
 }
@@ -320,6 +321,7 @@ export interface AppState {
   callLogLoading: boolean
   launchAtLogin: boolean
   launchAtLoginSupported: boolean
+  ringDurationMs: number
   clipboardEnabled: boolean
   downloadsDir: string
   clippingInFlight: boolean
@@ -734,6 +736,11 @@ export interface CallSpeakerMsg {
   enabled: boolean
 }
 
+export interface CallMuteMsg {
+  t: 'call.mute'
+  enabled: boolean
+}
+
 export interface CallErrorMsg {
   t: 'call.error'
   error: string
@@ -840,6 +847,7 @@ export type ControlMsg =
   | CallRejectMsg
   | CallDisconnectMsg
   | CallSpeakerMsg
+  | CallMuteMsg
   | CallErrorMsg
   | SimsRequestMsg
   | SimsSyncMsg

@@ -217,7 +217,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v{state.desktopUpdate.currentVersion || '0.10.3'}</div>
+            <div className="brand-sub">Local network · v{state.desktopUpdate.currentVersion || '0.12.1'}</div>
           </div>
         </div>
 
@@ -360,6 +360,7 @@ export default function App(): JSX.Element {
                 void window.linkphone.pullStorageFile(entry.id, entry.name, entry.mime)
               }
               onRetry={(id) => void window.linkphone.retryTransfer(id)}
+              onCancel={(id) => void window.linkphone.cancelTransfer(id)}
             />
           )}
           {tab === 'messages' && (
@@ -368,6 +369,8 @@ export default function App(): JSX.Element {
               active={state.smsActive}
               loading={state.smsLoading}
               sims={state.phoneSims}
+              connected={connected.length > 0}
+              onRetry={(id) => void window.linkphone.retrySms(id)}
               onRefresh={() => void window.linkphone.requestSmsThreads()}
               onOpen={(threadId, address) =>
                 void window.linkphone.openSmsThread(threadId, address)
@@ -390,6 +393,7 @@ export default function App(): JSX.Element {
               controlReady={state.callControlReady}
               callPlaced={state.callPlaced}
               speaker={state.callSpeaker}
+              muted={state.callMuted}
               error={state.callError}
               connected={connected.length > 0}
               history={state.callHistory}
@@ -408,6 +412,7 @@ export default function App(): JSX.Element {
               onReject={(callId) => void window.linkphone.rejectCall(callId)}
               onDisconnect={(callId) => void window.linkphone.disconnectCall(callId)}
               onSpeaker={(enabled) => void window.linkphone.setCallSpeaker(enabled)}
+              onMute={(enabled) => void window.linkphone.setCallMute(enabled)}
               onRefreshHistory={() => void window.linkphone.requestCallHistory()}
               onRefreshContacts={() => void window.linkphone.requestContacts()}
               onCall={(number, accountId) =>
@@ -480,6 +485,27 @@ export default function App(): JSX.Element {
                 enabled={state.launchAtLogin}
                 onToggle={(enabled) => void window.linkphone.setLaunchAtLogin(enabled)}
               />
+              <div className="settings-card">
+                <div className="settings-card-head">
+                  <div>
+                    <h2>Ring duration</h2>
+                    <p className="muted">How long Find my phone rings before it stops.</p>
+                  </div>
+                  <select
+                    className="sim-select"
+                    value={state.ringDurationMs}
+                    aria-label="Ring duration"
+                    onChange={(event) =>
+                      void window.linkphone.setRingDuration(Number(event.target.value))
+                    }
+                  >
+                    <option value={5000}>5 seconds</option>
+                    <option value={10000}>10 seconds</option>
+                    <option value={15000}>15 seconds</option>
+                    <option value={30000}>30 seconds</option>
+                  </select>
+                </div>
+              </div>
               <UpdatePanel
                 update={state.desktopUpdate}
                 onCheck={() => void window.linkphone.checkDesktopUpdate()}

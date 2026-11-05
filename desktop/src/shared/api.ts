@@ -14,6 +14,7 @@ export interface LinkPhoneApi {
   sendFiles: () => Promise<number>
   sendPhotosToPhone: () => Promise<number>
   retryTransfer: (id: string) => Promise<void>
+  cancelTransfer: (id: string) => Promise<void>
   requestStorageList: (cursor?: string) => Promise<void>
   pullStorageFile: (id: string, name: string, mime: string) => Promise<void>
   pathForFile: (file: unknown) => string
@@ -37,6 +38,7 @@ export interface LinkPhoneApi {
     body: string,
     subscriptionId?: number
   ) => Promise<'queued' | 'no-peer' | 'invalid'>
+  retrySms: (id: string) => Promise<'queued' | 'no-peer' | 'invalid'>
   startSmsConversation: (
     address: string,
     body: string,
@@ -62,10 +64,12 @@ export interface LinkPhoneApi {
   rejectCall: (callId: string) => Promise<void>
   disconnectCall: (callId: string) => Promise<void>
   setCallSpeaker: (enabled: boolean) => Promise<void>
+  setCallMute: (enabled: boolean) => Promise<void>
   dismissCallPlaced: () => Promise<void>
   dismissCallError: () => Promise<void>
   ringPhone: (deviceId: string) => Promise<void>
   stopRingPhone: (deviceId: string) => Promise<void>
+  setRingDuration: (ms: number) => Promise<void>
   sendMediaAction: (
     action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'volume',
     value?: number

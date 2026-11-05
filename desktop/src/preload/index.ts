@@ -80,6 +80,8 @@ const api: LinkPhoneApi = {
     ipcRenderer.invoke('sms:send', threadId, address, body, subscriptionId) as Promise<
       'queued' | 'no-peer' | 'invalid'
     >,
+  retrySms: (id) =>
+    ipcRenderer.invoke('sms:retry', id) as Promise<'queued' | 'no-peer' | 'invalid'>,
   startSmsConversation: (address, body, subscriptionId) =>
     ipcRenderer.invoke('sms:start', address, body, subscriptionId) as Promise<
       'queued' | 'invalid' | 'no-peer'
@@ -107,10 +109,13 @@ const api: LinkPhoneApi = {
   rejectCall: (callId) => ipcRenderer.invoke('call:reject', callId) as Promise<void>,
   disconnectCall: (callId) => ipcRenderer.invoke('call:disconnect', callId) as Promise<void>,
   setCallSpeaker: (enabled) => ipcRenderer.invoke('call:speaker', enabled) as Promise<void>,
+  setCallMute: (enabled) => ipcRenderer.invoke('call:mute', enabled) as Promise<void>,
   dismissCallPlaced: () => ipcRenderer.invoke('call:placed-dismiss') as Promise<void>,
   dismissCallError: () => ipcRenderer.invoke('call:error-dismiss') as Promise<void>,
   ringPhone: (deviceId) => ipcRenderer.invoke('phone:ring', deviceId) as Promise<void>,
   stopRingPhone: (deviceId) => ipcRenderer.invoke('phone:ring-stop', deviceId) as Promise<void>,
+  setRingDuration: (ms) => ipcRenderer.invoke('ring:duration', ms) as Promise<void>,
+  cancelTransfer: (id) => ipcRenderer.invoke('files:cancel', id) as Promise<void>,
   sendMediaAction: (action, value) =>
     ipcRenderer.invoke('media:action', action, value) as Promise<void>,
   onMediaArt: (cb) => {

@@ -1087,6 +1087,22 @@ button {
   text-align: right;
 }
 
+.bubble-retry {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.bubble-retry:disabled {
+  color: var(--muted);
+  text-decoration: none;
+  cursor: default;
+}
+
 .sms-compose {
   display: flex;
   gap: 8px;

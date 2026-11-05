@@ -41,6 +41,7 @@ interface Persisted {
   serverName: string
   paired: PairedDevice[]
   clipboardEnabled: boolean
+  ringDurationMs: number
   mutedNotifications: MutedApp[]
   notificationsPausedUntil?: number
 }
@@ -48,6 +49,11 @@ interface Persisted {
 const MAX_NOTIFICATIONS = 200
 const MAX_TRANSFERS = 100
 const MAX_MUTED_APPS = 100
+export const RING_DURATIONS = [5_000, 10_000, 15_000, 30_000]
+
+function sanitizeRingDuration(value: unknown): number {
+  return typeof value === 'number' && RING_DURATIONS.includes(value) ? value : 15_000
+}
 
 function muteKey(pkg: string, app: string): string {
   const trimmed = pkg.trim()
@@ -343,6 +349,7 @@ export class AppStore extends EventEmitter {
         serverName: parsed.serverName ?? os.hostname(),
         paired: Array.isArray(parsed.paired) ? parsed.paired : [],
         clipboardEnabled: parsed.clipboardEnabled ?? true,
+        ringDurationMs: sanitizeRingDuration(parsed.ringDurationMs),
         mutedNotifications: sanitizeMuted(parsed.mutedNotifications),
         notificationsPausedUntil:
           typeof parsed.notificationsPausedUntil === 'number'
@@ -355,6 +362,7 @@ export class AppStore extends EventEmitter {
         serverName: os.hostname() || 'This PC',
         paired: [],
         clipboardEnabled: true,
+        ringDurationMs: 15_000,
         mutedNotifications: [],
         notificationsPausedUntil: 0
       }
@@ -391,6 +399,18 @@ export class AppStore extends EventEmitter {
 
   setClipboardEnabled(enabled: boolean): void {
     this.persisted.clipboardEnabled = enabled
+    this.save()
+    this.changed()
+  }
+
+  get ringDurationMs(): number {
+    return this.persisted.ringDurationMs
+  }
+
+  setRingDurationMs(value: number): void {
+    const next = sanitizeRingDuration(value)
+    if (next === this.persisted.ringDurationMs) return
+    this.persisted.ringDurationMs = next
     this.save()
     this.changed()
   }
@@ -941,23 +961,71 @@ export class AppStore extends EventEmitter {
   }
 
   markSmsResult(tempId: string, ok: boolean): void {
+    let mutated = false
     for (const list of Object.values(this.smsLocalMessages)) {
       const found = list.find((message) => message.id === tempId)
       if (found) {
-        this.recordLocalSms({ ...found, pending: false, failed: !ok })
+        if (found.pending) {
+          this.recordLocalSms({ ...found, pending: false, failed: !ok })
+          mutated = true
+        }
         break
       }
     }
-    if (!this.smsActive) return
-    this.smsActive = {
-      ...this.smsActive,
-      messages: this.smsActive.messages.map((m) =>
-        m.id === tempId ? { ...m, pending: false, failed: !ok } : m
-      )
+    if (this.smsActive) {
+      const target = this.smsActive.messages.find((message) => message.id === tempId)
+      if (target?.pending) {
+        this.smsActive = {
+          ...this.smsActive,
+          messages: this.smsActive.messages.map((message) =>
+            message.id === tempId ? { ...message, pending: false, failed: !ok } : message
+          )
+        }
+        const updated = this.smsActive.messages.find((message) => message.id === tempId)
+        if (updated) this.recordLocalSms(updated)
+        mutated = true
+      }
     }
-    const updated = this.smsActive.messages.find((message) => message.id === tempId)
-    if (updated) this.recordLocalSms(updated)
-    this.changed()
+    if (mutated) this.changed()
+  }
+
+  markSmsRetried(id: string): void {
+    let mutated = false
+    for (const list of Object.values(this.smsLocalMessages)) {
+      const found = list.find((message) => message.id === id)
+      if (found) {
+        this.recordLocalSms({ ...found, pending: false, failed: true, retried: true })
+        mutated = true
+        break
+      }
+    }
+    if (this.smsActive) {
+      const target = this.smsActive.messages.find((message) => message.id === id)
+      if (target) {
+        this.smsActive = {
+          ...this.smsActive,
+          messages: this.smsActive.messages.map((message) =>
+            message.id === id
+              ? { ...message, pending: false, failed: true, retried: true }
+              : message
+          )
+        }
+        mutated = true
+      }
+    }
+    if (mutated) this.changed()
+  }
+
+  findSmsMessage(id: string): SmsMessage | undefined {
+    if (this.smsActive) {
+      const active = this.smsActive.messages.find((message) => message.id === id)
+      if (active) return active
+    }
+    for (const list of Object.values(this.smsLocalMessages)) {
+      const found = list.find((message) => message.id === id)
+      if (found) return found
+    }
+    return undefined
   }
 
   /* ---------------- Gallery ---------------- */
@@ -1331,6 +1399,7 @@ export class AppStore extends EventEmitter {
       callLogLoading: this.callLogLoading,
       launchAtLogin: this.launchAtLogin,
       launchAtLoginSupported: this.launchAtLoginSupported,
+      ringDurationMs: this.persisted.ringDurationMs,
       clipboardEnabled: this.persisted.clipboardEnabled,
       downloadsDir: this.downloadsDir,
       clippingInFlight: false

@@ -589,6 +589,16 @@ private fun Screen(modifier: Modifier = Modifier) {
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     if (
+                                        (transfer.status == "pending" ||
+                                            transfer.status == "active") &&
+                                        status.state == LinkState.CONNECTED
+                                    ) {
+                                        TextButton(
+                                            onClick = { client.cancelTransfer(transfer.id) },
+                                            contentPadding = PaddingValues(horizontal = 8.dp)
+                                        ) { Text("Cancel", fontSize = 12.sp) }
+                                    }
+                                    if (
                                         transfer.direction == "out" &&
                                         (transfer.status == "failed" ||
                                             transfer.status == "interrupted") &&

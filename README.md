@@ -32,7 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.12.0** finishes the media card with album artwork, seek and phone volume controls.
+> **v0.12.1** finishes the controls: mute calls from the PC, choose how long Find my phone rings,
+> cancel a transfer, and retry a failed text.
 
 ## Features
 
@@ -41,17 +42,17 @@ service or a relay server.
 | Pairing and discovery | Yes | QR or 8-character code; mDNS, with an IPv6 link-local fallback |
 | Android onboarding | Yes | Three first-launch screens: how it works, permissions and pairing |
 | Notification mirroring | Yes | Live progress, search, history, app grouping, mute/clear, actions and reply |
-| SMS | Partial | New or existing conversations and search; no MMS |
+| SMS | Partial | New or existing conversations, search and retry failed sends; no MMS |
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
 | Contacts and call history | Yes | Recent calls and contacts share a switch beside the dialer |
-| Phone calls | Partial | Dial and control from the PC (best effort); no default-dialer role; audio stays on the phone |
-| Find my phone | Yes | Ring the connected phone and stop it from the phone or the PC |
+| Phone calls | Partial | Dial, answer, hang up, mute and use the phone speaker from the PC (best effort); audio stays on the phone |
+| Find my phone | Yes | Ring the connected phone for 5–30 s and stop it from the phone or the PC |
 | Media controls | Yes | Album art, seek and phone volume plus play/pause and next/previous |
 | Photo albums | Yes | Thumbnails, paged albums, previews, downloads, uploads and inline video playback |
 | Phone downloads | Yes | Browse accessible Downloads and pull files from the PC |
 | Battery | Yes | Live percentage and charging state |
 | Background | Yes | Foreground service with boot start; optional battery-optimization exemption |
-| File transfer | Yes | Both directions, resumable; Send to, drag and drop, or Share → LinkPhone |
+| File transfer | Yes | Both directions, resumable and cancellable; Send to, drag and drop, or Share → LinkPhone |
 | Clipboard | Partial | Text only; phone side only while the app is open |
 | Start with Windows | Yes | Opt-in hidden tray start, listed in Windows Startup Apps |
 | Auto-reconnect | Yes | Reclaims a paired PC after reboot, app restart or a PC address change |
@@ -75,7 +76,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.12.0.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.12.1.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

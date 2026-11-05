@@ -44,14 +44,17 @@ class MediaRepository(private val context: Context) {
 
     private val resolver = context.contentResolver
 
-    fun hasPermission(kind: Kind): Boolean = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
-            granted(kind.mediaPermission) ||
-                granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
-            granted(kind.mediaPermission)
+    fun hasPermission(kind: Kind): Boolean = hasFullAccess(kind) || isPartial(kind)
+
+    fun hasFullAccess(kind: Kind): Boolean = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> granted(kind.mediaPermission)
         else -> granted(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
+
+    fun isPartial(kind: Kind): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+            !granted(kind.mediaPermission) &&
+            granted(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
 
     fun albums(kind: Kind): List<Album> {
         data class MutableAlbum(

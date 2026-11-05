@@ -261,6 +261,8 @@ private fun Screen(modifier: Modifier = Modifier) {
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
     var videoAccess by remember { mutableStateOf(hasVideoAccess(context)) }
+    var fullVideoAccess by remember { mutableStateOf(hasFullVideoAccess(context)) }
+    var partialVideoAccess by remember { mutableStateOf(hasPartialVideoAccess(context)) }
     var contactsAccess by remember { mutableStateOf(hasContactsAccess(context)) }
     var callLogAccess by remember { mutableStateOf(hasCallLogAccess(context)) }
     var simAccess by remember { mutableStateOf(hasSimAccess(context)) }
@@ -275,6 +277,7 @@ private fun Screen(modifier: Modifier = Modifier) {
         !batteryExempt,
         !smsAccess,
         !photoAccess,
+        photoAccess && !fullVideoAccess,
         !contactsAccess,
         !callLogAccess,
         smsAccess && !simAccess,
@@ -293,6 +296,8 @@ private fun Screen(modifier: Modifier = Modifier) {
             smsAccess = hasSmsAccess(context)
             photoAccess = hasPhotoAccess(context)
             videoAccess = hasVideoAccess(context)
+            fullVideoAccess = hasFullVideoAccess(context)
+            partialVideoAccess = hasPartialVideoAccess(context)
             val nextContacts = hasContactsAccess(context)
             if (nextContacts != contactsAccess) {
                 contactsAccess = nextContacts
@@ -328,6 +333,8 @@ private fun Screen(modifier: Modifier = Modifier) {
     ) {
         photoAccess = hasPhotoAccess(context)
         videoAccess = hasVideoAccess(context)
+        fullVideoAccess = hasFullVideoAccess(context)
+        partialVideoAccess = hasPartialVideoAccess(context)
         if (!photoAccess) {
             notice = "Photo access was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
         }
@@ -337,6 +344,8 @@ private fun Screen(modifier: Modifier = Modifier) {
         ActivityResultContracts.RequestPermission()
     ) {
         videoAccess = hasVideoAccess(context)
+        fullVideoAccess = hasFullVideoAccess(context)
+        partialVideoAccess = hasPartialVideoAccess(context)
         if (!videoAccess) {
             notice = "Video access was denied. Allow it in Settings → Apps → LinkPhone → Permissions."
         }
@@ -491,6 +500,33 @@ private fun Screen(modifier: Modifier = Modifier) {
                     Spacer(Modifier.width(8.dp))
                     Text(text, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     TextButton(onClick = { notice = null }) { ButtonLabel(Symbols.close, "Dismiss") }
+                }
+            }
+        }
+
+        if (photoAccess && !fullVideoAccess) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CardTitle(Symbols.photo_library, "Videos need access")
+                    Text(
+                        if (partialVideoAccess) {
+                            "Android is showing only the videos you selected. Allow all videos to " +
+                                "see the full gallery on your PC."
+                        } else {
+                            "Photo access is on, but Android asks for video separately. Allow it " +
+                                "to see videos on your PC."
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    OutlinedButton(onClick = {
+                        videoPermission.launch(Manifest.permission.READ_MEDIA_VIDEO)
+                    }) {
+                        ButtonLabel(
+                            Symbols.photo_library,
+                            if (partialVideoAccess) "Allow all videos" else "Allow video access"
+                        )
+                    }
                 }
             }
         }
@@ -716,19 +752,29 @@ private fun Screen(modifier: Modifier = Modifier) {
             }
         }
 
-        if (photoAccess && !videoAccess) {
+        if (photoAccess && !fullVideoAccess) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     CardTitle(Symbols.photo_library, "Videos")
                     Text(
-                        "Photo access is granted, but Android treats video as a separate permission. " +
-                            "Allow it to see videos on your PC.",
+                        if (partialVideoAccess) {
+                            "Android is showing only the videos you selected. Allow all videos to " +
+                                "browse the full video gallery on your PC."
+                        } else {
+                            "Photo access is granted, but Android treats video as a separate " +
+                                "permission. Allow it to see videos on your PC."
+                        },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                     OutlinedButton(onClick = {
                         videoPermission.launch(Manifest.permission.READ_MEDIA_VIDEO)
-                    }) { ButtonLabel(Symbols.photo_library, "Allow video access") }
+                    }) {
+                        ButtonLabel(
+                            Symbols.photo_library,
+                            if (partialVideoAccess) "Allow all videos" else "Allow video access"
+                        )
+                    }
                 }
             }
         }
@@ -867,20 +913,25 @@ internal fun hasPhotoAccess(context: Context): Boolean = when {
         PackageManager.PERMISSION_GRANTED
 }
 
-internal fun hasVideoAccess(context: Context): Boolean = when {
-    Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
-        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) ==
-            PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
-            ) == PackageManager.PERMISSION_GRANTED
+internal fun hasFullVideoAccess(context: Context): Boolean = when {
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
         ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) ==
             PackageManager.PERMISSION_GRANTED
     else -> ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) ==
         PackageManager.PERMISSION_GRANTED
 }
+
+internal fun hasPartialVideoAccess(context: Context): Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) !=
+            PackageManager.PERMISSION_GRANTED &&
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+        ) == PackageManager.PERMISSION_GRANTED
+
+internal fun hasVideoAccess(context: Context): Boolean =
+    hasFullVideoAccess(context) || hasPartialVideoAccess(context)
 
 internal fun photoPermissions(): Array<String> = when {
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> arrayOf(

@@ -98,6 +98,8 @@ export class AppStore extends EventEmitter {
   private galleryAlbums: GalleryAlbum[] = []
   private galleryKinds: AppState['galleryKinds'] = ['image']
   private galleryKind: AppState['galleryKind'] = 'image'
+  private galleryGranted = true
+  private galleryPartial = false
   private galleryDownloads: AppState['galleryDownloads'] = {}
   private galleryPhotos: GalleryPhoto[] = []
   private galleryAlbumId: string | null = null
@@ -855,6 +857,12 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
+  setGalleryAccess(granted: boolean, partial: boolean): void {
+    this.galleryGranted = granted
+    this.galleryPartial = partial
+    this.changed()
+  }
+
   setGalleryDownload(key: string, state: AppState['galleryDownloads'][string]): void {
     this.galleryDownloads = { ...this.galleryDownloads, [key]: state }
     this.changed()
@@ -1145,6 +1153,8 @@ export class AppStore extends EventEmitter {
       galleryAlbums: this.galleryAlbums,
       galleryKinds: this.galleryKinds,
       galleryKind: this.galleryKind,
+      galleryGranted: this.galleryGranted,
+      galleryPartial: this.galleryPartial,
       galleryDownloads: this.galleryDownloads,
       galleryPhotos: this.galleryPhotos,
       galleryAlbumId: this.galleryAlbumId,

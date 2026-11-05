@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.10.0** adds a Videos tab with inline playback, seeking and video uploads to the phone.
-> v0.9.0 added Share to LinkPhone, photo uploads, the phone Downloads browser and resumable files.
+> **v0.10.1** makes missing or partial Android video access obvious on the phone and explains
+> exactly how to fix an empty Videos tab. v0.10.0 added the Videos tab and inline playback.
 
 ## Features
 
@@ -76,7 +76,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.10.0.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.10.1.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

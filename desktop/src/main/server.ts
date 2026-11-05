@@ -718,6 +718,7 @@ export class LinkServer extends EventEmitter {
               .filter((kind): kind is 'image' | 'video' => kind === 'image' || kind === 'video')
           : []
         this.store.setGalleryKinds(kinds.length > 0 ? kinds : ['image'])
+        this.store.setGalleryAccess(bool(msg.granted, true), bool(msg.partial))
         this.store.setGalleryAlbums(list.filter(isRawMsg).map(parseGalleryAlbum).slice(0, 200))
         return
       }

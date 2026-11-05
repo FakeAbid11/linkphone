@@ -461,6 +461,7 @@ function GalleryEmpty({
   kind,
   granted,
   partial,
+  connected,
   onRefresh
 }: {
   error: string

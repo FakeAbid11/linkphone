@@ -69,6 +69,7 @@ fun OnboardingScreen(
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
     var contactsAccess by remember { mutableStateOf(hasContactsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
+    var videoAccess by remember { mutableStateOf(hasFullVideoAccess(context)) }
     var callLogAccess by remember { mutableStateOf(hasCallLogAccess(context)) }
     var callAccess by remember { mutableStateOf(hasCallPermissions(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
@@ -78,6 +79,7 @@ fun OnboardingScreen(
         smsAccess = hasSmsAccess(context)
         contactsAccess = hasContactsAccess(context)
         photoAccess = hasPhotoAccess(context)
+        videoAccess = hasFullVideoAccess(context)
         callLogAccess = hasCallLogAccess(context)
         callAccess = hasCallPermissions(context)
         batteryExempt = isBatteryExempt(context)
@@ -156,6 +158,7 @@ fun OnboardingScreen(
                     smsAccess = smsAccess,
                     contactsAccess = contactsAccess,
                     photoAccess = photoAccess,
+                    videoAccess = videoAccess,
                     callAccess = callAccess,
                     callLogAccess = callLogAccess,
                     batteryExempt = batteryExempt,
@@ -328,6 +331,7 @@ private fun PermissionsStep(
     smsAccess: Boolean,
     contactsAccess: Boolean,
     photoAccess: Boolean,
+    videoAccess: Boolean,
     callAccess: Boolean,
     callLogAccess: Boolean,
     batteryExempt: Boolean,
@@ -376,9 +380,9 @@ private fun PermissionsStep(
         )
         PermissionRow(
             glyph = Symbols.photo_library,
-            title = "Photos",
-            detail = "Show photo albums and download originals on the PC.",
-            granted = photoAccess,
+            title = "Photos and videos",
+            detail = "Show photo and video albums and download originals on the PC.",
+            granted = photoAccess && videoAccess,
             action = "Allow",
             onAction = onRequestPhotos
         )

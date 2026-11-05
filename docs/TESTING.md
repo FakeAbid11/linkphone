@@ -347,6 +347,12 @@ Ring the phone from its device card, then use the phone.
 * ✅ Grant video access: the phone card disappears and the PC Videos list refreshes.
 * ✅ Selected-only media access: the phone offers Allow all videos and the PC explains partial access.
 * ✅ Full video access with no videos: the PC shows No videos found with a Refresh action.
+* ✅ Download a video, restart LinkPhone, reopen Photos → Videos, and press Play without downloading again.
+* ✅ Press Download twice: only one transfer is created.
+* ✅ Rename the downloaded file and press Play: a clean error with Download again appears.
+* ✅ Switch Photos/Videos repeatedly: posters never come from the wrong media kind.
+* ✅ Disconnect and reconnect: the Videos permission hint reflects the current phone state.
+* ✅ Complete onboarding with only photo access: the Photos and videos row still asks for access.
 
 ## 10. Files
 

@@ -465,6 +465,13 @@ export class AppStore extends EventEmitter {
     this.storageCursor = undefined
     this.storageLimited = false
     this.storageGranted = true
+    this.galleryAlbums = []
+    this.galleryPhotos = []
+    this.galleryThumbs = {}
+    this.galleryPreview = null
+    this.galleryError = ''
+    this.galleryGranted = true
+    this.galleryPartial = false
     const current = this.live.get(deviceId)
     if (current) {
       this.live.set(deviceId, {
@@ -721,7 +728,14 @@ export class AppStore extends EventEmitter {
                 : undefined,
           sourcePath: typeof item.sourcePath === 'string' ? item.sourcePath : undefined,
           resumeOffset: Number(item.resumeOffset) || undefined,
-          mtimeMs: Number(item.mtimeMs) || undefined
+          mtimeMs: Number(item.mtimeMs) || undefined,
+          photoId: typeof item.photoId === 'string' ? item.photoId : undefined,
+          mediaKind:
+            item.mediaKind === 'video'
+              ? 'video'
+              : item.mediaKind === 'image'
+                ? 'image'
+                : undefined
         })
       }
       return out
@@ -845,7 +859,18 @@ export class AppStore extends EventEmitter {
   /* ---------------- Gallery ---------------- */
 
   requestGalleryAlbums(kind?: AppState['galleryKind']): void {
-    if (kind) this.galleryKind = kind
+    if (kind && kind !== this.galleryKind) {
+      this.galleryKind = kind
+      this.galleryAlbums = []
+      this.galleryPhotos = []
+      this.galleryThumbs = {}
+      this.galleryPreview = null
+      this.galleryError = ''
+      this.galleryGranted = true
+      this.galleryPartial = false
+    } else if (kind) {
+      this.galleryKind = kind
+    }
     this.galleryLoading = true
     this.galleryError = ''
     this.galleryPreview = null

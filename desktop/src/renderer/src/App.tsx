@@ -39,6 +39,11 @@ export default function App(): JSX.Element {
   const [dropNotice, setDropNotice] = useState('')
   const [galleryThumbs, setGalleryThumbs] = useState<Record<string, string>>({})
   const [galleryPreview, setGalleryPreview] = useState<GalleryPreview | null>(null)
+  const [mediaArt, setMediaArt] = useState<{
+    id: string
+    mime: string
+    data: string
+  } | null>(null)
   const dragDepth = useRef(0)
   const connectedRef = useRef(false)
   connectedRef.current = (state?.devices ?? []).some((device) => device.connected)
@@ -62,6 +67,15 @@ export default function App(): JSX.Element {
     setGalleryThumbs({})
     setGalleryPreview(null)
   }, [state?.galleryKind])
+
+  useEffect(() => {
+    const offArt = window.linkphone.onMediaArt(setMediaArt)
+    return offArt
+  }, [])
+
+  useEffect(() => {
+    if (!state?.media) setMediaArt(null)
+  }, [state?.media])
 
   useEffect(() => {
     let alive = true
@@ -321,7 +335,12 @@ export default function App(): JSX.Element {
               pausedUntil={state.notificationsPausedUntil}
               onPause={(until) => void window.linkphone.pauseNotifications(until)}
               media={state.media}
-              onMediaAction={(action) => void window.linkphone.sendMediaAction(action)}
+              mediaArt={
+                mediaArt && state.media?.artId === mediaArt.id ? mediaArt : null
+              }
+              onMediaAction={(action, value) =>
+                void window.linkphone.sendMediaAction(action, value)
+              }
             />
           )}
           {tab === 'files' && (

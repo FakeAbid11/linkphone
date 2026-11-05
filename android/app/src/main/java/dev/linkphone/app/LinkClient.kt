@@ -736,7 +736,7 @@ class LinkClient(context: Context, private val store: PairStore) {
             )
             "phone.ring.stop" -> PhoneRinger.stop()
             "device.rename" -> renameDevice(msg.optString("name"))
-            "media.action" -> MediaWatcher.action(msg.optString("action"))
+            "media.action" -> MediaWatcher.action(msg)
         }
     }
 
@@ -1308,7 +1308,17 @@ class LinkClient(context: Context, private val store: PairStore) {
         send(JSONObject().apply { put("t", "call.placed"); put("number", number) })
     }
 
-    fun sendMediaState(title: String, artist: String, playing: Boolean, app: String) {
+    fun sendMediaState(
+        title: String,
+        artist: String,
+        playing: Boolean,
+        app: String,
+        positionMs: Long = 0,
+        durationMs: Long = 0,
+        volume: Int = 0,
+        volumeMax: Int = 0,
+        artId: String = ""
+    ) {
         if (!ready) return
         send(
             JSONObject().apply {
@@ -1317,6 +1327,23 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("artist", artist)
                 put("playing", playing)
                 put("app", app)
+                put("positionMs", positionMs)
+                put("durationMs", durationMs)
+                put("volume", volume)
+                put("volumeMax", volumeMax)
+                put("artId", artId)
+            }
+        )
+    }
+
+    fun sendMediaArt(id: String, mime: String, bytes: ByteArray?) {
+        if (!ready) return
+        send(
+            JSONObject().apply {
+                put("t", "media.art")
+                put("id", id)
+                put("mime", mime)
+                put("data", if (id.isNotEmpty() && bytes != null) b64(bytes) else "")
             }
         )
     }

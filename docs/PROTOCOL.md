@@ -159,8 +159,9 @@ the socket; the frames above are unchanged.
 | `device.rename.state` | phone → PC | `name` — confirms a PC rename or reports a phone-side rename |
 | `phone.ring.stop` | PC → phone | — |
 | `phone.ring.state` | phone → PC | `ringing` |
-| `media.state` | phone → PC | `title`, `artist`, `playing`, `app` |
-| `media.action` | PC → phone | `action` = `play` \| `pause` \| `next` \| `previous` |
+| `media.state` | phone → PC | `title`, `artist`, `playing`, `app`, `positionMs?`, `durationMs?`, `volume?`, `volumeMax?`, `artId?` |
+| `media.action` | PC → phone | `action` = `play` \| `pause` \| `next` \| `previous` \| `seek` \| `volume`, plus `positionMs?` or `level?` |
+| `media.art` | phone → PC | `id`, `mime`, `data` (base64 JPEG ≤ 64 KB binary, ~256 px; empty id/data clears) |
 | `device.status` | phone → PC | `batteryLevel`, `charging` |
 | `sims.request` | PC → phone | — |
 | `sims.sync` | phone → PC | `sms[{id,label,carrier?,slot?,isDefault?}]`, `call[{id,label,isDefault?}]`, `granted` |

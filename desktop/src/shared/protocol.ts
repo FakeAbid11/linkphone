@@ -297,7 +297,17 @@ export interface AppState {
   callSpeaker: boolean
   callMuted: boolean
   callError: string
-  media: { title: string; artist: string; playing: boolean; app: string } | null
+  media: {
+    title: string
+    artist: string
+    playing: boolean
+    app: string
+    positionMs: number
+    durationMs: number
+    volume: number
+    volumeMax: number
+    artId: string
+  } | null
   phoneContacts: PhoneContact[]
   contactsGranted: boolean
   contactsLoading: boolean
@@ -683,11 +693,25 @@ export interface MediaStateMsg {
   artist: string
   playing: boolean
   app: string
+  positionMs?: number
+  durationMs?: number
+  volume?: number
+  volumeMax?: number
+  artId?: string
 }
 
 export interface MediaActionMsg {
   t: 'media.action'
-  action: 'play' | 'pause' | 'next' | 'previous'
+  action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'volume'
+  positionMs?: number
+  level?: number
+}
+
+export interface MediaArtMsg {
+  t: 'media.art'
+  id: string
+  mime: string
+  data: string
 }
 
 export interface CallAnswerMsg {
@@ -777,6 +801,7 @@ export type ControlMsg =
   | PhoneRingStateMsg
   | MediaStateMsg
   | MediaActionMsg
+  | MediaArtMsg
   | ClipSetMsg
   | FileOfferMsg
   | FileAcceptMsg

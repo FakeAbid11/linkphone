@@ -382,6 +382,18 @@ Ring the phone from its device card, then use the phone.
 * ✅ Pause survives a desktop restart; an expired pause starts unpaused.
 * ✅ Phone notifications are not altered or cleared.
 
+## 19. Media card (v0.12.0+)
+
+* ✅ Play a track with artwork: art appears once, not re-sent every second.
+* ✅ Change tracks: art swaps; no art falls back to the glyph.
+* ✅ Seek to the middle/end: one seek frame and the bar snaps to the echoed position.
+* ✅ Pause/resume freezes and resumes the position correctly.
+* ✅ Live stream with no duration shows “Live” and hides the seek bar.
+* ✅ Volume slider changes phone media volume; phone-side volume changes update the slider.
+* ✅ Two sessions: the playing app is shown; transport controls target it.
+* ✅ Disconnect mid-drag: the card clears and controls disable.
+* ✅ Old APK/desktop: play/pause/next/previous still work.
+
 ## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.

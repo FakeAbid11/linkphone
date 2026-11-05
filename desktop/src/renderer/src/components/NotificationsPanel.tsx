@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MutedApp, NotificationItem } from '@shared/protocol'
 import { Icon } from './Icon'
 
@@ -17,8 +17,22 @@ interface Props {
   connected: boolean
   pausedUntil: number
   onPause: (until: number | null) => void
-  media: { title: string; artist: string; playing: boolean; app: string } | null
-  onMediaAction: (action: 'play' | 'pause' | 'next' | 'previous') => void
+  media: {
+    title: string
+    artist: string
+    playing: boolean
+    app: string
+    positionMs: number
+    durationMs: number
+    volume: number
+    volumeMax: number
+    artId: string
+  } | null
+  mediaArt: { id: string; mime: string; data: string } | null
+  onMediaAction: (
+    action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'volume',
+    value?: number
+  ) => void
 }
 
 type ViewMode = 'newest' | 'app'
@@ -49,6 +63,7 @@ export function NotificationsPanel({
   pausedUntil,
   onPause,
   media,
+  mediaArt,
   onMediaAction
 }: Props): JSX.Element {
   const [replying, setReplying] = useState<string | null>(null)
@@ -81,6 +96,73 @@ export function NotificationsPanel({
     date.setDate(date.getDate() + 1)
     date.setHours(8, 0, 0, 0)
     onPause(date.getTime())
+  }
+
+  const [dragPosition, setDragPosition] = useState<number | null>(null)
+  const [localVolume, setLocalVolume] = useState<number | null>(null)
+  const [mediaNow, setMediaNow] = useState(Date.now())
+  const volumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const positionAnchor = useRef({ position: 0, at: Date.now() })
+  const duration = media?.durationMs ?? 0
+  const shownPosition =
+    dragPosition ??
+    (media
+      ? media.playing && duration > 0
+        ? Math.min(
+            duration,
+            positionAnchor.current.position +
+              Math.max(0, mediaNow - positionAnchor.current.at)
+          )
+        : media.positionMs
+      : 0)
+  const shownVolume = localVolume ?? media?.volume ?? 0
+  const artUrl = mediaArt ? `data:${mediaArt.mime};base64,${mediaArt.data}` : ''
+  const clock = (value: number): string => {
+    const total = Math.max(0, Math.round(value / 1000))
+    return `${Math.floor(total / 60)}:${(total % 60).toString().padStart(2, '0')}`
+  }
+
+  useEffect(() => {
+    setDragPosition(null)
+    setLocalVolume(null)
+  }, [media?.title, media?.durationMs])
+
+  useEffect(() => {
+    positionAnchor.current = {
+      position: media?.positionMs ?? 0,
+      at: Date.now()
+    }
+    setMediaNow(Date.now())
+  }, [media?.title, media?.durationMs, media?.positionMs, media?.playing])
+
+  useEffect(() => {
+    setLocalVolume(null)
+  }, [media?.volume])
+
+  useEffect(() => {
+    if (!media?.playing || dragPosition !== null) return
+    const timer = setInterval(() => setMediaNow(Date.now()), 500)
+    return () => clearInterval(timer)
+  }, [media?.playing, dragPosition])
+
+  useEffect(
+    () => () => {
+      if (volumeTimer.current) clearTimeout(volumeTimer.current)
+    },
+    []
+  )
+
+  const commitSeek = (): void => {
+    if (dragPosition === null) return
+    onMediaAction('seek', Math.round(dragPosition))
+    setDragPosition(null)
+    setMediaNow(Date.now())
+  }
+
+  const changeVolume = (value: number): void => {
+    setLocalVolume(value)
+    if (volumeTimer.current) clearTimeout(volumeTimer.current)
+    volumeTimer.current = setTimeout(() => onMediaAction('volume', value), 120)
   }
 
   const loadHistory = (): void => {
@@ -174,41 +256,92 @@ export function NotificationsPanel({
   return (
     <div className="notif-center">
       {mode === 'live' && media && (
-        <div className="media-card">
-          <div className="media-icon"><Icon name="volume_up" size={22} /></div>
-          <div className="media-body">
-            <strong title={media.title}>{media.title}</strong>
-            <span>{[media.artist, media.app].filter(Boolean).join(' · ')}</span>
+        <div className="media-wrap">
+          <div className="media-card">
+            <div className="media-icon">
+              {artUrl ? (
+                <img src={artUrl} alt={`Album art for ${media.title}`} />
+              ) : (
+                <Icon name="volume_up" size={22} />
+              )}
+            </div>
+            <div className="media-body">
+              <strong title={media.title}>{media.title}</strong>
+              <span>{[media.artist, media.app].filter(Boolean).join(' · ')}</span>
+            </div>
+            <div className="media-actions">
+              <button
+                type="button"
+                className="icon-btn"
+                title="Previous"
+                aria-label="Previous track"
+                disabled={!connected}
+                onClick={() => onMediaAction('previous')}
+              >
+                <Icon name="skip_previous" size={20} />
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                title={media.playing ? 'Pause' : 'Play'}
+                aria-label={media.playing ? 'Pause' : 'Play'}
+                disabled={!connected}
+                onClick={() => onMediaAction(media.playing ? 'pause' : 'play')}
+              >
+                <Icon name={media.playing ? 'pause' : 'play_arrow'} size={22} />
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                title="Next"
+                aria-label="Next track"
+                disabled={!connected}
+                onClick={() => onMediaAction('next')}
+              >
+                <Icon name="skip_next" size={20} />
+              </button>
+            </div>
           </div>
-          <div className="media-actions">
-            <button
-              type="button"
-              className="icon-btn"
-              title="Previous"
-              aria-label="Previous track"
-              onClick={() => onMediaAction('previous')}
-            >
-              <Icon name="skip_previous" size={20} />
-            </button>
-            <button
-              type="button"
-              className="icon-btn"
-              title={media.playing ? 'Pause' : 'Play'}
-              aria-label={media.playing ? 'Pause' : 'Play'}
-              onClick={() => onMediaAction(media.playing ? 'pause' : 'play')}
-            >
-              <Icon name={media.playing ? 'pause' : 'play_arrow'} size={22} />
-            </button>
-            <button
-              type="button"
-              className="icon-btn"
-              title="Next"
-              aria-label="Next track"
-              onClick={() => onMediaAction('next')}
-            >
-              <Icon name="skip_next" size={20} />
-            </button>
+          <div className="media-seek">
+            {duration > 0 ? (
+              <>
+                <span>{clock(shownPosition)}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration}
+                  step={1000}
+                  value={Math.min(duration, shownPosition)}
+                  disabled={!connected}
+                  aria-label="Seek"
+                  onChange={(event) => setDragPosition(Number(event.target.value))}
+                  onPointerUp={commitSeek}
+                  onKeyUp={commitSeek}
+                  onBlur={commitSeek}
+                />
+                <span>{clock(duration)}</span>
+              </>
+            ) : (
+              <>
+                <span className="muted">Live</span>
+                <span className="muted">{clock(shownPosition)}</span>
+              </>
+            )}
           </div>
+          {media.volumeMax > 0 && (
+            <div className="media-volume">
+              <Icon name="volume_up" size={16} />
+              <input
+                type="range"
+                min={0}
+                max={media.volumeMax}
+                value={Math.min(media.volumeMax, shownVolume)}
+                disabled={!connected}
+                aria-label="Phone volume"
+                onChange={(event) => changeVolume(Number(event.target.value))}
+              />
+            </div>
+          )}
         </div>
       )}
 

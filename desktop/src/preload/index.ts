@@ -111,7 +111,16 @@ const api: LinkPhoneApi = {
   dismissCallError: () => ipcRenderer.invoke('call:error-dismiss') as Promise<void>,
   ringPhone: (deviceId) => ipcRenderer.invoke('phone:ring', deviceId) as Promise<void>,
   stopRingPhone: (deviceId) => ipcRenderer.invoke('phone:ring-stop', deviceId) as Promise<void>,
-  sendMediaAction: (action) => ipcRenderer.invoke('media:action', action) as Promise<void>,
+  sendMediaAction: (action, value) =>
+    ipcRenderer.invoke('media:action', action, value) as Promise<void>,
+  onMediaArt: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      art: { id: string; mime: string; data: string } | null
+    ): void => cb(art)
+    ipcRenderer.on('media:art', handler)
+    return () => ipcRenderer.removeListener('media:art', handler)
+  },
   requestContacts: () => ipcRenderer.invoke('contacts:request') as Promise<void>,
   requestCallHistory: () => ipcRenderer.invoke('calllog:request') as Promise<void>,
   requestSims: () => ipcRenderer.invoke('sims:request') as Promise<void>,

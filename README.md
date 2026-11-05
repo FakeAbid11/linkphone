@@ -32,8 +32,7 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.11.0** adds phone renaming, low-battery alerts and a notification pause control.
-> v0.10.3 was the stability pass.
+> **v0.12.0** finishes the media card with album artwork, seek and phone volume controls.
 
 ## Features
 
@@ -47,7 +46,7 @@ service or a relay server.
 | Contacts and call history | Yes | Recent calls and contacts share a switch beside the dialer |
 | Phone calls | Partial | Dial and control from the PC (best effort); no default-dialer role; audio stays on the phone |
 | Find my phone | Yes | Ring the connected phone and stop it from the phone or the PC |
-| Media controls | Yes | Now playing card with play/pause and next/previous |
+| Media controls | Yes | Album art, seek and phone volume plus play/pause and next/previous |
 | Photo albums | Yes | Thumbnails, paged albums, previews, downloads, uploads and inline video playback |
 | Phone downloads | Yes | Browse accessible Downloads and pull files from the PC |
 | Battery | Yes | Live percentage and charging state |
@@ -76,7 +75,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.11.0.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.12.0.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

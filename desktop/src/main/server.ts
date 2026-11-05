@@ -25,6 +25,7 @@ import {
   type FileOfferMsg,
   type GalleryAlbum,
   type GalleryPhoto,
+  type MediaActionMsg,
   type NotificationAction,
   type NotificationItem,
   type PhoneCallInfo,
@@ -286,6 +287,7 @@ export class LinkServer extends EventEmitter {
         this.store.setCallState({ calls: [], dialerReady: false, outgoingReady: false, controlReady: false, speaker: false, muted: false })
         this.store.setCallPlaced(null)
         this.store.setMedia(null)
+        this.emit('media-art', null)
         this.store.resetContacts()
         this.store.resetSims()
       }
@@ -796,8 +798,32 @@ export class LinkServer extends EventEmitter {
           title: str(msg.title).slice(0, 200),
           artist: str(msg.artist).slice(0, 200),
           playing: bool(msg.playing),
-          app: str(msg.app).slice(0, 64)
+          app: str(msg.app).slice(0, 64),
+          positionMs: Math.max(0, Math.min(86_400_000, Math.floor(num(msg.positionMs)))),
+          durationMs: Math.max(0, Math.min(86_400_000, Math.floor(num(msg.durationMs)))),
+          volume: Math.max(0, Math.floor(num(msg.volume))),
+          volumeMax: Math.max(0, Math.floor(num(msg.volumeMax))),
+          artId: str(msg.artId).slice(0, 64)
         })
+        return
+      }
+
+      case 'media.art': {
+        const id = str(msg.id).slice(0, 64)
+        const mime = str(msg.mime).toLowerCase()
+        const data = str(msg.data)
+        if (!id || !data) {
+          this.emit('media-art', null)
+          return
+        }
+        if (
+          !/^image\/(jpeg|png)$/.test(mime) ||
+          data.length > 96 * 1024 ||
+          !/^[A-Za-z0-9+/=]+$/.test(data)
+        ) {
+          return
+        }
+        this.emit('media-art', { id, mime, data })
         return
       }
 
@@ -1081,8 +1107,14 @@ export class LinkServer extends EventEmitter {
     this.send(peer, { t: 'phone.ring.stop' })
   }
 
-  sendMediaAction(action: 'play' | 'pause' | 'next' | 'previous'): void {
-    this.broadcast({ t: 'media.action', action })
+  sendMediaAction(
+    action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'volume',
+    value?: number
+  ): void {
+    const msg: MediaActionMsg = { t: 'media.action', action }
+    if (action === 'seek' && typeof value === 'number') msg.positionMs = Math.max(0, value)
+    if (action === 'volume' && typeof value === 'number') msg.level = Math.max(0, value)
+    this.broadcast(msg)
   }
 
   /* ---------------------------------------------------------------- */

@@ -66,7 +66,13 @@ export interface LinkPhoneApi {
   dismissCallError: () => Promise<void>
   ringPhone: (deviceId: string) => Promise<void>
   stopRingPhone: (deviceId: string) => Promise<void>
-  sendMediaAction: (action: 'play' | 'pause' | 'next' | 'previous') => Promise<void>
+  sendMediaAction: (
+    action: 'play' | 'pause' | 'next' | 'previous' | 'seek' | 'volume',
+    value?: number
+  ) => Promise<void>
+  onMediaArt: (
+    cb: (art: { id: string; mime: string; data: string } | null) => void
+  ) => () => void
   requestContacts: () => Promise<void>
   requestCallHistory: () => Promise<void>
   requestSims: () => Promise<void>

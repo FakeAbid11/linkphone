@@ -123,7 +123,7 @@ export class AppStore extends EventEmitter {
   private callSpeaker = false
   private callMuted = false
   private callError = ''
-  private media: { title: string; artist: string; playing: boolean; app: string } | null = null
+  private media: AppState['media'] = null
   private phoneContacts: PhoneContact[] = []
   private contactsGranted = false
   private contactsLoading = false
@@ -1153,8 +1153,10 @@ export class AppStore extends EventEmitter {
     this.changed()
   }
 
-  setMedia(media: { title: string; artist: string; playing: boolean; app: string } | null): void {
-    this.media = media && media.title.length > 0 ? media : null
+  setMedia(media: AppState['media']): void {
+    const next = media && media.title.length > 0 ? media : null
+    if (JSON.stringify(next) === JSON.stringify(this.media)) return
+    this.media = next
     this.changed()
   }
 

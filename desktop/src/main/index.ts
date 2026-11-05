@@ -586,14 +586,19 @@ function registerIpc(): void {
   ipcMain.handle('phone:ring-stop', (_event, deviceId: unknown) => {
     if (typeof deviceId === 'string') server.stopRing(deviceId)
   })
-  ipcMain.handle('media:action', (_event, action: unknown) => {
+  ipcMain.handle('media:action', (_event, action: unknown, value: unknown) => {
     if (
       action === 'play' ||
       action === 'pause' ||
       action === 'next' ||
-      action === 'previous'
+      action === 'previous' ||
+      action === 'seek' ||
+      action === 'volume'
     ) {
-      server.sendMediaAction(action)
+      server.sendMediaAction(
+        action,
+        typeof value === 'number' && Number.isFinite(value) ? value : undefined
+      )
     }
   })
 
@@ -667,6 +672,13 @@ async function bootstrap(): Promise<void> {
   }
 
   server.on('clipboardIn', (text: string) => watcher.applyRemote(text))
+
+  server.on(
+    'media-art',
+    (art: { id: string; mime: string; data: string } | null) => {
+      win?.webContents.send('media:art', art)
+    }
+  )
 
   server.on('notification', (item) => {
     if (store.isNotificationsPaused()) return

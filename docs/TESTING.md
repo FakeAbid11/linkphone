@@ -358,6 +358,30 @@ Ring the phone from its device card, then use the phone.
 * ✅ Retry an interrupted video upload after a restart: it still lands in Movies/LinkPhone.
 * ✅ Photos offline: clear phone-offline state with disabled actions; image downloads show progress.
 
+## 16. Rename the phone (v0.11.0+)
+
+* ✅ Rename from the PC device card; the phone Setup shows the same name in a few seconds.
+* ✅ Restart both apps and reconnect; the name persists.
+* ✅ Rename on the phone while disconnected; the PC shows it after reconnect.
+* ✅ Rename one of two paired phones; the other keeps its name.
+* ✅ Old APK: the PC shows the upgrade hint after ~3 seconds and keeps the previous name.
+* ✅ Empty, very long or control-character names are rejected or trimmed.
+
+## 17. Low-battery alert (v0.11.0+)
+
+* ✅ Unplug at 15% or below: a single Windows toast names the phone and percentage.
+* ✅ Plug in or rise to 20%: the latch resets; no toast for the next 1% wobble.
+* ✅ Disconnect and reconnect: the latch resets.
+* ✅ Incoming calls and low-battery toasts are not suppressed by notification pause.
+
+## 18. Notification pause (v0.11.0+)
+
+* ✅ Pause 30 min/1 hour/Until tomorrow: Windows toasts stop, the in-app list, badge and history
+  keep updating.
+* ✅ The paused banner shows the end time and Resume restores toasts.
+* ✅ Pause survives a desktop restart; an expired pause starts unpaused.
+* ✅ Phone notifications are not altered or cleared.
+
 ## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.

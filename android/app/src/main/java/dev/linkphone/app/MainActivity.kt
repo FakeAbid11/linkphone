@@ -37,6 +37,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -272,6 +273,7 @@ private fun Screen(modifier: Modifier = Modifier) {
     var confirmForget by remember { mutableStateOf(false) }
     val paired = store.hasPairing()
     var setupOpen by rememberSaveable { mutableStateOf(!paired) }
+    var phoneNameDraft by remember { mutableStateOf(client.deviceName) }
     val stepsLeft = listOf(
         !notifAccess,
         !batteryExempt,
@@ -641,6 +643,28 @@ private fun Screen(modifier: Modifier = Modifier) {
         }
 
         if (setupOpen) {
+
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CardTitle(Symbols.smartphone, "This phone")
+                OutlinedTextField(
+                    value = phoneNameDraft,
+                    onValueChange = { phoneNameDraft = it.take(32) },
+                    singleLine = true,
+                    label = { Text("Phone name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedButton(
+                    enabled = phoneNameDraft.trim().isNotEmpty(),
+                    onClick = {
+                        if (client.renameDevice(phoneNameDraft)) {
+                            phoneNameDraft = client.deviceName
+                            notice = "Phone name updated."
+                        }
+                    }
+                ) { ButtonLabel(Symbols.check_circle, "Save name") }
+            }
+        }
 
         if (store.hasPairing()) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {

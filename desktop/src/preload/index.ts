@@ -35,6 +35,8 @@ const api: LinkPhoneApi = {
   newPairingCode: () => ipcRenderer.invoke('pair:new') as Promise<string>,
   refreshAddresses: () => ipcRenderer.invoke('addresses:refresh') as Promise<void>,
   forgetDevice: (deviceId) => ipcRenderer.invoke('device:forget', deviceId) as Promise<void>,
+  renameDevice: (deviceId, name) =>
+    ipcRenderer.invoke('device:rename', deviceId, name) as Promise<void>,
   sendFiles: () => ipcRenderer.invoke('files:send') as Promise<number>,
   sendPhotosToPhone: () => ipcRenderer.invoke('files:send-photos') as Promise<number>,
   retryTransfer: (id) => ipcRenderer.invoke('files:retry', id) as Promise<void>,
@@ -55,6 +57,8 @@ const api: LinkPhoneApi = {
     ipcRenderer.invoke('files:send-paths', paths) as Promise<number>,
   sendClipboard: (text) => ipcRenderer.invoke('clipboard:set', text) as Promise<boolean>,
   clearNotifications: () => ipcRenderer.invoke('notifications:clear') as Promise<void>,
+  pauseNotifications: (until) =>
+    ipcRenderer.invoke('notifications:pause', until) as Promise<void>,
   getNotificationHistory: () =>
     ipcRenderer.invoke('notifications:history') as Promise<NotificationItem[]>,
   clearNotificationHistory: () =>

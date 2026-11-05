@@ -155,6 +155,8 @@ the socket; the frames above are unchanged.
 | `sms.new` | phone → PC | `message{id,threadId,address,name?,body,date,outgoing}` |
 | `sms.error` | phone → PC | `op`, `error` |
 | `phone.ring` | PC → phone | `durationMs?` (capped to 30 s) |
+| `device.rename` | PC → phone | `name` (1–32 chars) |
+| `device.rename.state` | phone → PC | `name` — confirms a PC rename or reports a phone-side rename |
 | `phone.ring.stop` | PC → phone | — |
 | `phone.ring.state` | phone → PC | `ringing` |
 | `media.state` | phone → PC | `title`, `artist`, `playing`, `app` |

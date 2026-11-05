@@ -18,6 +18,7 @@ const GLYPHS = {
   delete_sweep: '\ue16c',
   description: '\ue873',
   download: '\uf090',
+  edit: '\ue3c9',
   error: '\uf8b6',
   expand_more: '\ue5cf',
   folder: '\ue2c7',

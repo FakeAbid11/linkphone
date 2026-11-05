@@ -38,6 +38,7 @@ import {
   type TransferItem
 } from '../shared/protocol'
 import { mimeForPath } from '../shared/mime'
+import { sanitizeDeviceName } from '../shared/device-name'
 import {
   decodeFileChunk,
   deriveKey,
@@ -459,6 +460,7 @@ export class LinkServer extends EventEmitter {
   }
 
   private markReady(peer: Peer): void {
+    this.store.setPairedName(peer.deviceId, peer.deviceName)
     this.store.markConnected({
       deviceId: peer.deviceId,
       name: peer.deviceName,
@@ -804,6 +806,12 @@ export class LinkServer extends EventEmitter {
         return
       }
 
+      case 'device.rename.state': {
+        const name = sanitizeDeviceName(str(msg.name))
+        if (name && peer.deviceId) this.store.setPairedName(peer.deviceId, name)
+        return
+      }
+
       case 'call.error':
         this.store.setCallError(str(msg.error, 'Call operation failed').slice(0, 500))
         return
@@ -1050,6 +1058,16 @@ export class LinkServer extends EventEmitter {
     )
     if (!peer) return
     this.send(peer, { t: 'phone.ring', durationMs: 15_000 })
+  }
+
+  renameDevice(deviceId: string, name: string): void {
+    const clean = sanitizeDeviceName(name)
+    if (!clean) return
+    const peer = [...this.peers].find(
+      (candidate) => candidate.deviceId === deviceId && candidate.phase === 'ready'
+    )
+    if (!peer) return
+    this.send(peer, { t: 'device.rename', name: clean })
   }
 
   stopRing(deviceId: string): void {

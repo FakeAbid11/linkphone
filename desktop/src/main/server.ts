@@ -729,6 +729,7 @@ export class LinkServer extends EventEmitter {
         const list = Array.isArray(msg.photos) ? (msg.photos as unknown[]) : []
         this.store.appendGalleryPhotos(
           albumId,
+          msg.kind === 'video' ? 'video' : 'image',
           offset,
           list.filter(isRawMsg).map(parseGalleryPhoto).slice(0, GALLERY_PAGE_SIZE),
           bool(msg.hasMore)
@@ -737,6 +738,7 @@ export class LinkServer extends EventEmitter {
       }
 
       case 'gallery.thumbnails': {
+        if (msg.kind !== undefined && !this.store.isGalleryKind(str(msg.kind))) return
         const list = Array.isArray(msg.items) ? (msg.items as unknown[]) : []
         const items = list
           .filter(isRawMsg)

@@ -1514,8 +1514,17 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     private fun sendGalleryAlbums(kindName: String) {
         val kind = kindOf(kindName)
+        val kinds = JSONArray(listOf("image", "video"))
         if (!media.hasPermission(kind)) {
-            sendGalleryError("albums", "Photo/video permission not granted on the phone")
+            send(
+                JSONObject().apply {
+                    put("t", "gallery.albums")
+                    put("albums", JSONArray())
+                    put("kinds", kinds)
+                    put("granted", false)
+                    put("partial", false)
+                }
+            )
             return
         }
         runCatching {
@@ -1533,7 +1542,9 @@ class LinkClient(context: Context, private val store: PairStore) {
                 JSONObject().apply {
                     put("t", "gallery.albums")
                     put("albums", albums)
-                    put("kinds", JSONArray(listOf("image", "video")))
+                    put("kinds", kinds)
+                    put("granted", media.hasFullAccess(kind))
+                    put("partial", media.isPartial(kind))
                 }
             )
         }.onFailure { error ->

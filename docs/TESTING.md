@@ -343,6 +343,10 @@ Ring the phone from its device card, then use the phone.
 * ✅ Send a video from the PC: it lands in Movies/LinkPhone and the Videos tab refreshes.
 * ✅ Close the player or switch Photo/Video during playback: no stuck file handle.
 * ✅ Delete the downloaded file, then press Play: a clean error appears.
+* ✅ Revoke video access: the phone shows Videos need access and Setup reports a remaining step.
+* ✅ Grant video access: the phone card disappears and the PC Videos list refreshes.
+* ✅ Selected-only media access: the phone offers Allow all videos and the PC explains partial access.
+* ✅ Full video access with no videos: the PC shows No videos found with a Refresh action.
 
 ## 10. Files
 

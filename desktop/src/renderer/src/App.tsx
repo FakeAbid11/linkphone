@@ -181,7 +181,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.10.0</div>
+            <div className="brand-sub">Local network · v0.10.1</div>
           </div>
         </div>
 
@@ -394,6 +394,8 @@ export default function App(): JSX.Element {
               uploading={pictureUploads}
               kind={state.galleryKind}
               kinds={state.galleryKinds}
+              granted={state.galleryGranted}
+              partial={state.galleryPartial}
               downloads={state.galleryDownloads}
               transfers={state.transfers}
               onRefresh={() => void window.linkphone.requestGalleryAlbums(state.galleryKind)}

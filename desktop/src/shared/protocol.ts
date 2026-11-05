@@ -277,6 +277,8 @@ export interface AppState {
   galleryAlbums: GalleryAlbum[]
   galleryKinds: GalleryKind[]
   galleryKind: GalleryKind
+  galleryGranted: boolean
+  galleryPartial: boolean
   galleryDownloads: Record<string, GalleryDownloadState>
   galleryPhotos: GalleryPhoto[]
   galleryAlbumId: string | null
@@ -565,6 +567,8 @@ export interface GalleryAlbumsMsg {
   t: 'gallery.albums'
   albums: GalleryAlbum[]
   kinds?: GalleryKind[]
+  granted?: boolean
+  partial?: boolean
 }
 
 export interface GalleryPhotosRequestMsg {

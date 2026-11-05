@@ -25,6 +25,8 @@ interface Props {
   uploading: number
   kind: GalleryKind
   kinds: GalleryKind[]
+  granted: boolean
+  partial: boolean
   downloads: Record<string, GalleryDownloadState>
   transfers: TransferItem[]
   onRefresh: () => void
@@ -71,6 +73,8 @@ export function PhotosPanel({
   uploading,
   kind,
   kinds,
+  granted,
+  partial,
   downloads,
   transfers,
   onRefresh,
@@ -143,7 +147,13 @@ export function PhotosPanel({
           </div>
 
           {photos.length === 0 && !loading ? (
-            <GalleryEmpty error={error} kind={kind} />
+            <GalleryEmpty
+              error={error}
+              kind={kind}
+              granted={granted}
+              partial={partial}
+              onRefresh={onRefresh}
+            />
           ) : (
             <div className="photo-grid">
               {photos.map((photo) => (
@@ -235,7 +245,13 @@ export function PhotosPanel({
           )}
 
           {albums.length === 0 && !loading ? (
-            <GalleryEmpty error={error} kind={kind} />
+            <GalleryEmpty
+              error={error}
+              kind={kind}
+              granted={granted}
+              partial={partial}
+              onRefresh={onRefresh}
+            />
           ) : (
             <div className="album-grid">
               {albums.map((album) => (
@@ -349,18 +365,48 @@ export function PhotosPanel({
   )
 }
 
-function GalleryEmpty({ error, kind }: { error: string; kind: GalleryKind }): JSX.Element {
+function GalleryEmpty({
+  error,
+  kind,
+  granted,
+  partial,
+  onRefresh
+}: {
+  error: string
+  kind: GalleryKind
+  granted: boolean
+  partial: boolean
+  onRefresh: () => void
+}): JSX.Element {
   const video = kind === 'video'
+  const title = error
+    ? video
+      ? 'Videos unavailable'
+      : 'Photos unavailable'
+    : video
+      ? !granted
+        ? 'Videos need access'
+        : partial
+          ? 'Only selected videos'
+          : 'No videos found'
+      : 'No photos found'
+  const detail = error
+    ? error
+    : video
+      ? !granted
+        ? 'On the phone, open LinkPhone → Setup → Videos → Allow video access, then refresh.'
+        : partial
+          ? 'Only the videos you selected are visible. Open LinkPhone → Setup → Videos → Allow all videos, then refresh.'
+          : 'No videos found on this phone. Check that the videos are in the phone gallery, then refresh.'
+      : 'On the phone, allow media access for LinkPhone, then refresh this page.'
   return (
     <div className="empty">
       <div className="empty-art"><Icon name="photo_library" size={34} /></div>
-      <h2>{error ? (video ? 'Videos unavailable' : 'Photos unavailable') : video ? 'No videos found' : 'No photos found'}</h2>
-      <p className="muted">
-        {error ||
-          (video
-            ? 'On the phone, allow video access for LinkPhone, then refresh this page.'
-            : 'On the phone, allow media access for LinkPhone, then refresh this page.')}
-      </p>
+      <h2>{title}</h2>
+      <p className="muted">{detail}</p>
+      <button type="button" className="link-btn" onClick={onRefresh}>
+        <Icon name="refresh" size={18} /> Refresh
+      </button>
     </div>
   )
 }

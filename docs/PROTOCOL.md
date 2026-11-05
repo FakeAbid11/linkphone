@@ -154,7 +154,7 @@ the socket; the frames above are unchanged.
 | `sms.sent` | phone → PC | `tempId`, `ok`, `error?` |
 | `sms.new` | phone → PC | `message{id,threadId,address,name?,body,date,outgoing}` |
 | `sms.error` | phone → PC | `op`, `error` |
-| `phone.ring` | PC → phone | `durationMs?` (capped to 30 s) |
+| `phone.ring` | PC → phone | `durationMs?` (user setting: 5/10/15/30 s, capped to 30 s) |
 | `device.rename` | PC → phone | `name` (1–32 chars) |
 | `device.rename.state` | phone → PC | `name` — confirms a PC rename or reports a phone-side rename |
 | `phone.ring.stop` | PC → phone | — |
@@ -181,6 +181,7 @@ the socket; the frames above are unchanged.
 | `call.reject` | PC → phone | `callId` |
 | `call.disconnect` | PC → phone | `callId` |
 | `call.speaker` | PC → phone | `enabled` |
+| `call.mute` | PC → phone | `enabled` — muting needs the call-control service on the phone |
 | `call.error` | phone → PC | `error` |
 | `contacts.request` | PC → phone | — |
 | `contacts.sync` | phone → PC | `contacts[{id,name,numbers[{number,label}]}]`, `granted` |

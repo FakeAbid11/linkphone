@@ -665,7 +665,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                     it.cancelled = true
                     it.attempt?.complete(-1L)
                 }
-                abortIncoming(id, msg.optString("reason", "canceled by PC"))
+                abortIncoming(id, msg.optString("reason", "canceled by PC"), "canceled")
             }
             "file.ack" -> {
                 val out = outgoing[msg.optString("id")]
@@ -727,6 +727,8 @@ class LinkClient(context: Context, private val store: PairStore) {
                 .onFailure { sendCallError(it.message ?: "Could not hang up the call") }
             "call.speaker" -> CallHub.setSpeaker(appContext, msg.optBoolean("enabled"))
                 .onFailure { sendCallError(it.message ?: "Could not switch the speaker") }
+            "call.mute" -> CallHub.setMute(appContext, msg.optBoolean("enabled"))
+                .onFailure { sendCallError(it.message ?: "Could not mute the call") }
             "contacts.request" -> scope.launch { sendContacts() }
             "calllog.request" -> scope.launch { sendCallLog(msg.optInt("limit", 200)) }
             "sims.request" -> scope.launch { sendSims() }
@@ -885,11 +887,11 @@ class LinkClient(context: Context, private val store: PairStore) {
         }
     }
 
-    private fun abortIncoming(id: String, reason: String = "canceled") {
+    private fun abortIncoming(id: String, reason: String = "canceled", status: String = "failed") {
         val sink = incoming.remove(id) ?: return
         runCatching { sink.stream.close() }
         runCatching { resolver.delete(sink.uri, null, null) }
-        upsertTransfer(TransferUi(id, sink.name, sink.size, sink.received, "in", "failed"))
+        upsertTransfer(TransferUi(id, sink.name, sink.size, sink.received, "in", status))
         send(
             JSONObject().apply {
                 put("t", "file.cancel")
@@ -929,6 +931,25 @@ class LinkClient(context: Context, private val store: PairStore) {
         val out = outgoing[id] ?: return
         if (!ready || out.attempt?.isActive == true) return
         scope.launch { startSend(out, out.acked) }
+    }
+
+    fun cancelTransfer(id: String) {
+        if (incoming.containsKey(id)) {
+            abortIncoming(id, "canceled by you", "canceled")
+            return
+        }
+        val out = outgoing[id] ?: return
+        out.cancelled = true
+        out.attempt?.complete(-1L)
+        upsertTransfer(TransferUi(out.id, out.name, out.size, out.acked, "out", "canceled", out.target))
+        outgoing.remove(out.id)
+        send(
+            JSONObject().apply {
+                put("t", "file.cancel")
+                put("id", out.id)
+                put("reason", "canceled by you")
+            }
+        )
     }
 
     private fun prepareSend(
@@ -983,7 +1004,8 @@ class LinkClient(context: Context, private val store: PairStore) {
 
         val accepted = withTimeoutOrNull(15_000) { attempt.await() } ?: -2L
         if (accepted < 0) {
-            val declined = accepted == -1L
+            val canceled = out.cancelled
+            val declined = accepted == -1L && !canceled
             upsertTransfer(
                 TransferUi(
                     out.id,
@@ -991,11 +1013,15 @@ class LinkClient(context: Context, private val store: PairStore) {
                     out.size,
                     out.acked,
                     "out",
-                    if (declined) "failed" else "interrupted",
+                    when {
+                        canceled -> "canceled"
+                        declined -> "failed"
+                        else -> "interrupted"
+                    },
                     out.target
                 )
             )
-            if (declined) outgoing.remove(out.id)
+            if (declined || canceled) outgoing.remove(out.id)
             return false
         }
 
@@ -1060,7 +1086,8 @@ class LinkClient(context: Context, private val store: PairStore) {
             }
         } catch (e: Exception) {
             val message = e.message ?: "send failed"
-            val interrupted = message == "connection lost" || message == "canceled"
+            val canceled = out.cancelled || message == "canceled"
+            val interrupted = message == "connection lost" || canceled
             upsertTransfer(
                 TransferUi(
                     out.id,
@@ -1068,7 +1095,11 @@ class LinkClient(context: Context, private val store: PairStore) {
                     out.size,
                     out.acked,
                     "out",
-                    if (interrupted) "interrupted" else "failed",
+                    when {
+                        canceled -> "canceled"
+                        interrupted -> "interrupted"
+                        else -> "failed"
+                    },
                     out.target
                 )
             )
@@ -1081,6 +1112,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                     }
                 )
             }
+            if (canceled) outgoing.remove(out.id)
             return false
         }
     }

@@ -394,6 +394,17 @@ Ring the phone from its device card, then use the phone.
 * ✅ Disconnect mid-drag: the card clears and controls disable.
 * ✅ Old APK/desktop: play/pause/next/previous still work.
 
+## 20. Calls, transfers and SMS retry (v0.12.1+)
+
+* ✅ In an active call, **Mute** on the PC mutes the phone microphone; **Unmute** restores it.
+* ✅ Mute from the phone’s in-call UI and the PC button follows within a second.
+* ✅ Settings → Ring duration 5/10/15/30 s persists across a desktop restart; Ring stops early.
+* ✅ Cancel an active incoming or outgoing transfer: both sides show Canceled and no `.part` remains.
+* ✅ Cancel as a transfer finishes: it stays Done, not Canceled.
+* ✅ Retry a failed text: the old bubble stays failed, one new pending bubble appears, and it resolves.
+* ✅ Retry while offline or double-click: no duplicate send.
+* ✅ v0.12.0 APK with a v0.12.1 PC: mute does nothing (update the app); ring and cancel still work.
+
 ## 10. Files
 
 **PC → phone:** Files tab → Send file → pick something.
@@ -520,7 +531,7 @@ Automatic scans (v0.6.5+):
 * Change the PC's Wi-Fi network → the phone rediscovers the paired PC by `serverId`; a different
   subnet (a different LAN) still needs a manual scan.
 
-## 16. Start with Windows
+## 16b. Start with Windows
 
 * ✅ **Settings → Start with Windows** turns on; `HKCU\...\Run` has `LinkPhone` =
   `"...\LinkPhone.exe" --hidden`.

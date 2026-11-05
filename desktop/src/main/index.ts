@@ -21,7 +21,7 @@ import { ClipboardWatcher } from './clipboard'
 import { newPairCode } from './crypto'
 import { advertise, localAddresses, localLinkLocalIPv6, type Advertisement } from './discovery'
 import { LinkServer } from './server'
-import { AppStore } from './state'
+import { AppStore, RING_DURATIONS } from './state'
 import { DesktopUpdater } from './updater'
 
 /* Fallback 32x32 phone glyph if the packaged icon resource is missing. */
@@ -402,6 +402,10 @@ function registerIpc(): void {
     if (typeof id === 'string') server.retryTransfer(id)
   })
 
+  ipcMain.handle('files:cancel', (_event, id: unknown) => {
+    if (typeof id === 'string') server.cancelTransfer(id)
+  })
+
   ipcMain.handle('storage:list', (_event, cursor: unknown) => {
     const requested = server.requestStorageList(
       typeof cursor === 'string' ? cursor : undefined
@@ -519,6 +523,11 @@ function registerIpc(): void {
     return server.sendSms(threadId, address, body, subId)
   })
 
+  ipcMain.handle('sms:retry', (_event, id: unknown) => {
+    if (typeof id !== 'string') return 'invalid'
+    return server.retrySms(id)
+  })
+
   const galleryKind = (value: unknown): 'image' | 'video' =>
     value === 'video' ? 'video' : 'image'
 
@@ -578,10 +587,18 @@ function registerIpc(): void {
   ipcMain.handle('call:speaker', (_event, enabled: unknown) => {
     server.setCallSpeaker(Boolean(enabled))
   })
+  ipcMain.handle('call:mute', (_event, enabled: unknown) => {
+    server.setCallMute(Boolean(enabled))
+  })
   ipcMain.handle('call:placed-dismiss', () => store.dismissCallPlaced())
   ipcMain.handle('call:error-dismiss', () => store.dismissCallError())
   ipcMain.handle('phone:ring', (_event, deviceId: unknown) => {
     if (typeof deviceId === 'string') server.ringPhone(deviceId)
+  })
+  ipcMain.handle('ring:duration', (_event, value: unknown) => {
+    if (typeof value === 'number' && RING_DURATIONS.includes(value)) {
+      store.setRingDurationMs(value)
+    }
   })
   ipcMain.handle('phone:ring-stop', (_event, deviceId: unknown) => {
     if (typeof deviceId === 'string') server.stopRing(deviceId)

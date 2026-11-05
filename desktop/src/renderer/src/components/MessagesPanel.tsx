@@ -9,6 +9,7 @@ interface Props {
   active: SmsActiveThread | null
   loading: boolean
   sims: SimInfo[]
+  connected: boolean
   onRefresh: () => void
   onOpen: (threadId: string, address: string) => void
   onClose: () => void
@@ -23,6 +24,7 @@ interface Props {
     body: string,
     subscriptionId?: number
   ) => Promise<SmsResult>
+  onRetry: (id: string) => void
 }
 
 /** Drafts survive the panel unmounting on tab switches; keys are thread ids. */
@@ -55,11 +57,13 @@ export function MessagesPanel({
   active,
   loading,
   sims,
+  connected,
   onRefresh,
   onOpen,
   onClose,
   onSend,
-  onStartConversation
+  onStartConversation,
+  onRetry
 }: Props): JSX.Element {
   const [draft, setDraft] = useState('')
   const [simId, setSimId] = useState('')
@@ -73,6 +77,7 @@ export function MessagesPanel({
   const [sendError, setSendError] = useState('')
   const [composeSending, setComposeSending] = useState(false)
   const [composeError, setComposeError] = useState('')
+  const [retryingId, setRetryingId] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement | null>(null)
   const defaultSimId = sims.find((sim) => sim.isDefault)?.id ?? sims[0]?.id ?? ''
 
@@ -179,6 +184,24 @@ export function MessagesPanel({
                   {time(m.date)}
                   {m.pending ? ' · sending' : ''}
                   {m.failed ? ' · failed' : ''}
+                  {m.failed && !m.retried && (
+                    <>
+                      {' · '}
+                      <button
+                        type="button"
+                        className="bubble-retry"
+                        disabled={!connected || retryingId !== null}
+                        title={connected ? 'Send this message again' : 'Connect your phone to retry'}
+                        onClick={() => {
+                          setRetryingId(m.id)
+                          onRetry(m.id)
+                          window.setTimeout(() => setRetryingId(null), 2000)
+                        }}
+                      >
+                        {retryingId === m.id ? 'Retrying…' : 'Retry'}
+                      </button>
+                    </>
+                  )}
                   {m.simLabel ? ` · ${m.simLabel}` : ''}
                 </div>
               </div>

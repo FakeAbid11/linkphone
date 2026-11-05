@@ -69,6 +69,7 @@ class Outbound {
   size = 0
   accepted = false
   failed = false
+  canceled = false
   deviceId = ''
   path = ''
   target: 'downloads' | 'pictures' | 'videos' = 'downloads'
@@ -112,6 +113,11 @@ class Outbound {
     this.acceptResolve?.(false)
     this.acceptResolve = null
     this.kickData()
+  }
+
+  cancel(): void {
+    this.canceled = true
+    this.decline()
   }
 
   waitData(timeoutMs: number): Promise<void> {
@@ -643,10 +649,10 @@ export class LinkServer extends EventEmitter {
         const id = str(msg.id)
         const out = this.outbound.get(id)
         if (out) {
-          out.decline()
-          this.finishOutbound(id, 'failed', str(msg.reason, 'canceled by phone'))
+          out.cancel()
+          this.finishOutbound(id, 'canceled', str(msg.reason, 'canceled by phone'))
         } else {
-          this.receiver.abort(id, str(msg.reason, 'canceled by phone'))
+          this.receiver.abort(id, str(msg.reason, 'canceled by phone'), 'canceled')
         }
         return
       }
@@ -919,6 +925,19 @@ export class LinkServer extends EventEmitter {
     }
   }
 
+  cancelTransfer(id: string): void {
+    const item = this.store.getTransfer(id)
+    if (!item || (item.status !== 'pending' && item.status !== 'active')) return
+    const out = this.outbound.get(id)
+    if (out) {
+      out.cancel()
+      this.finishOutbound(id, 'canceled', 'canceled by you')
+    } else {
+      this.receiver.abort(id, 'canceled by you', 'canceled')
+    }
+    this.broadcast({ t: 'file.cancel', id, reason: 'canceled by you' })
+  }
+
   retryTransfer(id: string): void {
     const item = this.store.getTransfer(id)
     if (!item || item.direction !== 'out' || !item.sourcePath) return
@@ -1001,8 +1020,12 @@ export class LinkServer extends EventEmitter {
       const accepted = await out.waitAccept(15_000)
       if (!accepted) {
         this.store.patchTransfer(id, {
-          status: out.failed ? 'failed' : 'interrupted',
-          error: out.failed ? 'declined by phone' : 'no response from phone'
+          status: out.canceled ? 'canceled' : out.failed ? 'failed' : 'interrupted',
+          error: out.canceled
+            ? 'canceled by you'
+            : out.failed
+              ? 'declined by phone'
+              : 'no response from phone'
         })
         return
       }
@@ -1041,11 +1064,11 @@ export class LinkServer extends EventEmitter {
       const message = (err as Error).message
       const interrupted = message === 'connection lost'
       this.store.patchTransfer(id, {
-        status: interrupted ? 'interrupted' : 'failed',
+        status: out.canceled ? 'canceled' : interrupted ? 'interrupted' : 'failed',
         error: message,
         resumeOffset: out.acked
       })
-      if (!interrupted && !sentDone) {
+      if (!out.canceled && !interrupted && !sentDone) {
         this.send(peer, { t: 'file.cancel', id, reason: message })
       }
     } finally {
@@ -1083,7 +1106,7 @@ export class LinkServer extends EventEmitter {
       (candidate) => candidate.deviceId === deviceId && candidate.phase === 'ready'
     )
     if (!peer) return
-    this.send(peer, { t: 'phone.ring', durationMs: 15_000 })
+    this.send(peer, { t: 'phone.ring', durationMs: this.store.ringDurationMs })
   }
 
   renameDevice(deviceId: string, name: string): void {
@@ -1163,6 +1186,19 @@ export class LinkServer extends EventEmitter {
     })
     this.send(peer, { t: 'sms.send', tempId, address, body, subscriptionId })
     return 'queued'
+  }
+
+  retrySms(messageId: string): 'queued' | 'no-peer' | 'invalid' {
+    const message = this.store.findSmsMessage(messageId)
+    if (!message || !message.outgoing || !message.failed || message.retried) return 'invalid'
+    if (!this.hasConnectedPeer()) return 'no-peer'
+    this.store.markSmsRetried(message.id)
+    return this.sendSms(
+      message.threadId,
+      message.address,
+      message.body,
+      message.subscriptionId
+    )
   }
 
   startSmsConversation(
@@ -1318,6 +1354,11 @@ export class LinkServer extends EventEmitter {
   setCallSpeaker(enabled: boolean): void {
     this.store.setCallError('')
     this.broadcast({ t: 'call.speaker', enabled })
+  }
+
+  setCallMute(enabled: boolean): void {
+    this.store.setCallError('')
+    this.broadcast({ t: 'call.mute', enabled })
   }
 
   /* ---------------------------------------------------------------- */

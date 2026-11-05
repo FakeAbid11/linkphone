@@ -2,11 +2,17 @@ package dev.linkphone.app
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -16,21 +22,30 @@ import java.util.concurrent.ConcurrentHashMap
 class NotificationRelay : NotificationListenerService() {
 
     private val lastSent = ConcurrentHashMap<String, String>()
+    private val lastSentAt = ConcurrentHashMap<String, Long>()
     private val mirrored = ConcurrentHashMap.newKeySet<String>()
+    private val groupChildren = ConcurrentHashMap<String, MutableSet<String>>()
+    private val groupSummaries = ConcurrentHashMap<String, String>()
+    private val main = Handler(Looper.getMainLooper())
     private var callKey: String? = null
 
     override fun onListenerConnected() {
         LinkCore.init(this)
         instance = this
+        isConnected = true
+        Log.d(TAG, "notification listener connected")
         MediaWatcher.start(this)
         runCatching {
             activeNotifications
                 ?.firstOrNull { isSystemCall(it, it.notification) }
                 ?.let { handleSystemCall(it, it.notification) }
         }
+        if (LinkCore.clientOrNull()?.isReady == true) backfill()
     }
 
     override fun onListenerDisconnected() {
+        isConnected = false
+        Log.d(TAG, "notification listener disconnected")
         if (instance === this) instance = null
         MediaWatcher.stop()
         if (callKey != null) {
@@ -40,6 +55,7 @@ class NotificationRelay : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        isConnected = false
         if (instance === this) instance = null
         MediaWatcher.stop()
         if (callKey != null) {
@@ -60,42 +76,55 @@ class NotificationRelay : NotificationListenerService() {
 
         val client = LinkCore.clientOrNull() ?: return
         if (!client.isReady) return
+        relay(sbn, client, false)
+    }
 
+    private fun relay(sbn: StatusBarNotification, client: LinkClient, force: Boolean) {
+        val notification = sbn.notification ?: return
+        if (sbn.packageName == packageName) return
         val key = sbn.key
-        if (sbn.packageName == packageName) {
-            drop(key, client)
+        if (notification.visibility == Notification.VISIBILITY_SECRET) {
+            logDrop(sbn, "secret")
             return
         }
 
-        if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) {
-            drop(key, client)
+        val extras = notification.extras ?: run {
+            logDrop(sbn, "no-extras")
             return
         }
-
-        val extras = notification.extras ?: return
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
-        val text = (
-            extras.getCharSequence(Notification.EXTRA_TEXT)
-                ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
-                ?: extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)
-            )?.toString().orEmpty()
-
+        val category = notification.category
         val progressMax = extras.getInt(Notification.EXTRA_PROGRESS_MAX, 0)
         val rawProgress = extras.getInt(Notification.EXTRA_PROGRESS, -1)
         val indeterminate = extras.getBoolean(Notification.EXTRA_PROGRESS_INDETERMINATE, false)
         val hasProgress = indeterminate || progressMax > 0
         val ongoing = notification.flags and Notification.FLAG_ONGOING_EVENT != 0
 
-        if (ongoing && !hasProgress) {
-            drop(key, client)
+        // Keep background-service chatter out, but mirror media, navigation, alarm and progress.
+        if (ongoing && !hasProgress &&
+            (category == Notification.CATEGORY_SERVICE || category == Notification.CATEGORY_SYSTEM)
+        ) {
+            logDrop(sbn, "service-ongoing")
             return
         }
         if (hasProgress && !client.supportsLiveProgress) {
-            drop(key, client)
+            logDrop(sbn, "no-progress-cap")
             return
         }
+
+        val title = (
+            extras.getCharSequence(Notification.EXTRA_TITLE)
+                ?: extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+            )?.toString().orEmpty()
+        val text = notificationText(notification, extras)
         if (title.isBlank() && text.isBlank() && !hasProgress) {
-            drop(key, client)
+            logDrop(sbn, "no-text")
+            return
+        }
+
+        val groupKey = sbn.groupKey
+        val isSummary = notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
+        if (isSummary && groupKey != null && !groupChildren[groupKey].isNullOrEmpty()) {
+            logDrop(sbn, "summary-with-children")
             return
         }
 
@@ -134,10 +163,13 @@ class NotificationRelay : NotificationListenerService() {
             append(indeterminate).append('|').append(ongoing).append('|')
             actions.forEach { append(it.id).append(':').append(it.label).append(':').append(it.reply).append(',') }
         }
-        if (lastSent.put(key, signature) == signature) return
+        if (!force) {
+            if (lastSent[key] == signature) return
+            val now = System.currentTimeMillis()
+            if (now - (lastSentAt[key] ?: 0L) < THROTTLE_MS) return
+        }
 
-        mirrored.add(key)
-        client.sendNotification(
+        val sent = client.sendNotification(
             OutgoingNotification(
                 key = key,
                 app = appLabel,
@@ -153,6 +185,78 @@ class NotificationRelay : NotificationListenerService() {
                 ongoing = ongoing
             )
         )
+        if (!sent) {
+            logDrop(sbn, "send-failed")
+            return
+        }
+
+        lastSent[key] = signature
+        lastSentAt[key] = System.currentTimeMillis()
+        mirrored.add(key)
+        if (groupKey != null) {
+            if (isSummary) {
+                groupSummaries[groupKey] = key
+            } else {
+                groupChildren.getOrPut(groupKey) { ConcurrentHashMap.newKeySet() }.add(key)
+                groupSummaries.remove(groupKey)?.let { drop(it, client) }
+            }
+        }
+        Log.d(TAG, "notif ${sbn.packageName} mirror")
+    }
+
+    /**
+     * Re-publishes the phone's live notifications after the socket connects. Listener callbacks and
+     * activeNotifications are read on the main thread.
+     */
+    private fun backfill() {
+        main.post {
+            val client = LinkCore.clientOrNull() ?: return@post
+            if (!client.isReady) return@post
+            lastSent.clear()
+            lastSentAt.clear()
+            groupChildren.clear()
+            groupSummaries.clear()
+            val active = runCatching { activeNotifications }.getOrNull().orEmpty()
+                .filter { it.packageName != packageName }
+                .sortedByDescending { it.postTime }
+                .take(MAX_BACKFILL)
+            active.forEach { sbn ->
+                val notification = sbn.notification ?: return@forEach
+                if (isSystemCall(sbn, notification)) return@forEach
+                relay(sbn, client, true)
+            }
+        }
+    }
+
+    private fun notificationText(notification: Notification, extras: Bundle): String {
+        extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+            ?.takeIf { it.isNotBlank() }?.let { return it }
+        extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+            ?.takeIf { it.isNotBlank() }?.let { return it }
+        extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
+            ?.takeIf { it.isNotBlank() }?.let { return it }
+        extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            ?.joinToString(" ") { it.toString() }
+            ?.takeIf { it.isNotBlank() }?.let { return it }
+        runCatching {
+            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
+        }.getOrNull()?.messages?.lastOrNull()?.text?.toString()
+            ?.takeIf { it.isNotBlank() }?.let { return it }
+        return extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString().orEmpty()
+    }
+
+    private fun forgetGroupKey(key: String) {
+        groupSummaries.entries.removeAll { it.value == key }
+        val iterator = groupChildren.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            entry.value.remove(key)
+            if (entry.value.isEmpty()) iterator.remove()
+        }
+    }
+
+    private fun logDrop(sbn: StatusBarNotification, reason: String) {
+        Log.d(TAG, "notif ${sbn.packageName} drop:$reason")
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -162,8 +266,11 @@ class NotificationRelay : NotificationListenerService() {
             CallHub.clearSystemCall()
         }
         lastSent.remove(sbn.key)
-        mirrored.remove(sbn.key)
-        LinkCore.clientOrNull()?.sendNotificationDismissed(sbn.key)
+        lastSentAt.remove(sbn.key)
+        forgetGroupKey(sbn.key)
+        if (mirrored.remove(sbn.key)) {
+            LinkCore.clientOrNull()?.sendNotificationDismissed(sbn.key)
+        }
     }
 
     private fun isSystemCall(sbn: StatusBarNotification, notification: Notification): Boolean {
@@ -234,6 +341,8 @@ class NotificationRelay : NotificationListenerService() {
 
     private fun drop(key: String, client: LinkClient) {
         lastSent.remove(key)
+        lastSentAt.remove(key)
+        forgetGroupKey(key)
         if (mirrored.remove(key)) client.sendNotificationDismissed(key)
     }
 
@@ -274,14 +383,58 @@ class NotificationRelay : NotificationListenerService() {
             runCatching { cancelNotification(key) }
                 .onFailure { Log.w("LinkPhone", "cannot cancel notification", it) }
             lastSent.remove(key)
+            lastSentAt.remove(key)
+            forgetGroupKey(key)
             mirrored.remove(key)
         }
     }
 
     companion object {
+        private const val TAG = "LinkPhone"
         private const val MAX_ACTIONS = 4
+        private const val MAX_BACKFILL = 30
+        private const val THROTTLE_MS = 2_000L
+        private const val REBIND_INTERVAL_MS = 10_000L
+        private const val MAX_REBIND_ATTEMPTS = 3
 
         @Volatile private var instance: NotificationRelay? = null
+
+        @Volatile var isConnected = false
+
+        @Volatile private var lastRebindAt = 0L
+        @Volatile private var rebindAttempts = 0
+
+        /**
+         * A rebind request, not a re-grant. It recovers the common post-update/reboot state where
+         * access is listed but the listener is unbound; a revoked grant still needs system settings.
+         */
+        fun ensureBound(context: Context, force: Boolean = false) {
+            if (isConnected) return
+            val app = context.applicationContext
+            if (!NotificationManagerCompat.getEnabledListenerPackages(app).contains(app.packageName)) {
+                return
+            }
+            val now = System.currentTimeMillis()
+            synchronized(this) {
+                if (force) {
+                    rebindAttempts = 0
+                } else {
+                    if (now - lastRebindAt < REBIND_INTERVAL_MS) return
+                    if (rebindAttempts >= MAX_REBIND_ATTEMPTS) return
+                }
+                lastRebindAt = now
+                rebindAttempts += 1
+            }
+            runCatching {
+                NotificationListenerService.requestRebind(
+                    ComponentName(app, NotificationRelay::class.java)
+                )
+            }.onFailure { Log.w(TAG, "notification rebind failed", it) }
+        }
+
+        fun onClientReady() {
+            instance?.backfill()
+        }
 
         fun deliver(key: String, actionId: String, replyText: String) {
             instance?.handleAction(key, actionId, replyText)

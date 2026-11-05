@@ -592,6 +592,7 @@ class LinkClient(context: Context, private val store: PairStore) {
             sendBatteryStatus(battery.level, battery.charging)
         }
         CallHub.refreshDialerRole(appContext)
+        NotificationRelay.onClientReady()
     }
 
     /* ------------------------------------------------------------ */
@@ -1242,8 +1243,8 @@ class LinkClient(context: Context, private val store: PairStore) {
     /* outbound messages                                             */
     /* ------------------------------------------------------------ */
 
-    fun sendNotification(notification: OutgoingNotification) {
-        if (!ready) return
+    fun sendNotification(notification: OutgoingNotification): Boolean {
+        if (!ready) return false
         val actions = JSONArray()
         notification.actions.forEach { entry ->
             actions.put(
@@ -1254,28 +1255,27 @@ class LinkClient(context: Context, private val store: PairStore) {
                 }
             )
         }
-        send(
-            JSONObject().apply {
-                put("t", "notif.post")
-                put(
-                    "notif",
-                    JSONObject().apply {
-                        put("key", notification.key)
-                        put("app", notification.app)
-                        put("pkg", notification.pkg)
-                        put("title", notification.title)
-                        put("text", notification.text)
-                        put("when", notification.whenTs)
-                        put("canReply", notification.canReply)
-                        put("actions", actions)
-                        notification.progress?.let { put("progress", it) }
-                        notification.progressMax?.let { put("progressMax", it) }
-                        put("indeterminate", notification.indeterminate)
-                        put("ongoing", notification.ongoing)
-                    }
-                )
-            }
-        )
+        val payload = JSONObject().apply {
+            put("t", "notif.post")
+            put(
+                "notif",
+                JSONObject().apply {
+                    put("key", notification.key)
+                    put("app", notification.app)
+                    put("pkg", notification.pkg)
+                    put("title", notification.title)
+                    put("text", notification.text)
+                    put("when", notification.whenTs)
+                    put("canReply", notification.canReply)
+                    put("actions", actions)
+                    notification.progress?.let { put("progress", it) }
+                    notification.progressMax?.let { put("progressMax", it) }
+                    put("indeterminate", notification.indeterminate)
+                    put("ongoing", notification.ongoing)
+                }
+            )
+        }
+        return runCatching { send(payload) }.getOrDefault(false)
     }
 
     fun sendNotificationDismissed(key: String) {

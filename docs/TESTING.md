@@ -92,8 +92,8 @@ yourself a message from another app).
   from the desktop list.
 * ✅ **Clear** on an app header and **Clear all** dismiss the matching notifications from the phone.
 * ✅ With the phone disconnected, dismissing on the PC hides the card without an error.
-* ✅ Dismiss on the PC, then let the app repost the same notification key → it stays hidden on the
-  PC; a genuine phone-side dismissal still removes it.
+* ✅ Dismiss on the PC, then a new message reuses the same notification key → the newer message
+  appears again; an ongoing/progress repost stays hidden until it is removed on the phone.
 * ✅ Disconnect/reconnect while on Calls → contacts and call history reload without showing “off”.
 * ✅ Grant Contact access while Calls → Contacts is open → the list appears without pressing Refresh.
 * ✅ An ongoing/system-locked notification that Android refuses to cancel stays in the phone shade;
@@ -121,11 +121,13 @@ yourself a message from another app).
 * ✅ **Mute** removes the app's cards, suppresses future cards and toasts, and survives a PC restart;
   **Unmute** from the Muted chips lets new notifications through.
 * ✅ Live progress updates in both views; an in-progress reply survives switching views.
-* ✅ Ongoing media/navigation notifications without progress remain filtered out.
+* ✅ Ongoing media/navigation notifications without progress appear with an **Ongoing** label;
+  background-service chatter stays filtered.
+* ✅ Group summaries (Gmail, WhatsApp) appear without duplicating their child notifications.
 * ❌ Quick actions or open do nothing: some OEMs block background activity starts. On HyperOS allow
   LinkPhone to autostart and display pop-up windows while running in the background.
-* ❌ Nothing arrives: notification access not granted, or only “ongoing” notifications without
-  progress were posted (media players are filtered out on purpose).
+* ❌ Nothing arrives: notification access was revoked, or the listener is listed but unbound. Open
+  LinkPhone on the phone and use **Reconnect** on the notification-listener card.
 
 ## 6. SMS
 
@@ -404,6 +406,20 @@ Ring the phone from its device card, then use the phone.
 * ✅ Retry a failed text: the old bubble stays failed, one new pending bubble appears, and it resolves.
 * ✅ Retry while offline or double-click: no duplicate send.
 * ✅ v0.12.0 APK with a v0.12.1 PC: mute does nothing (update the app); ring and cancel still work.
+
+## 21. Notification reliability (v0.12.2+)
+
+* ✅ A WhatsApp/Gmail group notification shows cards without a duplicate summary card.
+* ✅ Spotify or navigation (ongoing, no progress) shows a card with an **Ongoing** label.
+* ✅ Post notifications while the PC is reconnecting; on reconnect the live set backfills without a
+  toast storm.
+* ✅ Dismiss on the PC, then receive a new message in the same chat → the new message appears.
+* ✅ Dismiss on the PC, then reconnect → the old item does not reappear.
+* ✅ Toggle notification access off/on → the Reconnect card appears and the relay resumes.
+* ✅ Update over an existing install on HyperOS → the relay works, or the Reconnect card appears.
+* ✅ Airplane mode for 60 s → reconnect → active notifications return; History has no duplicates.
+* ✅ Mute an app → no card, no toast; only a debug log line.
+* ✅ Restart the PC while notifications are active → the list repopulates without a toast storm.
 
 ## 10. Files
 

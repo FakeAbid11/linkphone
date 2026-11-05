@@ -258,6 +258,7 @@ private fun Screen(modifier: Modifier = Modifier) {
     val update by updater.state.collectAsStateWithLifecycle()
 
     var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
+    var listenerConnected by remember { mutableStateOf(NotificationRelay.isConnected) }
     var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
@@ -291,9 +292,20 @@ private fun Screen(modifier: Modifier = Modifier) {
     }
 
     LaunchedEffect(Unit) {
+        if (hasNotificationAccess(context) && !NotificationRelay.isConnected) {
+            NotificationRelay.ensureBound(context)
+        }
+    }
+
+    LaunchedEffect(Unit) {
         while (true) {
             delay(1500)
-            notifAccess = hasNotificationAccess(context)
+            val nextNotifAccess = hasNotificationAccess(context)
+            notifAccess = nextNotifAccess
+            listenerConnected = NotificationRelay.isConnected
+            if (nextNotifAccess && !listenerConnected) {
+                NotificationRelay.ensureBound(context)
+            }
             batteryExempt = isBatteryExempt(context)
             smsAccess = hasSmsAccess(context)
             photoAccess = hasPhotoAccess(context)
@@ -712,6 +724,28 @@ private fun Screen(modifier: Modifier = Modifier) {
                     OutlinedButton(onClick = {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }) { ButtonLabel(Symbols.settings, "Open settings") }
+                }
+            }
+        } else if (!listenerConnected) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CardTitle(Symbols.notifications, "Notification listener")
+                    Text(
+                        "Notification access is on, but the listener is disconnected. " +
+                            "Reconnect it to mirror notifications from your phone.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {
+                            NotificationRelay.ensureBound(context, true)
+                        }) { ButtonLabel(Symbols.refresh, "Reconnect") }
+                        OutlinedButton(onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                            )
+                        }) { ButtonLabel(Symbols.settings, "Open settings") }
+                    }
                 }
             }
         }

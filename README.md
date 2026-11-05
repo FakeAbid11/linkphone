@@ -32,8 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.12.1** finishes the controls: mute calls from the PC, choose how long Find my phone rings,
-> cancel a transfer, and retry a failed text.
+> **v0.12.2** is a notification reliability release: group and ongoing alerts are mirrored,
+> reconnects backfill what you missed, and a disconnected listener can reconnect itself.
 
 ## Features
 
@@ -41,7 +41,7 @@ service or a relay server.
 |---|---|---|
 | Pairing and discovery | Yes | QR or 8-character code; mDNS, with an IPv6 link-local fallback |
 | Android onboarding | Yes | Three first-launch screens: how it works, permissions and pairing |
-| Notification mirroring | Yes | Live progress, search, history, app grouping, mute/clear, actions and reply |
+| Notification mirroring | Yes | Live progress, group and ongoing alerts, search, history, mute/clear, actions and reply |
 | SMS | Partial | New or existing conversations, search and retry failed sends; no MMS |
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
 | Contacts and call history | Yes | Recent calls and contacts share a switch beside the dialer |
@@ -76,7 +76,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.12.1.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.12.2.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

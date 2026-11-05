@@ -564,9 +564,13 @@ export class LinkServer extends EventEmitter {
           indeterminate: bool(raw.indeterminate),
           ongoing: bool(raw.ongoing)
         }
-        if (this.store.isNotificationMuted(item.pkg, item.app)) return
+        if (this.store.isNotificationMuted(item.pkg, item.app)) {
+          console.warn('[notif] muted', item.pkg)
+          return
+        }
         const isNew = this.store.addNotification(item)
-        if (isNew) this.emit('notification', item)
+        // Backfilled notifications are old; show them in the list without replaying toasts.
+        if (isNew && Date.now() - item.when < 15_000) this.emit('notification', item)
         return
       }
 

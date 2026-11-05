@@ -84,7 +84,7 @@ export class AppStore extends EventEmitter {
   private persisted: Persisted
   readonly downloadsDir: string
   private notifications: NotificationItem[] = []
-  private hiddenNotificationKeys = new Set<string>()
+  private hiddenNotificationKeys = new Map<string, number>()
   private pendingCancelKeys = new Set<string>()
   private notificationHistory: NotificationItem[] = []
   private readonly historyFile: string
@@ -591,7 +591,16 @@ export class AppStore extends EventEmitter {
   }
 
   addNotification(item: NotificationItem): boolean {
-    if (this.hiddenNotificationKeys.has(item.key)) return false
+    const hiddenAt = this.hiddenNotificationKeys.get(item.key)
+    if (hiddenAt !== undefined) {
+      // Keep ongoing/progress items hidden, but let a genuinely newer post that reuses the key
+      // (a new message in the same chat) surface again.
+      if (item.ongoing === true || item.when <= hiddenAt) {
+        console.warn('[notif] suppressed hidden key', item.pkg, item.key)
+        return false
+      }
+      this.hiddenNotificationKeys.delete(item.key)
+    }
     this.recordNotificationHistory(item)
     const index = this.notifications.findIndex((n) => n.key === item.key)
     if (index >= 0) {
@@ -607,9 +616,9 @@ export class AppStore extends EventEmitter {
   }
 
   private hideNotification(key: string): void {
-    this.hiddenNotificationKeys.add(key)
+    this.hiddenNotificationKeys.set(key, Date.now())
     if (this.hiddenNotificationKeys.size > 500) {
-      const oldest = this.hiddenNotificationKeys.values().next().value
+      const oldest = this.hiddenNotificationKeys.keys().next().value
       if (oldest !== undefined) this.hiddenNotificationKeys.delete(oldest)
     }
   }

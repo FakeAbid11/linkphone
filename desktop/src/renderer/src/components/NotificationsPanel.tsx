@@ -576,7 +576,9 @@ export function NotificationsPanel({
           <div className="empty">
             <div className="empty-art"><Icon name="notifications" size={34} /></div>
             <h2>No notifications yet</h2>
-            <p className="muted">Notifications from your phone appear here.</p>
+            <p className="muted">
+              Notifications from your phone appear here, including ongoing and grouped alerts.
+            </p>
           </div>
         )
       ) : filtered.length === 0 ? (
@@ -702,6 +704,10 @@ function NotificationCard({
         </div>
         {item.title && <div className="notif-title">{item.title}</div>}
         {item.text && <div className="notif-text">{item.text}</div>}
+
+        {item.ongoing && !hasProgress && (
+          <div className="notif-ongoing"><span className="notif-live">Ongoing</span></div>
+        )}
 
         {hasProgress && (
           <div className="notif-progress-row">

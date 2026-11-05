@@ -2056,6 +2056,11 @@ button {
   text-transform: uppercase;
 }
 
+.notif-ongoing {
+  display: flex;
+  margin-top: 6px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .notif-progress-indeterminate .notif-progress-fill {
     animation: none;

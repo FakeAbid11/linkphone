@@ -19,6 +19,7 @@ class LinkService : Service() {
     override fun onCreate() {
         super.onCreate()
         LinkCore.init(this)
+        NotificationRelay.ensureBound(this)
         SystemCallWatcher.start(this)
         createChannel()
 

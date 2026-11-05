@@ -11,6 +11,7 @@ const MIME_TYPES: Record<string, string> = {
   mov: 'video/quicktime',
   mkv: 'video/x-matroska',
   webm: 'video/webm',
+  avi: 'video/x-msvideo',
   mp3: 'audio/mpeg',
   m4a: 'audio/mp4',
   wav: 'audio/wav',

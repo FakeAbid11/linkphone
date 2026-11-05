@@ -286,8 +286,6 @@ export interface AppState {
   galleryNextOffset: number
   galleryHasMore: boolean
   galleryLoading: boolean
-  galleryThumbs: Record<string, string>
-  galleryPreview: GalleryPreview | null
   galleryError: string
   desktopUpdate: DesktopUpdateState
   phoneCalls: PhoneCallInfo[]
@@ -603,6 +601,7 @@ export interface GalleryThumbData {
 export interface GalleryThumbsMsg {
   t: 'gallery.thumbnails'
   items: GalleryThumbData[]
+  kind?: GalleryKind
 }
 
 export interface GalleryPreviewRequestMsg {

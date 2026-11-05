@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AppState } from '@shared/protocol'
+import type { AppState, GalleryPreview } from '@shared/protocol'
 import logo from './assets/logo.png'
 import { Icon, type IconName } from './components/Icon'
 import { ClipboardPanel } from './components/ClipboardPanel'
@@ -37,9 +37,31 @@ export default function App(): JSX.Element {
   const [tab, setTab] = useState<Tab>('notifications')
   const [dragActive, setDragActive] = useState(false)
   const [dropNotice, setDropNotice] = useState('')
+  const [galleryThumbs, setGalleryThumbs] = useState<Record<string, string>>({})
+  const [galleryPreview, setGalleryPreview] = useState<GalleryPreview | null>(null)
   const dragDepth = useRef(0)
   const connectedRef = useRef(false)
   connectedRef.current = (state?.devices ?? []).some((device) => device.connected)
+
+  useEffect(() => {
+    const offThumbs = window.linkphone.onGalleryThumbs((items) => {
+      setGalleryThumbs((current) => {
+        const next = { ...current }
+        for (const item of items) next[item.photoId] = item.dataUrl
+        return next
+      })
+    })
+    const offPreview = window.linkphone.onGalleryPreview(setGalleryPreview)
+    return () => {
+      offThumbs()
+      offPreview()
+    }
+  }, [])
+
+  useEffect(() => {
+    setGalleryThumbs({})
+    setGalleryPreview(null)
+  }, [state?.galleryKind])
 
   useEffect(() => {
     let alive = true
@@ -181,7 +203,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v0.10.2</div>
+            <div className="brand-sub">Local network · v{state.desktopUpdate.currentVersion || '0.10.3'}</div>
           </div>
         </div>
 
@@ -387,8 +409,8 @@ export default function App(): JSX.Element {
               nextOffset={state.galleryNextOffset}
               hasMore={state.galleryHasMore}
               loading={state.galleryLoading}
-              thumbs={state.galleryThumbs}
-              preview={state.galleryPreview}
+              thumbs={galleryThumbs}
+              preview={galleryPreview}
               error={state.galleryError}
               connected={connected.length > 0}
               uploading={pictureUploads}

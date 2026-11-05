@@ -343,6 +343,14 @@ class LinkClient(context: Context, private val store: PairStore) {
         key = null
         supportsLiveProgress = false
         PhoneRinger.stop()
+        val interrupted = _transfers.value.map { transfer ->
+            if (transfer.status == "active" || transfer.status == "pending") {
+                transfer.copy(status = "interrupted")
+            } else {
+                transfer
+            }
+        }
+        if (interrupted != _transfers.value) _transfers.value = interrupted
         val next = hostQueue.poll()
         if (wantConnection && next != null) {
             Log.d("LinkPhone", "first address failed, trying $next")
@@ -1599,7 +1607,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 items.put(image.toJson(photoId))
             }
         }
-        send(JSONObject().apply { put("t", "gallery.thumbnails"); put("items", items) })
+        send(JSONObject().apply { put("t", "gallery.thumbnails"); put("items", items); put("kind", kindName) })
     }
 
     private fun sendGalleryPreview(kindName: String, photoId: String) {

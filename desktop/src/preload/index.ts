@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { LinkPhoneApi } from '../shared/api'
-import type { AppState, NotificationItem, TransferItem } from '../shared/protocol'
+import type { AppState, GalleryPreview, NotificationItem, TransferItem } from '../shared/protocol'
 
 const api: LinkPhoneApi = {
   getState: () => ipcRenderer.invoke('state:get') as Promise<AppState>,
@@ -8,6 +8,20 @@ const api: LinkPhoneApi = {
     const handler = (_event: Electron.IpcRendererEvent, state: AppState): void => cb(state)
     ipcRenderer.on('state:update', handler)
     return () => ipcRenderer.removeListener('state:update', handler)
+  },
+  onGalleryThumbs: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      items: Array<{ photoId: string; dataUrl: string }>
+    ): void => cb(items)
+    ipcRenderer.on('gallery:thumbs', handler)
+    return () => ipcRenderer.removeListener('gallery:thumbs', handler)
+  },
+  onGalleryPreview: (cb) => {
+    const handler = (_event: Electron.IpcRendererEvent, preview: GalleryPreview | null): void =>
+      cb(preview)
+    ipcRenderer.on('gallery:preview', handler)
+    return () => ipcRenderer.removeListener('gallery:preview', handler)
   },
   onNavigate: (cb) => {
     const handler = (

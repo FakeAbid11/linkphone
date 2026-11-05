@@ -752,33 +752,6 @@ private fun Screen(modifier: Modifier = Modifier) {
             }
         }
 
-        if (photoAccess && !fullVideoAccess) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.photo_library, "Videos")
-                    Text(
-                        if (partialVideoAccess) {
-                            "Android is showing only the videos you selected. Allow all videos to " +
-                                "browse the full video gallery on your PC."
-                        } else {
-                            "Photo access is granted, but Android treats video as a separate " +
-                                "permission. Allow it to see videos on your PC."
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
-                    )
-                    OutlinedButton(onClick = {
-                        videoPermission.launch(Manifest.permission.READ_MEDIA_VIDEO)
-                    }) {
-                        ButtonLabel(
-                            Symbols.photo_library,
-                            if (partialVideoAccess) "Allow all videos" else "Allow video access"
-                        )
-                    }
-                }
-            }
-        }
-
         if (!contactsAccess) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

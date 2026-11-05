@@ -1410,8 +1410,7 @@ export class AppStore extends EventEmitter {
       launchAtLoginSupported: this.launchAtLoginSupported,
       ringDurationMs: this.persisted.ringDurationMs,
       clipboardEnabled: this.persisted.clipboardEnabled,
-      downloadsDir: this.downloadsDir,
-      clippingInFlight: false
+      downloadsDir: this.downloadsDir
     }
   }
 

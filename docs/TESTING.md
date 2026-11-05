@@ -420,6 +420,10 @@ Ring the phone from its device card, then use the phone.
 * ✅ Airplane mode for 60 s → reconnect → active notifications return; History has no duplicates.
 * ✅ Mute an app → no card, no toast; only a debug log line.
 * ✅ Restart the PC while notifications are active → the list repopulates without a toast storm.
+* ✅ Two messages in the same chat within two seconds both appear (no throttle loss).
+* ✅ A calendar or email invitation with a **Decline** action appears in Notifications, not Calls.
+* ✅ More than six pairing attempts per minute from one host are rejected without freezing the PC.
+* ✅ Disconnecting mid-transfer shows **Interrupted**, not Failed.
 
 ## 10. Files
 

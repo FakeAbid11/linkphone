@@ -32,8 +32,9 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.12.2** is a notification reliability release: group and ongoing alerts are mirrored,
-> reconnects backfill what you missed, and a disconnected listener can reconnect itself.
+> **v0.12.3** is a review-fix release: rapid notifications are no longer throttled away,
+> calendar-style alerts are no longer mistaken for calls, pairing is rate-limited and cannot
+> block the PC, and retry/teardown states are corrected.
 
 ## Features
 
@@ -76,7 +77,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.12.2.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.12.3.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -305,14 +306,14 @@ works without those permissions.
 - Updater checks contact only this repository's public GitHub Releases API. They send no phone data,
   account information or telemetry.
 
-> **Not yet hardened:** there is no TLS/pinning, 6-digit pairing codes are accepted, and pairing
-> attempts are not rate-limited. A malicious host on your LAN could impersonate the PC. Do not use
-> LinkPhone on a network you do not trust.
+> **Not yet hardened:** there is no TLS/pinning and 6-digit pairing codes are accepted. Pairing
+> attempts are rate-limited per IP, but a malicious host on your LAN could still impersonate the PC.
+> Do not use LinkPhone on a network you do not trust.
 
 ## Roadmap
 
-1. **MMS and new conversations** — LinkPhone intentionally stays inside existing SMS threads and
-   does not claim the default-SMS-app role.
+1. **MMS** — existing and new SMS conversations are supported; MMS needs the default-SMS-app role
+   and an MMS pipeline, which LinkPhone does not claim.
 2. **Screen mirroring** — `MediaProjection` → hardware H.264 encoder → WebRTC; touch injection via an
    `AccessibilityService`.
 3. **TLS + certificate pinning**, manual IP entry, multi-device support.

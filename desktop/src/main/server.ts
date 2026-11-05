@@ -42,7 +42,7 @@ import { mimeForPath } from '../shared/mime'
 import { sanitizeDeviceName } from '../shared/device-name'
 import {
   decodeFileChunk,
-  deriveKey,
+  deriveKeyAsync,
   encodeControl,
   fileChunkPayload,
   hmac,
@@ -61,6 +61,11 @@ const MAX_SIMS = 8
 // Gallery previews are base64 JPEGs in control frames, so allow up to 16 MiB;
 // contact and call-log lists are capped far below this.
 const MAX_PLAIN_CONTROL = 16 * 1024 * 1024
+const MAX_FRAME_BYTES = 20 * 1024 * 1024
+const MAX_UNAUTHENTICATED = 32
+const MAX_UNAUTHENTICATED_PER_IP = 4
+const PAIR_WINDOW_MS = 60_000
+const MAX_PAIR_ATTEMPTS = 6
 
 class Outbound {
   acked = 0
@@ -153,6 +158,7 @@ class Peer {
   nonceB64 = ''
   alive = true
   address = ''
+  pairBusy = false
 
   constructor(
     readonly ws: WebSocket,
@@ -171,6 +177,7 @@ export class LinkServer extends EventEmitter {
   private peers = new Set<Peer>()
   private outbound = new Map<string, Outbound>()
   private ringingCallIds = new Set<string>()
+  private pairAttempts = new Map<string, number[]>()
   private readonly receiver: FileReceiver
   private heartbeat: NodeJS.Timeout | null = null
   port = 0
@@ -230,7 +237,7 @@ export class LinkServer extends EventEmitter {
     return new Promise((resolve, reject) => {
       // Dual-stack: IPv4-mapped clients keep working, and link-local IPv6
       // reaches the phone when the router isolates IPv4 clients.
-      const wss = new WebSocketServer({ port, host: '::' })
+      const wss = new WebSocketServer({ port, host: '::', maxPayload: MAX_FRAME_BYTES })
       const fail = (err: NodeJS.ErrnoException): void => {
         wss.removeAllListeners()
         wss.close()
@@ -269,8 +276,17 @@ export class LinkServer extends EventEmitter {
   /* ---------------------------------------------------------------- */
 
   private onConnection(ws: WebSocket, req: IncomingMessage): void {
+    const address = req.socket.remoteAddress ?? ''
+    const unauthenticated = [...this.peers].filter((peer) => peer.phase !== 'ready')
+    if (
+      unauthenticated.length >= MAX_UNAUTHENTICATED ||
+      unauthenticated.filter((peer) => peer.address === address).length >= MAX_UNAUTHENTICATED_PER_IP
+    ) {
+      ws.close(1013, 'busy')
+      return
+    }
     const peer = new Peer(ws, crypto.randomUUID())
-    peer.address = req.socket.remoteAddress ?? ''
+    peer.address = address
     this.peers.add(peer)
 
     ws.on('pong', () => {
@@ -334,7 +350,10 @@ export class LinkServer extends EventEmitter {
         this.onHello(peer, msg)
         return
       case 'pair.request':
-        this.onPairRequest(peer, msg)
+        void this.onPairRequest(peer, msg).catch((err) => {
+          console.error('[server] pair request failed', err)
+          peer.ws.close(1011, 'pairing failed')
+        })
         return
       case 'auth.response':
         this.onAuthResponse(peer, msg)
@@ -394,8 +413,8 @@ export class LinkServer extends EventEmitter {
     })
   }
 
-  private onPairRequest(peer: Peer, msg: RawMsg): void {
-    if (peer.phase !== 'awaitPair' || !peer.salt) {
+  private async onPairRequest(peer: Peer, msg: RawMsg): Promise<void> {
+    if (peer.phase !== 'awaitPair' || !peer.salt || peer.pairBusy) {
       peer.ws.close(1008, 'unexpected pair request')
       return
     }
@@ -404,9 +423,28 @@ export class LinkServer extends EventEmitter {
       peer.ws.close(4002, 'no pairing code')
       return
     }
+    if (!this.allowPairAttempt(peer.address)) {
+      this.send(peer, { t: 'pair.reject', reason: 'rate' })
+      peer.ws.close(4008, 'too many pairing attempts')
+      return
+    }
+
+    const salt = peer.salt
+    const code = this.store.pairingCode
+    peer.pairBusy = true
+    let key: Buffer
+    try {
+      key = await deriveKeyAsync(code, salt)
+    } catch (err) {
+      console.error('[server] pairing derivation failed', err)
+      peer.ws.close(1011, 'pairing failed')
+      return
+    } finally {
+      peer.pairBusy = false
+    }
+    if (peer.phase !== 'awaitPair' || peer.ws.readyState !== WebSocket.OPEN) return
 
     const proof = Buffer.from(str(msg.proof), 'base64')
-    const key = deriveKey(this.store.pairingCode, peer.salt)
     const expected = hmac(key, `pair:${peer.deviceId}`)
     if (!safeEqual(proof, expected)) {
       // Plaintext rejection: the client has already switched to encrypted mode,
@@ -434,6 +472,26 @@ export class LinkServer extends EventEmitter {
     })
     this.markReady(peer)
     this.send(peer, { t: 'pair.ok', serverId: this.store.serverId, serverName: this.store.serverName })
+  }
+
+  private allowPairAttempt(address: string): boolean {
+    const now = Date.now()
+    const cutoff = now - PAIR_WINDOW_MS
+    const recent = (this.pairAttempts.get(address) ?? []).filter((at) => at > cutoff)
+    if (recent.length >= MAX_PAIR_ATTEMPTS) {
+      this.pairAttempts.set(address, recent)
+      return false
+    }
+    recent.push(now)
+    this.pairAttempts.set(address, recent)
+    if (this.pairAttempts.size > 256) {
+      for (const [key, times] of this.pairAttempts) {
+        const fresh = times.filter((at) => at > cutoff)
+        if (fresh.length === 0) this.pairAttempts.delete(key)
+        else this.pairAttempts.set(key, fresh)
+      }
+    }
+    return true
   }
 
   private onAuthResponse(peer: Peer, msg: RawMsg): void {
@@ -1196,13 +1254,14 @@ export class LinkServer extends EventEmitter {
     const message = this.store.findSmsMessage(messageId)
     if (!message || !message.outgoing || !message.failed || message.retried) return 'invalid'
     if (!this.hasConnectedPeer()) return 'no-peer'
-    this.store.markSmsRetried(message.id)
-    return this.sendSms(
+    const result = this.sendSms(
       message.threadId,
       message.address,
       message.body,
       message.subscriptionId
     )
+    if (result === 'queued') this.store.markSmsRetried(message.id)
+    return result
   }
 
   startSmsConversation(

@@ -75,7 +75,10 @@ class NotificationRelay : NotificationListenerService() {
         }
 
         val client = LinkCore.clientOrNull() ?: return
-        if (!client.isReady) return
+        if (!client.isReady) {
+            logDrop(sbn, "not-ready")
+            return
+        }
         relay(sbn, client, false)
     }
 
@@ -165,8 +168,11 @@ class NotificationRelay : NotificationListenerService() {
         }
         if (!force) {
             if (lastSent[key] == signature) return
-            val now = System.currentTimeMillis()
-            if (now - (lastSentAt[key] ?: 0L) < THROTTLE_MS) return
+            // Throttle progress churn only; rapid chat updates must all get through.
+            if (hasProgress) {
+                val now = System.currentTimeMillis()
+                if (now - (lastSentAt[key] ?: 0L) < THROTTLE_MS) return
+            }
         }
 
         val sent = client.sendNotification(
@@ -284,8 +290,10 @@ class NotificationRelay : NotificationListenerService() {
         val categoryCall = notification.category == Notification.CATEGORY_CALL
         val ongoing = sbn.isOngoing ||
             notification.flags and Notification.FLAG_ONGOING_EVENT != 0
+        // A call needs the call category or an ongoing call-like notification. A plain
+        // calendar/email "Decline" action must stay a normal notification.
         if (!ongoing && !callAction) return false
-        if (!categoryCall && !callAction) return false
+        if (!categoryCall && !ongoing) return false
 
         if (!callAction) {
             val extras = notification.extras

@@ -19,14 +19,22 @@ export function normalizeCode(code: string): string {
   return code.toUpperCase().replace(/[^A-Z0-9]/g, '')
 }
 
-/** A 6-digit numeric code is also accepted for convenience. */
-export function isValidCode(code: string): boolean {
-  const c = normalizeCode(code)
-  return c.length >= 6
-}
-
 export function deriveKey(code: string, salt: Buffer): Buffer {
   return crypto.pbkdf2Sync(normalizeCode(code), salt, PBKDF2_ROUNDS, 32, 'sha256')
+}
+
+/** Async variant so unauthenticated pairing cannot block the Electron main thread. */
+export function deriveKeyAsync(code: string, salt: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(
+      normalizeCode(code),
+      salt,
+      PBKDF2_ROUNDS,
+      32,
+      'sha256',
+      (err, derived) => (err ? reject(err) : resolve(derived))
+    )
+  })
 }
 
 export function hmac(key: Buffer, label: string, data?: Buffer): Buffer {

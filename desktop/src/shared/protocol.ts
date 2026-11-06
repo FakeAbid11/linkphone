@@ -170,7 +170,11 @@ export interface PhoneCallInfo {
   /** Desktop epoch ms stamped when the call was first seen active; drives the live timer. */
   activeSince?: number
   simLabel?: string
+  /** Fallback calls only: 'ringing' or 'active', so a waiting call can be told from the live one. */
+  slot?: 'ringing' | 'active'
 }
+
+export type RouteKind = 'earpiece' | 'speaker' | 'bluetooth' | 'headset' | 'unknown'
 
 export interface PhoneContactNumber {
   number: string
@@ -301,6 +305,7 @@ export interface AppState {
   callPlaced: { number: string; at: number } | null
   callSpeaker: boolean
   callMuted: boolean
+  callRoute: RouteKind
   callError: string
   media: {
     title: string
@@ -689,6 +694,8 @@ export interface CallStateMsg {
   controlReady: boolean
   speaker: boolean
   muted: boolean
+  /** Observed audio route; absent on older phones. */
+  route?: RouteKind
 }
 
 export interface CallPlaceMsg {

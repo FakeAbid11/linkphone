@@ -34,6 +34,7 @@ import {
   type PhoneContact,
   type Platform,
   type RawMsg,
+  type RouteKind,
   type SimInfo,
   type SmsMessage,
   type SmsThread,
@@ -890,7 +891,8 @@ export class LinkServer extends EventEmitter {
           outgoingReady: msg.outgoingReady === undefined ? dialerReady : bool(msg.outgoingReady),
           controlReady: msg.controlReady === undefined ? dialerReady : bool(msg.controlReady),
           speaker: bool(msg.speaker),
-          muted: bool(msg.muted)
+          muted: bool(msg.muted),
+          route: parseRoute(str(msg.route, 'unknown'))
         })
         return
       }
@@ -1649,6 +1651,12 @@ function parseCallLogEntry(raw: RawMsg): CallLogEntry {
   }
 }
 
+function parseRoute(value: string): RouteKind {
+  return value === 'earpiece' || value === 'speaker' || value === 'bluetooth' || value === 'headset'
+    ? value
+    : 'unknown'
+}
+
 function parsePhoneCall(raw: RawMsg): PhoneCallInfo {
   const phase = str(raw.phase)
   const allowed: PhoneCallInfo['phase'][] = [
@@ -1666,6 +1674,7 @@ function parsePhoneCall(raw: RawMsg): PhoneCallInfo {
     id: str(raw.id).slice(0, 64),
     number: str(raw.number).slice(0, 128),
     displayName: str(raw.displayName).slice(0, 200),
+    slot: raw.slot === 'ringing' || raw.slot === 'active' ? raw.slot : undefined,
     phase: allowed.includes(phase as PhoneCallInfo['phase'])
       ? (phase as PhoneCallInfo['phase'])
       : 'unknown',

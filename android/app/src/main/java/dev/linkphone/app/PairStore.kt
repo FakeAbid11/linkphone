@@ -72,6 +72,11 @@ class PairStore(context: Context) {
         get() = prefs.getBoolean("pcClipboard", true)
         set(value) = prefs.edit().putBoolean("pcClipboard", value).apply()
 
+    /** True while LinkPhone has muted the device microphone and still owes an unmute. */
+    var muteRestorePending: Boolean
+        get() = prefs.getBoolean("muteRestorePending", false)
+        set(value) = prefs.edit().putBoolean("muteRestorePending", value).apply()
+
     var onboardingDone: Boolean
         get() = prefs.getBoolean("onboardingDone", false)
         set(value) = prefs.edit().putBoolean("onboardingDone", value).apply()

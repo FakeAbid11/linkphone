@@ -1386,6 +1386,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("incoming", call.incoming)
                 put("startedAt", call.startedAt)
                 call.simLabel?.takeIf { it.isNotBlank() }?.let { put("simLabel", it) }
+                call.slot?.takeIf { it.isNotBlank() }?.let { put("slot", it) }
             }
         })
         send(
@@ -1397,6 +1398,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("controlReady", snapshot.controlReady)
                 put("speaker", snapshot.speaker)
                 put("muted", snapshot.muted)
+                put("route", snapshot.route)
             }
         )
     }

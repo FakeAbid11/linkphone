@@ -103,11 +103,14 @@ export function CallsPanel({
     )
   }, [callAccounts])
 
+  const live = calls.some((call) => call.phase === 'active' || call.phase === 'held')
+
   useEffect(() => {
-    if (!calls.some((call) => call.phase === 'active')) return
+    if (!live) return
+    setNow(Date.now())
     const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(timer)
-  }, [calls])
+  }, [live])
 
   const place = (): void => {
     const value = number.trim()
@@ -392,9 +395,13 @@ function CallCard({
 }): JSX.Element {
   const ringing = call.phase === 'ringing'
   const ended = call.phase === 'disconnected'
-  const title = call.displayName || call.number || 'Unknown caller'
+  const title = call.displayName || call.number || (call.incoming ? 'Incoming call' : 'Calling…')
   const subtitle = call.displayName && call.number ? call.number : phaseLabel(call.phase)
-  const duration = call.phase === 'active' ? elapsed(Math.max(0, now - call.startedAt)) : ''
+  const since = call.activeSince ?? call.startedAt
+  const duration =
+    since > 0 && (call.phase === 'active' || call.phase === 'held' || ended)
+      ? elapsed(Math.max(0, now - since))
+      : ''
 
   return (
     <div className={`active-call ${ringing ? 'incoming-call' : ''}`}>
@@ -493,13 +500,21 @@ function phaseLabel(phase: PhoneCallInfo['phase']): string {
       return 'Ending…'
     case 'disconnected':
       return 'Call ended'
+    case 'new':
+    case 'unknown':
+      return 'Calling…'
     default:
       return 'Call'
   }
 }
 
 function elapsed(milliseconds: number): string {
-  const seconds = Math.floor(milliseconds / 1000)
-  const minutes = Math.floor(seconds / 60)
-  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`
+  const total = Math.floor(milliseconds / 1000)
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
 }

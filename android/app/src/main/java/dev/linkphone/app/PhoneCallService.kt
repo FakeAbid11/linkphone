@@ -65,6 +65,28 @@ object CallHub {
     private var systemCall: PhoneCallInfo? = null
     private var telephonyPhase: PhoneCallPhase? = null
     private var systemSpeaker = false
+    private var lastPlacedNumber = ""
+    private var lastPlacedAt = 0L
+    private val placedNumberTtlMs = 120_000L
+    private val callHeartbeatMs = 20_000L
+    private var heartbeatActive = false
+    private val heartbeat = Runnable {
+        heartbeatActive = false
+        if (systemCall != null) publishSystemState()
+    }
+
+    /**
+     * The PC dialed through us, but the notification and telephony fallbacks often report the
+     * call without a number. Remember it so the PC never has to show "Unknown".
+     */
+    private fun recentPlacedNumber(): String {
+        if (lastPlacedNumber.isEmpty()) return ""
+        val fresh = System.currentTimeMillis() - lastPlacedAt <= placedNumberTtlMs
+        return if (fresh) lastPlacedNumber else ""
+    }
+
+    /** True while a call we dialed has not reached a running timer yet. */
+    fun hasPendingOutgoing(): Boolean = recentPlacedNumber().isNotEmpty()
 
     fun attach(context: Context) {
         appContext = context.applicationContext
@@ -97,38 +119,88 @@ object CallHub {
     @Synchronized
     fun updateSystemCall(call: PhoneCallInfo) {
         if (PhoneCallService.instance != null) return
-        val startedAt = systemCall?.startedAt ?: call.startedAt
-        val phase = telephonyPhase ?: call.phase
+        val number = call.number.ifBlank { recentPlacedNumber() }
+        val previous = systemCall
+        val candidate = resolvePhase(call.phase)
+        val displayName = call.displayName.ifBlank {
+            number.ifBlank {
+                if (candidate == PhoneCallPhase.RINGING) "Incoming call" else "Calling…"
+            }
+        }
+        // The dialer notification and telephony report in either order; never walk a live call back.
+        val phase = if (previous != null &&
+            (previous.phase == PhoneCallPhase.ACTIVE || previous.phase == PhoneCallPhase.HELD) &&
+            candidate != PhoneCallPhase.ACTIVE && candidate != PhoneCallPhase.HELD &&
+            sameCall(previous, number)
+        ) {
+            previous.phase
+        } else {
+            candidate
+        }
         systemCall = call.copy(
+            number = number,
+            displayName = displayName,
             phase = phase,
             incoming = phase == PhoneCallPhase.RINGING,
-            startedAt = startedAt
+            startedAt = previous?.startedAt ?: call.startedAt
         )
         publishSystemState()
     }
+
+    /** Without the dialer role, OFFHOOK only means dialing until the dialer shows a running timer. */
+    private fun resolvePhase(hint: PhoneCallPhase): PhoneCallPhase {
+        val telephony = telephonyPhase
+        if (hint == PhoneCallPhase.RINGING || telephony == PhoneCallPhase.RINGING) {
+            return if (telephony == PhoneCallPhase.ACTIVE) {
+                PhoneCallPhase.ACTIVE
+            } else {
+                PhoneCallPhase.RINGING
+            }
+        }
+        if (hint == PhoneCallPhase.ACTIVE || telephony == PhoneCallPhase.ACTIVE) {
+            return PhoneCallPhase.ACTIVE
+        }
+        return PhoneCallPhase.DIALING
+    }
+
+    private fun sameCall(previous: PhoneCallInfo, number: String): Boolean =
+        previous.number.isBlank() || number.isBlank() || previous.number == number
 
     @Synchronized
     fun updateTelephonyCall(phase: PhoneCallPhase) {
         if (PhoneCallService.instance != null) return
         if (phase != PhoneCallPhase.RINGING && phase != PhoneCallPhase.ACTIVE) return
-        telephonyPhase = phase
+        val answered = phase == PhoneCallPhase.ACTIVE && telephonyPhase == PhoneCallPhase.RINGING
+        // OUTGOING/OFFHOOK arrives while the call is still ringing out, so it cannot mark a call
+        // we placed as connected. An incoming call flips to ACTIVE when we accepted it.
+        val effective = if (phase == PhoneCallPhase.ACTIVE && !answered &&
+            recentPlacedNumber().isNotEmpty()
+        ) {
+            PhoneCallPhase.DIALING
+        } else {
+            phase
+        }
+        telephonyPhase = effective
         val existing = systemCall
+        val number = if (existing != null) "" else recentPlacedNumber()
         systemCall = if (existing != null) {
+            val keepLive = (existing.phase == PhoneCallPhase.ACTIVE ||
+                existing.phase == PhoneCallPhase.HELD) && effective == PhoneCallPhase.DIALING
             existing.copy(
-                phase = phase,
-                incoming = phase == PhoneCallPhase.RINGING
+                phase = if (keepLive) existing.phase else effective,
+                incoming = effective == PhoneCallPhase.RINGING
             )
         } else {
             PhoneCallInfo(
                 id = "system:telephony",
-                number = "",
-                displayName = if (phase == PhoneCallPhase.RINGING) {
-                    "Incoming call"
-                } else {
-                    "Phone call"
+                number = number,
+                displayName = when {
+                    number.isNotEmpty() -> ""
+                    effective == PhoneCallPhase.RINGING -> "Incoming call"
+                    else -> "Phone call"
                 },
-                phase = phase,
-                incoming = phase == PhoneCallPhase.RINGING,
+                phase = effective,
+                incoming = effective == PhoneCallPhase.RINGING,
                 startedAt = System.currentTimeMillis()
             )
         }
@@ -139,6 +211,8 @@ object CallHub {
     fun clearTelephonyCall() {
         if (PhoneCallService.instance != null) return
         telephonyPhase = null
+        lastPlacedNumber = ""
+        lastPlacedAt = 0L
         systemCall = null
         systemSpeaker = false
         publishSystemState()
@@ -166,6 +240,16 @@ object CallHub {
                 muted = false
             )
         )
+        // Re-send while a fallback call is live so a dropped frame cannot leave the PC stuck.
+        if (systemCall != null) {
+            if (!heartbeatActive) {
+                heartbeatActive = true
+                main.postDelayed(heartbeat, callHeartbeatMs)
+            }
+        } else {
+            main.removeCallbacks(heartbeat)
+            heartbeatActive = false
+        }
     }
 
     fun isDefaultDialer(context: Context): Boolean {
@@ -193,6 +277,8 @@ object CallHub {
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
         val uri = Uri.fromParts("tel", number, null)
+        lastPlacedNumber = number
+        lastPlacedAt = System.currentTimeMillis()
         val extras = Bundle()
         if (!accountId.isNullOrBlank()) {
             val sims = SimRepository.get(context)
@@ -222,6 +308,7 @@ object CallHub {
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
         telecom.acceptRingingCall()
+        telephonyPhase = PhoneCallPhase.ACTIVE
         systemCall = systemCall?.copy(phase = PhoneCallPhase.ACTIVE, incoming = false)
         publishSystemState()
     }
@@ -238,6 +325,7 @@ object CallHub {
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
         telecom.endCall()
+        telephonyPhase = null
         systemCall = null
         systemSpeaker = false
         publishSystemState()
@@ -255,6 +343,7 @@ object CallHub {
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
         telecom.endCall()
+        telephonyPhase = null
         systemCall = null
         systemSpeaker = false
         publishSystemState()
@@ -445,7 +534,7 @@ class PhoneCallService : InCallService() {
         val info = details
         val incoming = info.callDirection == Call.Details.DIRECTION_INCOMING || state == Call.STATE_RINGING
         val connectedAt = info.connectTimeMillis.takeIf { it > 0 } ?: fallbackStartedAt
-        val number = info.handle?.schemeSpecificPart.orEmpty().ifBlank { "Unknown" }
+        val number = info.handle?.schemeSpecificPart.orEmpty()
         val resolved = info.callerDisplayName?.toString().orEmpty()
             .ifBlank { ContactsRepository.get(this@PhoneCallService).nameFor(number).orEmpty() }
         val simLabel = info.accountHandle?.let {
@@ -466,12 +555,13 @@ class PhoneCallService : InCallService() {
         Call.STATE_NEW -> PhoneCallPhase.NEW
         Call.STATE_CONNECTING, Call.STATE_SELECT_PHONE_ACCOUNT -> PhoneCallPhase.CONNECTING
         Call.STATE_DIALING, Call.STATE_PULLING_CALL -> PhoneCallPhase.DIALING
-        Call.STATE_RINGING -> PhoneCallPhase.RINGING
-        Call.STATE_ACTIVE -> PhoneCallPhase.ACTIVE
+        Call.STATE_RINGING, Call.STATE_SIMULATED_RINGING -> PhoneCallPhase.RINGING
+        Call.STATE_ACTIVE, Call.STATE_AUDIO_PROCESSING -> PhoneCallPhase.ACTIVE
         Call.STATE_HOLDING -> PhoneCallPhase.HELD
         Call.STATE_DISCONNECTING -> PhoneCallPhase.DISCONNECTING
         Call.STATE_DISCONNECTED -> PhoneCallPhase.DISCONNECTED
-        else -> PhoneCallPhase.UNKNOWN
+        // UNKNOWN is never useful to the PC: a live Call object is at least in progress.
+        else -> PhoneCallPhase.ACTIVE
     }
 
     private fun callId(call: Call): String = Integer.toHexString(System.identityHashCode(call))

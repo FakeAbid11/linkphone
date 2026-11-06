@@ -277,10 +277,21 @@ include `simLabel` so the PC can show which SIM was used, even after a SIM is re
 
 ### Call control
 
-The Android app must hold `RoleManager.ROLE_DIALER` and phone permissions. Its `InCallService`
-publishes call IDs, number/display label, direction, state and timestamps. Windows sends commands by
-opaque call ID. Outgoing PSTN calls use `TelecomManager.placeCall`; speaker routing uses the
-InCallService call-audio route.
+Call control works **without** the default-dialer role. With the role, LinkPhone's `InCallService`
+publishes call IDs, number/display label, direction, state and `startedAt`. Without it, the phone
+falls back to the dialer's ongoing notification and `TelephonyRegistry`; those phases are best
+effort, and Android does not expose the exact answer instant, so:
+
+* the phone never reports `unknown` for a live call;
+* an outgoing call stays `dialing` until the dialer's notification shows a running timer (or the
+  call is answered), then becomes `active`;
+* the PC keeps the dialed number from `call.place` and fills it in when the phone's report has none;
+* the **PC** stamps the live timer when it first sees `active`, so `startedAt` (phone clock) is only
+  informational and clock drift between the two devices cannot corrupt the duration.
+
+Windows sends commands by opaque call ID. Without the role, control uses `TelecomManager`
+(`acceptRingingCall`, `endCall`) and speaker routing uses the call-audio route when available,
+otherwise `AudioManager`. Outgoing PSTN calls use `TelecomManager.placeCall`.
 
 Only signaling/control data uses this protocol. LinkPhone does not access, encode or transport the
 microphone or call audio; audio remains on the phone earpiece/speaker (or another route selected by

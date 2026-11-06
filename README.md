@@ -235,8 +235,8 @@ which Android 15 does not subject to the six-hour `dataSync` limit.
   **No restrictions**; otherwise the system may block the boot receiver or kill the service.
 - **Limits:** force-stopping LinkPhone from system settings stops it until you open it again.
   Clipboard phone→PC works while LinkPhone is open. To sync copies made in other apps, enable the
-  optional clipboard accessibility service in LinkPhone → Setup. It reads clipboard text only,
-  never screen content; Android may show a clipboard-access notice.
+  optional clipboard accessibility service from the **Sync copies from other apps** card. It reads
+  clipboard text only, never screen content; Android may show a clipboard-access notice.
 
 </details>
 

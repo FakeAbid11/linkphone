@@ -480,8 +480,8 @@ Drag files from Explorer onto any part of the LinkPhone window.
 
 ## 11b. Clipboard background sync (v0.12.5+)
 
-Enable **LinkPhone clipboard sync** in Android accessibility settings via LinkPhone → Setup →
-**Enable background sync**.
+Enable **LinkPhone clipboard sync** in Android accessibility settings via the **Sync copies from
+other apps** card → **Enable background sync**.
 
 * ✅ With background sync on, copy text in Chrome/WhatsApp while LinkPhone is backgrounded → the PC
   clipboard updates within ~1 s (Android may show one clipboard-access notice).

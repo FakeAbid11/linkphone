@@ -1675,6 +1675,8 @@ function parsePhoneCall(raw: RawMsg): PhoneCallInfo {
     number: str(raw.number).slice(0, 128),
     displayName: str(raw.displayName).slice(0, 200),
     slot: raw.slot === 'ringing' || raw.slot === 'active' ? raw.slot : undefined,
+    canControl: raw.canControl === true ? true : undefined,
+    viaNotification: raw.viaNotification === true ? true : undefined,
     phase: allowed.includes(phase as PhoneCallInfo['phase'])
       ? (phase as PhoneCallInfo['phase'])
       : 'unknown',

@@ -45,7 +45,11 @@ data class PhoneCallInfo(
     val startedAt: Long,
     val simLabel: String? = null,
     /** ringing | active — set for fallback calls so the PC can tell a waiting call from the live one. */
-    val slot: String? = null
+    val slot: String? = null,
+    /** True when the PC can answer/decline/end this card. */
+    val canControl: Boolean = false,
+    /** True when the control is dispatched through the owning app's notification action. */
+    val viaNotification: Boolean = false
 )
 
 data class PhoneCallSnapshot(
@@ -83,6 +87,9 @@ object CallHub {
     private val placedNumberTtlMs = 120_000L
     private val callHeartbeatMs = 20_000L
     private var heartbeatActive = false
+    /** Bumped by every real call-state update; the action watchdog compares against it. */
+    @Volatile
+    private var stateRevision = 0L
     private val heartbeat = Runnable {
         heartbeatActive = false
         if (fallbackCalls.isNotEmpty()) publishSystemState()
@@ -134,6 +141,7 @@ object CallHub {
     @Synchronized
     fun updateSystemCall(key: String, call: PhoneCallInfo) {
         if (PhoneCallService.instance != null) return
+        stateRevision++
         val ringing = call.phase == PhoneCallPhase.RINGING
         val number = call.number.ifBlank { recentPlacedNumber() }
         val existing = fallbackCalls[key]
@@ -193,6 +201,7 @@ object CallHub {
     fun updateTelephonyCall(phase: PhoneCallPhase) {
         if (PhoneCallService.instance != null) return
         if (phase != PhoneCallPhase.RINGING && phase != PhoneCallPhase.ACTIVE) return
+        stateRevision++
         val answered = phase == PhoneCallPhase.ACTIVE && telephonyPhase == PhoneCallPhase.RINGING
         // OUTGOING/OFFHOOK arrives while the call is still ringing out, so it cannot mark a call
         // we placed as connected. An incoming call flips to ACTIVE when we accepted it.
@@ -265,6 +274,7 @@ object CallHub {
     @Synchronized
     fun clearTelephonyCall() {
         if (PhoneCallService.instance != null) return
+        stateRevision++
         telephonyPhase = null
         lastPlacedNumber = ""
         lastPlacedAt = 0L
@@ -277,6 +287,7 @@ object CallHub {
     fun clearNotificationCall(key: String) {
         if (PhoneCallService.instance != null) return
         val removed = fallbackCalls.remove(key) ?: return
+        stateRevision++
         // The dialer can hide its notification while telephony still reports a live call.
         if (removed.info.phase != PhoneCallPhase.RINGING &&
             telephonyPhase == PhoneCallPhase.ACTIVE &&
@@ -299,6 +310,7 @@ object CallHub {
         if (PhoneCallService.instance != null) return
         val removed = fallbackCalls.entries.removeAll { !it.value.telephony }
         if (!removed) return
+        stateRevision++
         if (fallbackCalls.isEmpty() && telephonyPhase != PhoneCallPhase.ACTIVE) telephonyPhase = null
         if (fallbackCalls.isEmpty()) restoreMute()
         publishSystemState()
@@ -308,11 +320,14 @@ object CallHub {
     private fun publishSystemState() {
         val context = appContext
         val route = context?.let { routeOf(it) } ?: "unknown"
+        val controlReady = context?.let { isRemoteControlReady(it) } ?: false
         val calls = fallbackCalls.values
             .sortedBy { it.info.phase != PhoneCallPhase.RINGING }
             .map {
                 it.info.copy(
-                    slot = if (it.info.phase == PhoneCallPhase.RINGING) "ringing" else "active"
+                    slot = if (it.info.phase == PhoneCallPhase.RINGING) "ringing" else "active",
+                    canControl = !it.telephony || controlReady,
+                    viaNotification = !it.telephony
                 )
             }
         publish(
@@ -427,12 +442,32 @@ object CallHub {
             main.post { runCatching { service.answer(callId) } }
             return@runCatching
         }
-        if (!hasAnswerPermission(context)) error("Allow call access on your phone")
         val ringingKey = ringingKeyFor(callId) ?: error("That call is no longer ringing")
+        // VoIP apps own their call; the only control surface is their own notification action.
+        if (fallbackCalls[ringingKey]?.telephony == false) {
+            deliverNotificationAction(ringingKey, CallActionKind.ANSWER).getOrThrow()
+            promoteRinging(ringingKey, markTelephony = false)
+            return@runCatching
+        }
+        if (!hasAnswerPermission(context)) error("Allow call access on your phone")
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
         telecom.acceptRingingCall()
-        val entry = fallbackCalls.remove(ringingKey) ?: return@runCatching
+        promoteRinging(ringingKey, markTelephony = true)
+    }
+
+    /** The id can change between the post and the click; fall back to the only ringing card. */
+    private fun ringingKeyFor(callId: String): String? {
+        val ringing = fallbackCalls.entries.filter { it.value.info.phase == PhoneCallPhase.RINGING }
+        if (ringing.isEmpty()) return null
+        if (callId.isNotEmpty()) {
+            return ringing.firstOrNull { it.value.info.id == callId }?.key ?: ringing.first().key
+        }
+        return ringing.first().key
+    }
+
+    private fun promoteRinging(ringingKey: String, markTelephony: Boolean) {
+        val entry = fallbackCalls.remove(ringingKey) ?: return
         // Answering a waiting call puts the call that was live on hold.
         for ((key, value) in fallbackCalls.entries.toList()) {
             if (value.info.phase == PhoneCallPhase.ACTIVE) {
@@ -446,18 +481,9 @@ object CallHub {
                 startedAt = System.currentTimeMillis()
             )
         )
-        telephonyPhase = PhoneCallPhase.ACTIVE
+        // A VoIP call is self-managed: TelephonyRegistry does not know about it.
+        if (markTelephony) telephonyPhase = PhoneCallPhase.ACTIVE
         publishSystemState()
-    }
-
-    /** The id can change between the post and the click; fall back to the only ringing card. */
-    private fun ringingKeyFor(callId: String): String? {
-        val ringing = fallbackCalls.entries.filter { it.value.info.phase == PhoneCallPhase.RINGING }
-        if (ringing.isEmpty()) return null
-        if (callId.isNotEmpty()) {
-            return ringing.firstOrNull { it.value.info.id == callId }?.key ?: ringing.first().key
-        }
-        return ringing.first().key
     }
 
     @Suppress("DEPRECATION")
@@ -468,8 +494,15 @@ object CallHub {
             main.post { runCatching { service.reject(callId) } }
             return@runCatching
         }
-        if (!hasAnswerPermission(context)) error("Allow call access on your phone")
         val ringingKey = ringingKeyFor(callId) ?: error("That call is no longer ringing")
+        if (fallbackCalls[ringingKey]?.telephony == false) {
+            deliverNotificationAction(ringingKey, CallActionKind.DECLINE).getOrThrow()
+            fallbackCalls.remove(ringingKey)
+            if (fallbackCalls.isEmpty()) restoreMute()
+            publishSystemState()
+            return@runCatching
+        }
+        if (!hasAnswerPermission(context)) error("Allow call access on your phone")
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
         // endCall() rejects the ringing leg when one exists, which is exactly what we want here.
@@ -490,12 +523,22 @@ object CallHub {
             main.post { runCatching { service.disconnect(callId) } }
             return@runCatching
         }
+        val target = activeEntryFor(callId) ?: error("There is no call to end")
+        if (!target.value.telephony) {
+            deliverNotificationAction(target.key, CallActionKind.HANGUP).getOrThrow()
+            fallbackCalls.remove(target.key)
+            if (fallbackCalls.isEmpty()) {
+                telephonyPhase = null
+                restoreMute()
+            }
+            publishSystemState()
+            return@runCatching
+        }
         if (!hasAnswerPermission(context)) error("Allow call access on your phone")
         // endCall() targets the ringing leg first, so hanging up here could end the wrong call.
         if (fallbackCalls.values.any { it.info.phase == PhoneCallPhase.RINGING }) {
             error("Answer or decline the incoming call first")
         }
-        if (fallbackCalls.isEmpty()) error("There is no call to end")
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
         telecom.endCall()
@@ -505,6 +548,50 @@ object CallHub {
         lastPlacedAt = 0L
         restoreMute()
         publishSystemState()
+    }
+
+    private fun activeEntryFor(callId: String): Map.Entry<String, FallbackCall>? {
+        if (callId.isNotEmpty()) {
+            fallbackCalls.entries.firstOrNull {
+                it.value.info.id == callId && it.value.info.phase != PhoneCallPhase.RINGING
+            }?.let { return it }
+        }
+        return fallbackCalls.entries.firstOrNull {
+            it.value.info.phase != PhoneCallPhase.RINGING
+        }
+    }
+
+    private fun deliverNotificationAction(key: String, kind: CallActionKind): Result<Unit> {
+        val reason = NotificationRelay.deliverCallAction(key, kind)
+        if (reason == null) {
+            watchNotificationAction(kind)
+            return Result.success(Unit)
+        }
+        val hint = when (kind) {
+            CallActionKind.ANSWER -> "Answer this call on your phone"
+            CallActionKind.DECLINE -> "Decline this call on your phone"
+            CallActionKind.HANGUP -> "End this call on your phone"
+        }
+        return Result.failure(
+            IllegalStateException(if (reason == "gone") "That call has ended" else hint)
+        )
+    }
+
+    /**
+     * A sent PendingIntent does not prove the app acted: a background activity start can be dropped
+     * silently. If no call state changed shortly after, tell the user instead of claiming success.
+     */
+    private fun watchNotificationAction(kind: CallActionKind) {
+        val revision = stateRevision
+        main.postDelayed({
+            if (stateRevision != revision) return@postDelayed
+            val hint = when (kind) {
+                CallActionKind.ANSWER -> "tap Answer on your phone"
+                CallActionKind.DECLINE -> "decline it on your phone"
+                CallActionKind.HANGUP -> "end it on your phone"
+            }
+            LinkCore.clientOrNull()?.sendCallError("Nothing happened — $hint")
+        }, 5_000)
     }
 
     @Suppress("DEPRECATION")

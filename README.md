@@ -32,9 +32,9 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.12.9** improves calling without the default-phone role: the card flips to Connected when the
-> call actually answers, shows the real audio route, mutes the phone microphone, and keeps both legs
-> of a waiting call visible.
+> **v0.12.10** lets the PC control WhatsApp, Telegram, Messenger and Instagram calls: Answer,
+> Decline and Hang up are sent through the app's own notification action, with an honest error when
+> an app refuses. Call audio still stays on the phone.
 
 ## Features
 
@@ -46,7 +46,7 @@ service or a relay server.
 | SMS | Partial | New or existing conversations with contact suggestions, search and retry failed sends; no MMS |
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
 | Contacts and call history | Yes | Recent calls and contacts share a switch beside the dialer |
-| Phone calls | Partial | Dial, answer, hang up, mute and use the phone speaker from the PC (best effort); connect time, route and waiting calls tracked; audio stays on the phone |
+| Phone calls | Partial | Dial, answer, hang up, mute and use the phone speaker from the PC (best effort); SIM and VoIP calls (WhatsApp, Telegram, Messenger, Instagram) controllable; audio stays on the phone |
 | Find my phone | Yes | Ring the connected phone for 5–30 s and stop it from the phone or the PC |
 | Media controls | Yes | Album art, seek and phone volume plus play/pause and next/previous |
 | Photo albums | Yes | Thumbnails, paged albums, previews, downloads, uploads and inline video playback |
@@ -77,7 +77,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.12.9.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.12.10.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

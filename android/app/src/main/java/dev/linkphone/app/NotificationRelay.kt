@@ -15,6 +15,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.util.concurrent.ConcurrentHashMap
 
+/** A call control we can dispatch through the owning app's own notification action. */
+enum class CallActionKind { ANSWER, DECLINE, HANGUP }
+
 /**
  * Mirrors posted notifications to the PC and executes inline replies coming back.
  * Requires the user to grant notification access in system settings.
@@ -283,13 +286,15 @@ class NotificationRelay : NotificationListenerService() {
 
     private fun isSystemCall(sbn: StatusBarNotification, notification: Notification): Boolean {
         if (sbn.packageName == packageName) return false
-        val labels = notification.actions.orEmpty().mapNotNull { it.title?.toString()?.lowercase() }
-        val callAction = labels.any { label ->
+        val categoryCall = notification.category == Notification.CATEGORY_CALL
+        val callAction = notification.actions.orEmpty().any { action ->
+            val label = action.title?.toString().orEmpty().lowercase()
             label.contains("answer") || label.contains("decline") ||
                 label.contains("reject") || label.contains("hang up") ||
-                label.contains("end call")
+                label.contains("end call") ||
+                // Localized dialers/VoIP apps: only for notifications already tagged as calls.
+                (categoryCall && actionKind(action) != null)
         }
-        val categoryCall = notification.category == Notification.CATEGORY_CALL
         val ongoing = sbn.isOngoing ||
             notification.flags and Notification.FLAG_ONGOING_EVENT != 0
         // A call needs the call category or an ongoing call-like notification. A plain
@@ -314,9 +319,9 @@ class NotificationRelay : NotificationListenerService() {
 
     private fun handleSystemCall(sbn: StatusBarNotification, notification: Notification) {
         val actions = notification.actions.orEmpty().mapNotNull { it.title?.toString() }
-        val ringing = actions.any { label ->
-            val lower = label.lowercase()
-            lower.contains("answer") || lower.contains("decline") || lower.contains("reject")
+        val ringing = notification.actions.orEmpty().any {
+            val kind = actionKind(it)
+            kind == CallActionKind.ANSWER || kind == CallActionKind.DECLINE
         }
         val extras = notification.extras
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim().orEmpty()
@@ -379,6 +384,51 @@ class NotificationRelay : NotificationListenerService() {
             ?.trim()
             ?.take(24)
             ?.takeIf { it.isNotEmpty() }
+
+    /**
+     * Labels only: the call-specific `semanticAction` values (answer/reject/hang up) are hidden
+     * framework constants, not public API, so they cannot be referenced here.
+     */
+    private fun actionKind(action: Notification.Action): CallActionKind? {
+        if (isFreeFormReply(action)) return null
+        val label = action.title?.toString().orEmpty().lowercase().replace(Regex("\\s+"), " ")
+        if (label.isBlank()) return null
+        val answerWords = listOf(
+            "answer", "accept", "pick up", "annehmen", "répondre", "repondre",
+            "responder", "atender", "rispondi", "接听"
+        )
+        val declineWords = listOf(
+            "decline", "reject", "ignore", "ablehnen", "refuser", "rechazar",
+            "recusar", "rifiuta", "拒绝"
+        )
+        val hangUpWords = listOf(
+            "hang up", "hangup", "end call", "auflegen", "raccrocher", "colgar",
+            "encerrar", "riaggancia", "挂断"
+        )
+        return when {
+            answerWords.any { label.contains(it) } -> CallActionKind.ANSWER
+            declineWords.any { label.contains(it) } -> CallActionKind.DECLINE
+            label == "end" || hangUpWords.any { label.contains(it) } -> CallActionKind.HANGUP
+            else -> null
+        }
+    }
+
+    private fun findCallAction(notification: Notification, kind: CallActionKind): Notification.Action? {
+        val actions = notification.actions.orEmpty().filter { it.actionIntent != null }
+        actions.firstOrNull { actionKind(it) == kind }?.let { return it }
+        // A lone unfilled action on a connected call is its hang-up button.
+        if (kind == CallActionKind.HANGUP && actions.size == 1 && !isFreeFormReply(actions[0])) {
+            return actions.first()
+        }
+        return null
+    }
+
+    /** Fires a call notification's own action. Returns null on success, otherwise a reason. */
+    private fun handleCallAction(key: String, kind: CallActionKind): String? {
+        val sbn = activeNotifications?.firstOrNull { it.key == key } ?: return "gone"
+        val action = findCallAction(sbn.notification, kind) ?: return "no-action"
+        return sendIntent(action.actionIntent, Intent())
+    }
 
     private fun drop(key: String, client: LinkClient) {
         lastSent.remove(key)
@@ -501,6 +551,10 @@ class NotificationRelay : NotificationListenerService() {
         /** Null means the action ran; otherwise a short reason for the PC. */
         fun deliver(key: String, actionId: String, replyText: String, label: String = ""): String? =
             instance?.handleAction(key, actionId, replyText, label) ?: "unavailable"
+
+        /** Answer/Decline/Hang up through the owning app's own notification action. */
+        fun deliverCallAction(key: String, kind: CallActionKind): String? =
+            instance?.handleCallAction(key, kind) ?: "unavailable"
 
         fun deliverCancel(keys: List<String>) {
             instance?.cancel(keys)

@@ -1387,6 +1387,8 @@ class LinkClient(context: Context, private val store: PairStore) {
                 put("startedAt", call.startedAt)
                 call.simLabel?.takeIf { it.isNotBlank() }?.let { put("simLabel", it) }
                 call.slot?.takeIf { it.isNotBlank() }?.let { put("slot", it) }
+                if (call.canControl) put("canControl", true)
+                if (call.viaNotification) put("viaNotification", true)
             }
         })
         send(
@@ -1403,7 +1405,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         )
     }
 
-    private fun sendCallError(detail: String) {
+    fun sendCallError(detail: String) {
         send(JSONObject().apply { put("t", "call.error"); put("error", detail) })
     }
 

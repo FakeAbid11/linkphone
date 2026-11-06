@@ -142,7 +142,7 @@ export function CallsPanel({
         </div>
       )}
 
-      {connected && calls.length > 0 && !controlReady && (
+      {connected && calls.length > 0 && !controlReady && !calls.some((call) => call.canControl) && (
         <div className="call-warning">
           Allow call access on your phone to answer, decline, hang up or use the speaker.
         </div>
@@ -195,6 +195,7 @@ export function CallsPanel({
                   muted={muted}
                   route={route}
                   hangUpBlocked={call.phase !== 'ringing' &&
+                    !call.viaNotification &&
                     calls.some((other) => other.phase === 'ringing')}
                   controlReady={controlReady}
                   onAnswer={onAnswer}
@@ -408,6 +409,8 @@ function CallCard({
 }): JSX.Element {
   const ringing = call.phase === 'ringing'
   const ended = call.phase === 'disconnected'
+  // VoIP cards can be controlled through their app's own notification action.
+  const canControl = controlReady || call.canControl === true
   const title = call.displayName || call.number || (call.incoming ? 'Incoming call' : 'Calling…')
   const subtitle = call.displayName && call.number ? call.number : phaseLabel(call.phase)
   const since = call.activeSince ?? call.startedAt
@@ -432,16 +435,16 @@ function CallCard({
         <div className="call-actions">
           <button
             className="call-decline"
-            disabled={!controlReady}
-            title={controlReady ? undefined : 'Allow call access on your phone'}
+            disabled={!canControl}
+            title={canControl ? undefined : 'Allow call access on your phone'}
             onClick={() => onReject(call.id)}
           >
             <Icon name="call_end" size={18} /> Decline
           </button>
           <button
             className="call-answer"
-            disabled={!controlReady}
-            title={controlReady ? undefined : 'Allow call access on your phone'}
+            disabled={!canControl}
+            title={canControl ? undefined : 'Allow call access on your phone'}
             onClick={() => onAnswer(call.id)}
           >
             <Icon name="call" size={18} /> Answer
@@ -470,11 +473,11 @@ function CallCard({
           </button>
           <button
             className="call-decline"
-            disabled={ended || !controlReady || hangUpBlocked}
+            disabled={ended || !canControl || hangUpBlocked}
             title={
               hangUpBlocked
                 ? 'Answer or decline the incoming call first'
-                : controlReady
+                : canControl
                   ? undefined
                   : 'Allow call access on your phone'
             }

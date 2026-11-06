@@ -172,6 +172,10 @@ export interface PhoneCallInfo {
   simLabel?: string
   /** Fallback calls only: 'ringing' or 'active', so a waiting call can be told from the live one. */
   slot?: 'ringing' | 'active'
+  /** The phone can answer/decline/end this card. */
+  canControl?: boolean
+  /** Control goes through the owning app's notification action (VoIP), not Telecom. */
+  viaNotification?: boolean
 }
 
 export type RouteKind = 'earpiece' | 'speaker' | 'bluetooth' | 'headset' | 'unknown'

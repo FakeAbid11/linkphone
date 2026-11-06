@@ -46,6 +46,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 private const val CAP_NOTIF_PROGRESS = "notif.progress"
+private const val CAP_NOTIF_ACTION_V2 = "notif.action.v2"
+private const val CAP_NOTIF_ACTION_RESULT = "notif.action.result"
+private const val MAX_REPLY_CHARS = 2000
 private const val RECONNECT_MIN_MS = 2500L
 private const val RECONNECT_MAX_MS = 15_000L
 private const val DISCOVERY_INTERVAL_MS = 20_000L
@@ -131,6 +134,12 @@ class LinkClient(context: Context, private val store: PairStore) {
 
     @Volatile
     var supportsLiveProgress = false
+        private set
+    @Volatile
+    var supportsActionV2 = false
+        private set
+    @Volatile
+    var supportsActionResult = false
         private set
     @Volatile private var wantConnection = false
     private var sendSeq = 0L
@@ -248,6 +257,8 @@ class LinkClient(context: Context, private val store: PairStore) {
         key = null
         ready = false
         supportsLiveProgress = false
+        supportsActionV2 = false
+        supportsActionResult = false
         sendSeq = 0
         recvSeq = 0
         _status.value = LinkStatus(LinkState.CONNECTING)
@@ -310,6 +321,8 @@ class LinkClient(context: Context, private val store: PairStore) {
         key = null
         ready = false
         supportsLiveProgress = false
+        supportsActionV2 = false
+        supportsActionResult = false
         PhoneRinger.stop()
         incoming.values.forEach { sink ->
             runCatching { sink.stream.close() }
@@ -338,6 +351,10 @@ class LinkClient(context: Context, private val store: PairStore) {
                     put("deviceId", store.deviceId)
                     put("deviceName", deviceName)
                     put("platform", "android")
+                    put(
+                        "caps",
+                        JSONArray().put(CAP_NOTIF_ACTION_V2).put(CAP_NOTIF_ACTION_RESULT)
+                    )
                     if (wantsPair) put("pair", true)
                 }
             )
@@ -369,6 +386,8 @@ class LinkClient(context: Context, private val store: PairStore) {
         ready = false
         key = null
         supportsLiveProgress = false
+        supportsActionV2 = false
+        supportsActionResult = false
         PhoneRinger.stop()
         val interrupted = _transfers.value.map { transfer ->
             if (transfer.status == "active" || transfer.status == "pending") {
@@ -497,9 +516,12 @@ class LinkClient(context: Context, private val store: PairStore) {
     private fun onHelloResult(msg: JSONObject) {
         serverName = msg.optString("serverName", "PC")
         pendingServerId = msg.optString("serverId")
-        supportsLiveProgress = msg.optJSONArray("caps")?.let { caps ->
-            (0 until caps.length()).any { caps.optString(it) == CAP_NOTIF_PROGRESS }
-        } ?: false
+        val caps = msg.optJSONArray("caps")
+        fun hasCap(name: String): Boolean =
+            caps?.let { array -> (0 until array.length()).any { array.optString(it) == name } } ?: false
+        supportsLiveProgress = hasCap(CAP_NOTIF_PROGRESS)
+        supportsActionV2 = hasCap(CAP_NOTIF_ACTION_V2)
+        supportsActionResult = hasCap(CAP_NOTIF_ACTION_RESULT)
 
         if (!msg.optBoolean("needPair")) {
             _status.value = LinkStatus(LinkState.CONNECTING, serverName, "Authenticating")
@@ -692,11 +714,18 @@ class LinkClient(context: Context, private val store: PairStore) {
                     if (offset > out.acked) out.acked = offset
                 }
             }
-            "notif.action" -> NotificationRelay.deliver(
-                msg.optString("key"),
-                msg.optString("actionId"),
-                msg.optString("replyText")
-            )
+            "notif.action" -> {
+                val key = msg.optString("key")
+                val error = NotificationRelay.deliver(
+                    key,
+                    msg.optString("actionId"),
+                    msg.optString("replyText").trim().take(MAX_REPLY_CHARS),
+                    msg.optString("label")
+                )
+                if (supportsActionResult && key.isNotEmpty()) {
+                    sendNotificationActionResult(key, error == null, error)
+                }
+            }
             "notif.cancel" -> {
                 val raw = msg.optJSONArray("keys")
                 val keys = buildList {
@@ -1298,6 +1327,20 @@ class LinkClient(context: Context, private val store: PairStore) {
     fun sendNotificationDismissed(key: String) {
         if (!ready) return
         send(JSONObject().apply { put("t", "notif.dismiss"); put("key", key) })
+    }
+
+    fun sendNotificationActionResult(key: String, ok: Boolean, error: String?) {
+        if (!ready) return
+        runCatching {
+            send(
+                JSONObject().apply {
+                    put("t", "notif.action.result")
+                    put("key", key)
+                    put("ok", ok)
+                    if (!error.isNullOrBlank()) put("error", error)
+                }
+            )
+        }
     }
 
     fun sendClipboard(text: String, manual: Boolean = false): Boolean {

@@ -5,6 +5,8 @@ import { WebSocketServer, WebSocket, type RawData } from 'ws'
 import type { AppStore } from './state'
 import { FileReceiver, FileSource } from './files'
 import {
+  CAP_NOTIF_ACTION_RESULT,
+  CAP_NOTIF_ACTION_V2,
   CAP_NOTIF_PROGRESS,
   DEFAULT_PORT,
   KIND_CONTROL,
@@ -56,6 +58,7 @@ type Phase = 'fresh' | 'awaitPair' | 'awaitAuth' | 'ready'
 
 const WINDOW_BYTES = 8 * MAX_FILE_CHUNK
 const ACK_TIMEOUT_MS = 30_000
+const ACTION_ACK_TIMEOUT_MS = 5_000
 const GALLERY_PAGE_SIZE = 48
 const MAX_SIMS = 8
 // Gallery previews are base64 JPEGs in control frames, so allow up to 16 MiB;
@@ -159,6 +162,7 @@ class Peer {
   alive = true
   address = ''
   pairBusy = false
+  caps = new Set<string>()
 
   constructor(
     readonly ws: WebSocket,
@@ -177,6 +181,14 @@ export class LinkServer extends EventEmitter {
   private wss: WebSocketServer | null = null
   private peers = new Set<Peer>()
   private outbound = new Map<string, Outbound>()
+  private actionPending = new Map<
+    string,
+    {
+      deviceId: string
+      resolve: (result: { ok: boolean; error?: string }) => void
+      timer: NodeJS.Timeout
+    }
+  >()
   private ringingCallIds = new Set<string>()
   private pairAttempts = new Map<string, number[]>()
   private readonly receiver: FileReceiver
@@ -316,6 +328,12 @@ export class LinkServer extends EventEmitter {
       }
       if (peer.deviceId) {
         this.store.markDisconnected(peer.deviceId)
+        for (const [key, pending] of [...this.actionPending]) {
+          if (pending.deviceId !== peer.deviceId) continue
+          this.actionPending.delete(key)
+          clearTimeout(pending.timer)
+          pending.resolve({ ok: false, error: 'no-peer' })
+        }
         this.receiver.pauseAllForDevice(peer.deviceId)
         this.store.interruptTransfersForDevice(peer.deviceId)
         for (const [id, out] of [...this.outbound]) {
@@ -373,6 +391,9 @@ export class LinkServer extends EventEmitter {
     peer.deviceId = str(msg.deviceId).slice(0, 64)
     peer.deviceName = str(msg.deviceName, 'Android phone').slice(0, 64)
     peer.platform = (str(msg.platform, 'android') as Platform) ?? 'android'
+    peer.caps = new Set(
+      Array.isArray(msg.caps) ? msg.caps.filter((cap): cap is string => typeof cap === 'string') : []
+    )
     if (!peer.deviceId) {
       peer.ws.close(1008, 'missing device id')
       return
@@ -394,7 +415,7 @@ export class LinkServer extends EventEmitter {
         serverName: this.store.serverName,
         needPair: false,
         needAuth: true,
-        caps: [CAP_NOTIF_PROGRESS]
+        caps: [CAP_NOTIF_PROGRESS, CAP_NOTIF_ACTION_V2, CAP_NOTIF_ACTION_RESULT]
       })
       this.send(peer, { t: 'auth.challenge', nonce: peer.nonceB64 })
       return
@@ -409,7 +430,7 @@ export class LinkServer extends EventEmitter {
       serverName: this.store.serverName,
       needPair: true,
       needAuth: false,
-      caps: [CAP_NOTIF_PROGRESS],
+      caps: [CAP_NOTIF_PROGRESS, CAP_NOTIF_ACTION_V2, CAP_NOTIF_ACTION_RESULT],
       salt: peer.salt.toString('base64')
     })
   }
@@ -621,7 +642,7 @@ export class LinkServer extends EventEmitter {
           title: str(raw.title).slice(0, 300),
           text: str(raw.text).slice(0, 2000),
           when: num(raw.when, Date.now()),
-          canReply: bool(raw.canReply),
+          canReply: bool(raw.canReply) || actions.some((action) => action.reply),
           actions,
           deviceId: peer.deviceId,
           progress: optionalInt(raw.progress),
@@ -643,6 +664,18 @@ export class LinkServer extends EventEmitter {
         this.store.phoneNotificationDismissed(str(msg.key))
         this.emit('notificationDismiss', str(msg.key))
         return
+
+      case 'notif.action.result': {
+        const key = str(msg.key)
+        const pending = this.actionPending.get(key)
+        if (!pending) return
+        this.actionPending.delete(key)
+        clearTimeout(pending.timer)
+        const result = { ok: bool(msg.ok), error: str(msg.error) || undefined }
+        pending.resolve(result)
+        this.emit('notificationActionResult', key, result)
+        return
+      }
 
       case 'file.offer': {
         const offer: FileOfferMsg = {
@@ -1169,9 +1202,37 @@ export class LinkServer extends EventEmitter {
     this.broadcast({ t: 'clip.enabled', enabled: this.store.clipboardEnabled })
   }
 
-  /** Forward a notification action (e.g. inline reply) back to the phone. */
-  sendNotificationAction(key: string, actionId: string, replyText?: string): void {
-    this.broadcast({ t: 'notif.action', key, actionId, replyText })
+  /**
+   * Forward a notification action (e.g. inline reply) back to the phone. Resolves once the phone
+   * reports the outcome; legacy phones (no notif.action.result cap) resolve optimistically.
+   */
+  async sendNotificationAction(
+    key: string,
+    actionId: string,
+    replyText?: string,
+    label?: string
+  ): Promise<{ ok: boolean; error?: string }> {
+    const peers = [...this.peers].filter((p) => p.phase === 'ready')
+    if (peers.length === 0) return { ok: false, error: 'no-peer' }
+
+    const waiting = peers.filter((p) => p.caps.has(CAP_NOTIF_ACTION_RESULT))
+    const previous = this.actionPending.get(key)
+    if (previous) {
+      this.actionPending.delete(key)
+      clearTimeout(previous.timer)
+      previous.resolve({ ok: false, error: 'superseded' })
+    }
+
+    for (const peer of peers) this.send(peer, { t: 'notif.action', key, actionId, replyText, label })
+    if (waiting.length === 0) return { ok: true }
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.actionPending.delete(key)
+        resolve({ ok: false, error: 'timeout' })
+      }, ACTION_ACK_TIMEOUT_MS)
+      this.actionPending.set(key, { deviceId: waiting[0].deviceId, resolve, timer })
+    })
   }
 
   /** Ask the phone to dismiss mirrored notifications from its shade. */

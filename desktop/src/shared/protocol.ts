@@ -5,6 +5,8 @@
 
 export const PROTO_VERSION = 1
 export const CAP_NOTIF_PROGRESS = 'notif.progress'
+export const CAP_NOTIF_ACTION_V2 = 'notif.action.v2'
+export const CAP_NOTIF_ACTION_RESULT = 'notif.action.result'
 export const SERVICE_TYPE = 'linkphone'
 export const DEFAULT_PORT = 8765
 export const MAX_FILE_CHUNK = 64 * 1024
@@ -340,6 +342,8 @@ export interface HelloMsg {
   platform: Platform
   /** Set when the user explicitly initiated pairing (QR or typed code). */
   pair?: boolean
+  /** Optional feature caps, e.g. notif.action.v2 / notif.action.result. */
+  caps?: string[]
 }
 
 export interface HelloResultMsg {
@@ -405,8 +409,19 @@ export interface NotifDismissMsg {
 export interface NotifActionMsg {
   t: 'notif.action'
   key: string
+  /** content | reply | a<index> | legacy numeric index. */
   actionId: string
   replyText?: string
+  /** Echoed button label, used to detect a shifted non-reply action. */
+  label?: string
+}
+
+export interface NotifActionResultMsg {
+  t: 'notif.action.result'
+  key: string
+  ok: boolean
+  /** gone, unavailable, no-action, no-reply, action-changed, blank, too-long, blocked */
+  error?: string
 }
 
 export interface NotifCancelMsg {
@@ -822,6 +837,7 @@ export type ControlMsg =
   | NotifPostMsg
   | NotifDismissMsg
   | NotifActionMsg
+  | NotifActionResultMsg
   | NotifCancelMsg
   | PhoneRingMsg
   | DeviceRenameMsg

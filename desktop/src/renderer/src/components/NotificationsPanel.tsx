@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ActionResult } from '@shared/api'
 import type { MutedApp, NotificationItem } from '@shared/protocol'
 import { Icon } from './Icon'
 
@@ -6,8 +7,13 @@ interface Props {
   notifications: NotificationItem[]
   muted: MutedApp[]
   onDismiss: (key: string) => void
-  onReply: (key: string, actionId: string, text: string) => void
-  onAction: (key: string, actionId: string) => void
+  onReply: (
+    key: string,
+    actionId: string,
+    text: string,
+    label?: string
+  ) => Promise<ActionResult>
+  onAction: (key: string, actionId: string, label?: string) => Promise<ActionResult>
   onMuteApp: (pkg: string, app: string) => void
   onUnmuteApp: (pkg: string, app: string) => void
   onClearApp: (pkg: string, app: string) => void
@@ -36,6 +42,27 @@ interface Props {
 }
 
 type ViewMode = 'newest' | 'app'
+
+function replyErrorText(error?: string): string {
+  switch (error) {
+    case 'gone':
+      return 'Notification closed — reply from the app instead.'
+    case 'no-peer':
+      return 'Phone disconnected — reply was not sent.'
+    case 'unavailable':
+      return 'Notification access is off on the phone.'
+    case 'action-changed':
+      return 'The notification changed — try again.'
+    case 'too-long':
+      return 'Reply is too long (2000 characters).'
+    case 'blank':
+      return 'Type a reply first.'
+    case 'timeout':
+      return 'No response from the phone — try again.'
+    default:
+      return 'Reply was not sent — try again.'
+  }
+}
 
 function ago(when: number): string {
   const seconds = Math.max(0, Math.round((Date.now() - when) / 1000))
@@ -68,6 +95,11 @@ export function NotificationsPanel({
 }: Props): JSX.Element {
   const [replying, setReplying] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [replyStatus, setReplyStatus] = useState<{
+    key: string
+    kind: 'sending' | 'sent' | 'error'
+    message?: string
+  } | null>(null)
   const [query, setQuery] = useState('')
   const [view, setView] = useState<ViewMode>('newest')
   const [mode, setMode] = useState<'live' | 'history'>('live')
@@ -224,12 +256,28 @@ export function NotificationsPanel({
     )
   }, [filtered])
 
-  const submitReply = (item: NotificationItem): void => {
+  const submitReply = async (item: NotificationItem): Promise<void> => {
     const action = item.actions.find((candidate) => candidate.reply)
-    if (!action || draft.trim().length === 0) return
-    onReply(item.key, action.id, draft)
-    setDraft('')
-    setReplying(null)
+    const body = draft.trim()
+    if (!action || body.length === 0 || replyStatus?.kind === 'sending') return
+    setReplyStatus({ key: item.key, kind: 'sending' })
+    const result = await onReply(item.key, action.id, body, action.label)
+    if (result.ok) {
+      setReplyStatus({ key: item.key, kind: 'sent' })
+      setDraft('')
+      setReplying(null)
+      window.setTimeout(() => {
+        setReplyStatus((current) =>
+          current?.key === item.key && current.kind === 'sent' ? null : current
+        )
+      }, 2500)
+      return
+    }
+    setReplyStatus({
+      key: item.key,
+      kind: 'error',
+      message: replyErrorText(result.error)
+    })
   }
 
   const renderCard = (item: NotificationItem): JSX.Element => (
@@ -242,14 +290,17 @@ export function NotificationsPanel({
       onStartReply={() => {
         setReplying(item.key)
         setDraft('')
+        setReplyStatus(null)
       }}
       onCancelReply={() => setReplying(null)}
-      onSubmitReply={() => submitReply(item)}
+      onSubmitReply={() => void submitReply(item)}
+      status={replyStatus?.key === item.key ? replyStatus : null}
+      sending={replyStatus?.key === item.key && replyStatus.kind === 'sending'}
       onDismiss={() => {
         if (replying === item.key) setReplying(null)
         onDismiss(item.key)
       }}
-      onAction={(actionId) => onAction(item.key, actionId)}
+      onAction={(actionId, label) => void onAction(item.key, actionId, label)}
     />
   )
 
@@ -652,7 +703,9 @@ function NotificationCard({
   onCancelReply,
   onSubmitReply,
   onDismiss,
-  onAction
+  onAction,
+  status,
+  sending
 }: {
   item: NotificationItem
   replying: boolean
@@ -662,12 +715,16 @@ function NotificationCard({
   onCancelReply: () => void
   onSubmitReply: () => void
   onDismiss: () => void
-  onAction: (actionId: string) => void
+  onAction: (actionId: string, label?: string) => void
+  status: { kind: 'sending' | 'sent' | 'error'; message?: string } | null
+  sending: boolean
 }): JSX.Element {
   const canOpen = item.actions.some((action) => action.id === 'content')
   const buttons = item.actions
-    .filter((action) => !action.reply && action.id !== 'content')
-    .slice(0, 3)
+    .filter(
+      (action) => !action.reply && action.id !== 'content' && action.id !== 'reply'
+    )
+    .slice(0, 2)
   const open = (): void => onAction('content')
   const progressMax = item.progressMax ?? 0
   const indeterminate = item.indeterminate === true
@@ -739,28 +796,31 @@ function NotificationCard({
               autoFocus
               value={draft}
               placeholder="Reply…"
+              maxLength={2000}
+              disabled={sending}
               onChange={(event) => onDraft(event.target.value)}
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => {
                 event.stopPropagation()
-                if (event.key === 'Enter') onSubmitReply()
+                if (event.key === 'Enter' && !sending) onSubmitReply()
                 if (event.key === 'Escape') onCancelReply()
               }}
             />
             <button
               type="button"
               className="btn btn-small"
+              disabled={sending}
               onClick={(event) => {
                 event.stopPropagation()
                 onSubmitReply()
               }}
               onKeyDown={(event) => event.stopPropagation()}
             >
-              <Icon name="send" size={16} /> Send
+              <Icon name="send" size={16} /> {sending ? 'Sending…' : 'Send'}
             </button>
           </div>
         ) : (
-          item.canReply && (
+          (item.canReply || item.actions.some((action) => action.reply)) && (
             <button
               type="button"
               className="link-btn"
@@ -773,6 +833,17 @@ function NotificationCard({
               Reply
             </button>
           )
+        )}
+
+        {status?.kind === 'error' && (
+          <p className="reply-error" role="alert">
+            {status.message}
+          </p>
+        )}
+        {status?.kind === 'sent' && (
+          <p className="reply-sent" role="status">
+            Sent
+          </p>
         )}
 
         {buttons.length > 0 && (
@@ -789,7 +860,7 @@ function NotificationCard({
                 title={action.label}
                 onClick={(event) => {
                   event.stopPropagation()
-                  onAction(action.id)
+                  onAction(action.id, action.label)
                 }}
               >
                 {action.label}

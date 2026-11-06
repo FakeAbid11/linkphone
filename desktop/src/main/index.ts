@@ -485,15 +485,39 @@ function registerIpc(): void {
     if (typeof key === 'string') dismissNotificationEverywhere(key)
   })
 
-  ipcMain.handle('notification:reply', (_event, key: unknown, actionId: unknown, text: unknown) => {
-    if (typeof key !== 'string' || typeof actionId !== 'string' || typeof text !== 'string') return
-    server.sendNotificationAction(key, actionId, text)
-  })
+  ipcMain.handle(
+    'notification:reply',
+    (_event, key: unknown, actionId: unknown, text: unknown, label: unknown) => {
+      if (typeof key !== 'string' || typeof actionId !== 'string' || typeof text !== 'string') {
+        return { ok: false, error: 'invalid' }
+      }
+      const body = text.trim()
+      if (body.length === 0 || body.length > 2000) return { ok: false, error: 'invalid' }
+      if (!/^(content|reply|a\d{1,2}|\d{1,2})$/.test(actionId)) {
+        return { ok: false, error: 'invalid' }
+      }
+      return server.sendNotificationAction(
+        key,
+        actionId,
+        body,
+        typeof label === 'string' ? label : undefined
+      )
+    }
+  )
 
-  ipcMain.handle('notification:action', (_event, key: unknown, actionId: unknown) => {
-    if (typeof key !== 'string' || typeof actionId !== 'string') return
-    if (!/^(content|\d{1,2})$/.test(actionId)) return
-    server.sendNotificationAction(key, actionId)
+  ipcMain.handle('notification:action', (_event, key: unknown, actionId: unknown, label: unknown) => {
+    if (typeof key !== 'string' || typeof actionId !== 'string') {
+      return { ok: false, error: 'invalid' }
+    }
+    if (!/^(content|reply|a\d{1,2}|\d{1,2})$/.test(actionId)) {
+      return { ok: false, error: 'invalid' }
+    }
+    return server.sendNotificationAction(
+      key,
+      actionId,
+      undefined,
+      typeof label === 'string' ? label : undefined
+    )
   })
 
   ipcMain.handle('notification:set-muted', (_event, pkg: unknown, app: unknown, muted: unknown) => {

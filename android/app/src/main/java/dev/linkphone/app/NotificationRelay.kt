@@ -136,21 +136,32 @@ class NotificationRelay : NotificationListenerService() {
             packageManager.getApplicationLabel(info).toString()
         }.getOrDefault(sbn.packageName)
 
+        // Content first, then plain buttons, then the reply action: the reply must survive the cap.
+        // Ids are only stable ("reply"/"a<n>") for desktops that advertise notif.action.v2.
+        val stableIds = client.supportsActionV2
         val actions = mutableListOf<OutgoingAction>()
         if (notification.contentIntent != null) {
             actions.add(OutgoingAction("content", "Open", false))
         }
-        notification.actions?.forEachIndexed { index, action ->
-            if (actions.size >= MAX_ACTIONS) return@forEachIndexed
-            if (action.actionIntent == null) return@forEachIndexed
-            val label = action.title?.toString()
-                ?.replace(Regex("[\\r\\n\\t]+"), " ")
-                ?.trim()
-                ?.take(24)
-                ?.takeIf { it.isNotEmpty() }
-                ?: return@forEachIndexed
-            val isReply = action.remoteInputs?.any { it.allowFreeFormInput } == true
-            actions.add(OutgoingAction(index.toString(), label, isReply))
+        val replyAction = notification.actions?.withIndex()?.firstOrNull { (_, action) ->
+            action.actionIntent != null && isFreeFormReply(action)
+        }
+        val buttons = notification.actions.orEmpty().mapIndexedNotNull { index, action ->
+            if (action.actionIntent == null || isFreeFormReply(action)) return@mapIndexedNotNull null
+            val label = actionLabel(action) ?: return@mapIndexedNotNull null
+            OutgoingAction(if (stableIds) "a$index" else index.toString(), label, false)
+        }
+        val buttonSlots = (MAX_ACTIONS - actions.size - if (replyAction != null) 1 else 0)
+            .coerceAtLeast(0)
+        actions.addAll(buttons.take(buttonSlots))
+        replyAction?.let { (index, action) ->
+            actions.add(
+                OutgoingAction(
+                    if (stableIds) "reply" else index.toString(),
+                    actionLabel(action) ?: "Reply",
+                    true
+                )
+            )
         }
         val canReply = actions.any { it.reply }
 
@@ -360,6 +371,16 @@ class NotificationRelay : NotificationListenerService() {
     private fun extractNumber(value: String): String? =
         Regex("""\+?\d[\d\s()\-]{4,}\d""").find(value)?.value?.trim()
 
+    private fun isFreeFormReply(action: Notification.Action): Boolean =
+        action.remoteInputs?.any { it.allowFreeFormInput } == true
+
+    private fun actionLabel(action: Notification.Action): String? =
+        action.title?.toString()
+            ?.replace(Regex("[\\r\\n\\t]+"), " ")
+            ?.trim()
+            ?.take(24)
+            ?.takeIf { it.isNotEmpty() }
+
     private fun drop(key: String, client: LinkClient) {
         lastSent.remove(key)
         lastSentAt.remove(key)
@@ -367,35 +388,52 @@ class NotificationRelay : NotificationListenerService() {
         if (mirrored.remove(key)) client.sendNotificationDismissed(key)
     }
 
-    private fun handleAction(key: String, actionId: String, replyText: String) {
-        val sbn = activeNotifications?.firstOrNull { it.key == key } ?: return
+    /** Returns null on success, or a short reason the PC can show. */
+    private fun handleAction(key: String, actionId: String, replyText: String, label: String): String? {
+        val sbn = activeNotifications?.firstOrNull { it.key == key } ?: return "gone"
         if (actionId == "content") {
-            val content = sbn.notification.contentIntent ?: return
-            try {
-                content.send()
-            } catch (e: PendingIntent.CanceledException) {
-                Log.w("LinkPhone", "notification content intent canceled", e)
-            } catch (e: SecurityException) {
-                Log.w("LinkPhone", "notification content intent denied", e)
-            }
-            return
+            val content = sbn.notification.contentIntent ?: return "gone"
+            return sendIntent(content, Intent())
         }
-        val index = actionId.toIntOrNull() ?: return
-        val action = sbn.notification.actions?.getOrNull(index) ?: return
+        val actions = sbn.notification.actions.orEmpty()
+        // "reply" is resolved by meaning, never by position: the app may reorder its actions.
+        val action = if (actionId == "reply") {
+            actions.firstOrNull { it.actionIntent != null && isFreeFormReply(it) }
+        } else {
+            val index = actionId.removePrefix("a").toIntOrNull() ?: return "no-action"
+            actions.getOrNull(index)
+        } ?: return "no-action"
 
-        val intent = Intent()
         val remoteInputs = action.remoteInputs
-        if (!remoteInputs.isNullOrEmpty() && replyText.isNotEmpty()) {
+        if (actionId == "reply" || isFreeFormReply(action)) {
+            val text = replyText.trim()
+            if (text.isEmpty()) return "blank"
+            if (text.length > MAX_REPLY_CHARS) return "too-long"
+            if (remoteInputs.isNullOrEmpty()) return "no-reply"
+            val intent = Intent()
             val results = Bundle().apply {
-                remoteInputs.forEach { putCharSequence(it.resultKey, replyText) }
+                remoteInputs.forEach { putCharSequence(it.resultKey, text) }
             }
             RemoteInputCompat.addResults(remoteInputs, intent, results)
+            return sendIntent(action.actionIntent, intent)
         }
 
-        try {
-            action.actionIntent.send(this, 0, intent)
+        // Plain buttons keep their index; a stale index is detected by the echoed label.
+        if (label.isNotBlank() && actionLabel(action) != label) return "action-changed"
+        return sendIntent(action.actionIntent, Intent())
+    }
+
+    private fun sendIntent(pending: PendingIntent?, intent: Intent): String? {
+        if (pending == null) return "no-action"
+        return try {
+            pending.send(this, 0, intent)
+            null
         } catch (e: PendingIntent.CanceledException) {
             Log.w("LinkPhone", "notification action canceled", e)
+            "blocked"
+        } catch (e: SecurityException) {
+            Log.w("LinkPhone", "notification action denied", e)
+            "blocked"
         }
     }
 
@@ -413,6 +451,7 @@ class NotificationRelay : NotificationListenerService() {
     companion object {
         private const val TAG = "LinkPhone"
         private const val MAX_ACTIONS = 4
+        private const val MAX_REPLY_CHARS = 2000
         private const val MAX_BACKFILL = 30
         private const val THROTTLE_MS = 2_000L
         private const val REBIND_INTERVAL_MS = 10_000L
@@ -460,9 +499,9 @@ class NotificationRelay : NotificationListenerService() {
             instance?.backfill()
         }
 
-        fun deliver(key: String, actionId: String, replyText: String) {
-            instance?.handleAction(key, actionId, replyText)
-        }
+        /** Null means the action ran; otherwise a short reason for the PC. */
+        fun deliver(key: String, actionId: String, replyText: String, label: String = ""): String? =
+            instance?.handleAction(key, actionId, replyText, label) ?: "unavailable"
 
         fun deliverCancel(keys: List<String>) {
             instance?.cancel(keys)

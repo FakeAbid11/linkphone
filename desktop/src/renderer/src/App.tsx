@@ -220,7 +220,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v{state.desktopUpdate.currentVersion || '0.12.7'}</div>
+            <div className="brand-sub">Local network · v{state.desktopUpdate.currentVersion || '0.12.8'}</div>
           </div>
         </div>
 
@@ -317,11 +317,11 @@ export default function App(): JSX.Element {
               notifications={state.notifications}
               muted={state.mutedNotifications}
               onDismiss={(key) => void window.linkphone.dismissNotification(key)}
-              onReply={(key, actionId, text) =>
-                void window.linkphone.sendNotificationReply(key, actionId, text)
+              onReply={(key, actionId, text, label) =>
+                window.linkphone.sendNotificationReply(key, actionId, text, label)
               }
-              onAction={(key, actionId) =>
-                void window.linkphone.sendNotificationAction(key, actionId)
+              onAction={(key, actionId, label) =>
+                window.linkphone.sendNotificationAction(key, actionId, label)
               }
               onMuteApp={(pkg, app) =>
                 void window.linkphone.setNotificationMuted(pkg, app, true)

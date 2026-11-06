@@ -38,6 +38,7 @@ interface Props {
   onRefreshContacts: () => void
   onCall: (number: string, accountId?: string) => void
   onMessage: (threadId: string, address: string) => void
+  onCompose: (number: string, name: string) => void
   onDismissPlaced: () => void
   onDismissError: () => void
 }
@@ -72,6 +73,7 @@ export function CallsPanel({
   onRefreshContacts,
   onCall,
   onMessage,
+  onCompose,
   onDismissPlaced,
   onDismissError
 }: Props): JSX.Element {
@@ -362,6 +364,7 @@ export function CallsPanel({
               onRefresh={onRefreshContacts}
               onCall={(contactNumber) => onCall(contactNumber, accountId || undefined)}
               onMessage={onMessage}
+              onCompose={onCompose}
             />
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { PhoneContact, SmsThread } from '@shared/protocol'
 import { Icon } from './Icon'
-import { initials, normalizeNumber } from '../lib/phone'
+import { digitsOf, initials, normalizeNumber } from '../lib/phone'
 
 interface Props {
   contacts: PhoneContact[]
@@ -14,6 +14,7 @@ interface Props {
   onRefresh: () => void
   onCall: (number: string) => void
   onMessage: (threadId: string, address: string) => void
+  onCompose: (number: string, name: string) => void
 }
 
 const MAX_ROWS = 200
@@ -28,7 +29,8 @@ export function ContactsPanel({
   dialerReady,
   onRefresh,
   onCall,
-  onMessage
+  onMessage,
+  onCompose
 }: Props): JSX.Element {
   const [query, setQuery] = useState('')
   const [notice, setNotice] = useState('')
@@ -59,24 +61,25 @@ export function ContactsPanel({
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
     if (!needle) return contacts
-    const digits = needle.replace(/\D/g, '')
+    const digits = digitsOf(needle)
     return contacts.filter((contact) => {
       if (contact.name.toLowerCase().includes(needle)) return true
       if (!digits) return false
-      return contact.numbers.some((number) => number.number.replace(/\D/g, '').includes(digits))
+      return contact.numbers.some((number) => digitsOf(number.number).includes(digits))
     })
   }, [contacts, query])
 
   const visible = filtered.slice(0, MAX_ROWS)
 
-  const message = (number: string): void => {
+  const message = (number: string, name: string): void => {
     const thread = threadByNumber.get(normalizeNumber(number) ?? '')
     if (!thread) {
-      setNotice(
-        threadsLoading
-          ? 'Messages are still loading — try again in a moment.'
-          : `No SMS thread yet for ${number} — start one on the phone.`
-      )
+      if (threadsLoading) {
+        setNotice('Messages are still loading — try again in a moment.')
+        return
+      }
+      setNotice('')
+      onCompose(number, name)
       return
     }
     setNotice('')
@@ -172,8 +175,8 @@ export function ContactsPanel({
                           </button>
                           <button
                             className="icon-btn"
-                            title={thread ? 'Open SMS thread' : 'No SMS thread yet'}
-                            onClick={() => message(number.number)}
+                            title={thread ? 'Open SMS thread' : `Text ${number.number}`}
+                            onClick={() => message(number.number, contact.name)}
                           >
                             <Icon name="chat" size={18} />
                           </button>

@@ -35,6 +35,9 @@ const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
 export default function App(): JSX.Element {
   const [state, setState] = useState<AppState | null>(null)
   const [tab, setTab] = useState<Tab>('notifications')
+  const [composePrefill, setComposePrefill] = useState<{ address: string; nonce: number } | null>(
+    null
+  )
   const [dragActive, setDragActive] = useState(false)
   const [dropNotice, setDropNotice] = useState('')
   const [galleryThumbs, setGalleryThumbs] = useState<Record<string, string>>({})
@@ -217,7 +220,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v{state.desktopUpdate.currentVersion || '0.12.6'}</div>
+            <div className="brand-sub">Local network · v{state.desktopUpdate.currentVersion || '0.12.7'}</div>
           </div>
         </div>
 
@@ -234,6 +237,7 @@ export default function App(): JSX.Element {
                 if (t.id === 'messages') {
                   void window.linkphone.requestSmsThreads()
                   void window.linkphone.requestSims()
+                  void window.linkphone.requestContacts()
                 }
                 if (t.id === 'calls') {
                   void window.linkphone.requestCallHistory()
@@ -370,6 +374,12 @@ export default function App(): JSX.Element {
               loading={state.smsLoading}
               sims={state.phoneSims}
               connected={connected.length > 0}
+              contacts={state.phoneContacts}
+              contactsGranted={state.contactsGranted}
+              contactsLoading={state.contactsLoading}
+              prefill={composePrefill}
+              onRequestContacts={() => void window.linkphone.requestContacts()}
+              onPrefillUsed={() => setComposePrefill(null)}
               onRetry={(id) => void window.linkphone.retrySms(id)}
               onRefresh={() => void window.linkphone.requestSmsThreads()}
               onOpen={(threadId, address) =>
@@ -421,6 +431,13 @@ export default function App(): JSX.Element {
               onMessage={(threadId, address) => {
                 setTab('messages')
                 void window.linkphone.openSmsThread(threadId, address)
+              }}
+              onCompose={(address) => {
+                setComposePrefill({ address, nonce: Date.now() })
+                setTab('messages')
+                void window.linkphone.requestSmsThreads()
+                void window.linkphone.requestSims()
+                void window.linkphone.requestContacts()
               }}
               onDismissPlaced={() => void window.linkphone.dismissCallPlaced()}
               onDismissError={() => void window.linkphone.dismissCallError()}

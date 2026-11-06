@@ -850,8 +850,15 @@ button {
   line-height: 1.5;
 }
 
+.clip-pull-status {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text);
+}
+
 .clip-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   margin-top: 10px;

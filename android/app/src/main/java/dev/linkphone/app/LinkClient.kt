@@ -18,10 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -126,8 +124,6 @@ class LinkClient(context: Context, private val store: PairStore) {
             PhoneRinger.ringing.collect { sendRingState(it) }
         }
     }
-
-    val clipboardIn = MutableSharedFlow<String>(extraBufferCapacity = 16)
 
     @Volatile private var ws: WebSocket? = null
     @Volatile private var key: ByteArray? = null
@@ -608,6 +604,7 @@ class LinkClient(context: Context, private val store: PairStore) {
         }
         CallHub.refreshDialerRole(appContext)
         NotificationRelay.onClientReady()
+        ClipboardSync.flushPending()
     }
 
     /* ------------------------------------------------------------ */
@@ -666,8 +663,13 @@ class LinkClient(context: Context, private val store: PairStore) {
             "ping" -> send(JSONObject().apply { put("t", "pong"); put("ts", msg.optLong("ts")) })
             "clip.set" -> {
                 val text = msg.optString("text")
-                if (text.isNotEmpty()) clipboardIn.tryEmit(text)
+                if (text.isNotEmpty()) ClipboardSync.applyRemote(text)
             }
+            "clip.enabled" -> {
+                store.pcClipboardEnabled = msg.optBoolean("enabled", true)
+                if (store.pcClipboardEnabled) ClipboardSync.flushPending()
+            }
+            "clip.request" -> ClipboardSync.requestRead(manual = true)
             "file.offer" -> onIncomingOffer(msg)
             "file.accept" -> {
                 val id = msg.optString("id")
@@ -1298,15 +1300,25 @@ class LinkClient(context: Context, private val store: PairStore) {
         send(JSONObject().apply { put("t", "notif.dismiss"); put("key", key) })
     }
 
-    fun sendClipboard(text: String) {
+    fun sendClipboard(text: String, manual: Boolean = false): Boolean {
+        if (!ready) return false
+        return runCatching {
+            send(
+                JSONObject().apply {
+                    put("t", "clip.set")
+                    put("text", text)
+                    put("ts", System.currentTimeMillis())
+                    if (manual) put("manual", true)
+                }
+            )
+        }.getOrDefault(false)
+    }
+
+    fun sendClipboardError(reason: String) {
         if (!ready) return
-        send(
-            JSONObject().apply {
-                put("t", "clip.set")
-                put("text", text)
-                put("ts", System.currentTimeMillis())
-            }
-        )
+        runCatching {
+            send(JSONObject().apply { put("t", "clip.error"); put("reason", reason) })
+        }
     }
 
     fun sendBatteryStatus(level: Int, charging: Boolean) {

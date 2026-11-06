@@ -440,7 +440,8 @@ function registerIpc(): void {
 
   ipcMain.handle('clipboard:set', (_event, text: unknown) => {
     if (typeof text !== 'string') return false
-    clipboard.writeText(text)
+    // Suppress the watcher echo for a manual send.
+    watcher.applyRemote(text)
     return server.sendClipboard(text)
   })
 
@@ -450,7 +451,11 @@ function registerIpc(): void {
 
   ipcMain.handle('clipboard:enable', (_event, enabled: unknown) => {
     store.setClipboardEnabled(Boolean(enabled))
+    server.sendClipboardEnabled()
+    if (store.clipboardEnabled) watcher.flushPending()
   })
+
+  ipcMain.handle('clipboard:request', () => server.requestClipboard())
 
   ipcMain.handle('startup:set', (_event, enabled: unknown) => {
     if (typeof enabled === 'boolean') applyLaunchAtLogin(enabled)
@@ -674,6 +679,7 @@ async function bootstrap(): Promise<void> {
   registerMediaProtocol(store)
   server.on('peer-ready', () => {
     void drainSendQueue()
+    watcher.flushPending()
   })
   store.setAddresses(localAddresses())
   store.setAddresses6(localLinkLocalIPv6())
@@ -688,7 +694,13 @@ async function bootstrap(): Promise<void> {
     advertisement = null
   }
 
-  server.on('clipboardIn', (text: string) => watcher.applyRemote(text))
+  server.on('clipboardIn', (text: string) => {
+    watcher.applyRemote(text)
+    win?.webContents.send('clipboard:status', { kind: 'received' })
+  })
+  server.on('clipboardError', (reason: string) => {
+    win?.webContents.send('clipboard:status', { kind: 'error', reason })
+  })
 
   server.on(
     'media-art',

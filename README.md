@@ -32,9 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.12.3** is a review-fix release: rapid notifications are no longer throttled away,
-> calendar-style alerts are no longer mistaken for calls, pairing is rate-limited and cannot
-> block the PC, and retry/teardown states are corrected.
+> **v0.12.5** makes clipboard text sync both ways: foreground by default, with an optional
+> accessibility mode for copying in other apps, plus a manual Pull from phone and offline retry.
 
 ## Features
 
@@ -54,7 +53,7 @@ service or a relay server.
 | Battery | Yes | Live percentage and charging state |
 | Background | Yes | Foreground service with boot start; optional battery-optimization exemption |
 | File transfer | Yes | Both directions, resumable and cancellable; Send to, drag and drop, or Share → LinkPhone |
-| Clipboard | Partial | Text only; phone side only while the app is open |
+| Clipboard | Yes | Text only, both ways; foreground by default, optional accessibility mode for background copies |
 | Start with Windows | Yes | Opt-in hidden tray start, listed in Windows Startup Apps |
 | Auto-reconnect | Yes | Reclaims a paired PC after reboot, app restart or a PC address change |
 | Built-in updates | Yes | Automatic checks + notifications; verified Windows/Android installers |
@@ -77,7 +76,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.12.3.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.12.5.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -235,8 +234,9 @@ which Android 15 does not subject to the six-hour `dataSync` limit.
 - **Xiaomi/HyperOS, Huawei:** enable Autostart for LinkPhone and set Battery saver to
   **No restrictions**; otherwise the system may block the boot receiver or kill the service.
 - **Limits:** force-stopping LinkPhone from system settings stops it until you open it again.
-  Clipboard phone→PC stays foreground-only because Android only allows clipboard reads to the app
-  while it is on screen.
+  Clipboard phone→PC works while LinkPhone is open. To sync copies made in other apps, enable the
+  optional clipboard accessibility service in LinkPhone → Setup. It reads clipboard text only,
+  never screen content; Android may show a clipboard-access notice.
 
 </details>
 
@@ -301,6 +301,8 @@ works without those permissions.
 - SMS, contacts, call history and photo previews use the same encrypted channel and are never
   uploaded. Gallery previews live only in PC memory; originals are saved only when you choose
   **Download original**.
+- Clipboard background sync is opt-in. Its accessibility service reads clipboard text only (never
+  screen content), only while paired, and only sends to your PC over the encrypted channel.
 - The PC stores the per-device key in `%APPDATA%\LinkPhone`; the phone stores it in
   `EncryptedSharedPreferences`.
 - Updater checks contact only this repository's public GitHub Releases API. They send no phone data,

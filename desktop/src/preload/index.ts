@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { LinkPhoneApi } from '../shared/api'
-import type { AppState, GalleryPreview, NotificationItem, TransferItem } from '../shared/protocol'
+import type {
+  AppState,
+  ClipboardStatus,
+  GalleryPreview,
+  NotificationItem,
+  TransferItem
+} from '../shared/protocol'
 
 const api: LinkPhoneApi = {
   getState: () => ipcRenderer.invoke('state:get') as Promise<AppState>,
@@ -56,6 +62,12 @@ const api: LinkPhoneApi = {
   sendFilesFromPaths: (paths) =>
     ipcRenderer.invoke('files:send-paths', paths) as Promise<number>,
   sendClipboard: (text) => ipcRenderer.invoke('clipboard:set', text) as Promise<boolean>,
+  requestClipboard: () => ipcRenderer.invoke('clipboard:request') as Promise<boolean>,
+  onClipboardStatus: (cb) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: ClipboardStatus): void => cb(status)
+    ipcRenderer.on('clipboard:status', handler)
+    return () => ipcRenderer.removeListener('clipboard:status', handler)
+  },
   clearNotifications: () => ipcRenderer.invoke('notifications:clear') as Promise<void>,
   pauseNotifications: (until) =>
     ipcRenderer.invoke('notifications:pause', until) as Promise<void>,

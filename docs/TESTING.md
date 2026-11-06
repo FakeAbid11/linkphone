@@ -474,7 +474,27 @@ Drag files from Explorer onto any part of the LinkPhone window.
 
 * Copy text on the PC → after ~1 s it should be on the phone's clipboard (paste somewhere to check).
 * Copy text on the phone **while the LinkPhone screen is open** → appears on the PC clipboard.
-* Phone → PC only works in the foreground; that is an Android 10+ restriction, not a bug.
+* Phone → PC works in the foreground by default; the optional background mode is covered in §11b.
+* Images/file URIs are intentionally not synced; only plain text ≤256 KB.
+* PC → phone still works while the phone UI is closed.
+
+## 11b. Clipboard background sync (v0.12.5+)
+
+Enable **LinkPhone clipboard sync** in Android accessibility settings via LinkPhone → Setup →
+**Enable background sync**.
+
+* ✅ With background sync on, copy text in Chrome/WhatsApp while LinkPhone is backgrounded → the PC
+  clipboard updates within ~1 s (Android may show one clipboard-access notice).
+* ✅ With background sync off and LinkPhone backgrounded, copying does not sync.
+* ✅ **Pull from phone** on the PC reads the current phone clipboard when LinkPhone is open or
+  background sync is enabled; offline shows “Phone offline”; unavailable shows the open-LinkPhone
+  hint.
+* ✅ Pull works when automatic sync is turned off on the PC.
+* ✅ Applying a PC clip on the phone does not echo a second `clip.set` back.
+* ✅ Copying an image or file URI sends nothing.
+* ✅ A copy made while disconnected is retried within 60 s after reconnect; older clips are dropped.
+* ✅ Revoke accessibility → background reads stop; foreground sync still works.
+* ✅ HyperOS screen-off/battery saver: the listener keeps working or the Pull fallback explains why.
 
 ## 12. Built-in updates
 
@@ -524,7 +544,7 @@ Automatic scans (v0.6.5+):
   `dataSync` timeout.
 * ✅ Screen off overnight with the exemption → the PC still shows the phone connected. Without it,
   Doze delays are expected rather than a bug.
-* ✅ Clipboard phone→PC still requires LinkPhone in the foreground.
+* ✅ Clipboard phone→PC is foreground-only unless background clipboard sync is enabled.
 
 ## 14. Auto reconnect (v0.7.3+)
 

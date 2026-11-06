@@ -168,6 +168,7 @@ class Peer {
 
 export interface LinkServerEvents {
   clipboardIn: [text: string]
+  clipboardError: [reason: string]
   notification: [item: NotificationItem]
   notificationDismiss: [key: string]
 }
@@ -535,6 +536,7 @@ export class LinkServer extends EventEmitter {
       connected: true,
       address: peer.address
     })
+    this.send(peer, { t: 'clip.enabled', enabled: this.store.clipboardEnabled })
     this.emit('peer-ready', peer.deviceId)
     setImmediate(() => {
       this.requestContacts()
@@ -587,12 +589,17 @@ export class LinkServer extends EventEmitter {
         return
 
       case 'clip.set': {
-        if (!this.store.clipboardEnabled) return
+        const manual = bool(msg.manual)
+        if (!this.store.clipboardEnabled && !manual) return
         const text = str(msg.text)
-        if (text.length > 512 * 1024) return
+        if (text.length > 256 * 1024) return
         this.emit('clipboardIn', text)
         return
       }
+
+      case 'clip.error':
+        this.emit('clipboardError', str(msg.reason, 'unavailable'))
+        return
 
       case 'notif.post': {
         const raw = msg.notif
@@ -1149,6 +1156,17 @@ export class LinkServer extends EventEmitter {
     if (!this.hasConnectedPeer()) return false
     this.broadcast({ t: 'clip.set', text, ts: Date.now() })
     return true
+  }
+
+  /** Manual Pull from the phone; the response may bypass the automatic-sync toggle. */
+  requestClipboard(): boolean {
+    if (!this.hasConnectedPeer()) return false
+    this.broadcast({ t: 'clip.request' })
+    return true
+  }
+
+  sendClipboardEnabled(): void {
+    this.broadcast({ t: 'clip.enabled', enabled: this.store.clipboardEnabled })
   }
 
   /** Forward a notification action (e.g. inline reply) back to the phone. */

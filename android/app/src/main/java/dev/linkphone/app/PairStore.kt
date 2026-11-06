@@ -67,6 +67,11 @@ class PairStore(context: Context) {
         get() = prefs.getBoolean("clipboard", true)
         set(value) = prefs.edit().putBoolean("clipboard", value).apply()
 
+    /** Mirrors the desktop's automatic-sync toggle so the phone stops reading when it is off. */
+    var pcClipboardEnabled: Boolean
+        get() = prefs.getBoolean("pcClipboard", true)
+        set(value) = prefs.edit().putBoolean("pcClipboard", value).apply()
+
     var onboardingDone: Boolean
         get() = prefs.getBoolean("onboardingDone", false)
         set(value) = prefs.edit().putBoolean("onboardingDone", value).apply()

@@ -1,8 +1,6 @@
 package dev.linkphone.app
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -69,10 +67,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 private val Primary = Color.White
 private val Secondary = Color(0xFFB3B3B3)
@@ -169,9 +164,6 @@ internal fun CardTitle(glyph: String, text: String) {
 
 class MainActivity : ComponentActivity() {
 
-    private var suppressUntil = 0L
-    private var lastClip = ""
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LinkCore.init(this)
@@ -179,29 +171,6 @@ class MainActivity : ComponentActivity() {
         if (startStore.hasPairing()) {
             startStore.onboardingDone = true
             runCatching { LinkCore.startService(this) }
-        }
-
-        lifecycleScope.launch {
-            LinkCore.requireClient().clipboardIn.collect { text -> applyRemoteClip(text) }
-        }
-
-        lifecycleScope.launch {
-            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            while (isActive) {
-                delay(1500)
-                if (!LinkCore.requireClient().isReady) continue
-                if (!LinkCore.requireStore().clipboardEnabled) continue
-                if (System.currentTimeMillis() < suppressUntil) continue
-                val text = clipboard.primaryClip
-                    ?.takeIf { it.itemCount > 0 }
-                    ?.getItemAt(0)
-                    ?.coerceToText(this@MainActivity)
-                    ?.toString()
-                    .orEmpty()
-                if (text.isBlank() || text == lastClip) continue
-                lastClip = text
-                LinkCore.requireClient().sendClipboard(text)
-            }
         }
 
         setContent {
@@ -231,11 +200,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun applyRemoteClip(text: String) {
-        suppressUntil = System.currentTimeMillis() + 2000
-        lastClip = text
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("LinkPhone", text))
+    override fun onStart() {
+        super.onStart()
+        ClipboardSync.beginForeground()
+    }
+
+    override fun onStop() {
+        ClipboardSync.endForeground()
+        super.onStop()
     }
 }
 
@@ -259,6 +231,7 @@ private fun Screen(modifier: Modifier = Modifier) {
 
     var notifAccess by remember { mutableStateOf(hasNotificationAccess(context)) }
     var listenerConnected by remember { mutableStateOf(NotificationRelay.isConnected) }
+    var backgroundClipboard by remember { mutableStateOf(ClipboardAccessibilityService.isEnabled(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
     var smsAccess by remember { mutableStateOf(hasSmsAccess(context)) }
     var photoAccess by remember { mutableStateOf(hasPhotoAccess(context)) }
@@ -306,6 +279,7 @@ private fun Screen(modifier: Modifier = Modifier) {
             if (nextNotifAccess && !listenerConnected) {
                 NotificationRelay.ensureBound(context)
             }
+            backgroundClipboard = ClipboardAccessibilityService.isEnabled(context)
             batteryExempt = isBatteryExempt(context)
             smsAccess = hasSmsAccess(context)
             photoAccess = hasPhotoAccess(context)
@@ -905,8 +879,34 @@ private fun Screen(modifier: Modifier = Modifier) {
 
         }
 
+        if (paired && store.clipboardEnabled && store.pcClipboardEnabled && !backgroundClipboard) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CardTitle(Symbols.settings, "Sync copies from other apps")
+                    Text(
+                        "Optional. Android only lets LinkPhone read the clipboard while it is on " +
+                            "screen. Enable accessibility to sync text copied in other apps. " +
+                            "LinkPhone reads clipboard text only, never screen content.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    OutlinedButton(onClick = {
+                        ClipboardAccessibilityService.openSettings(context)
+                    }) { ButtonLabel(Symbols.settings, "Enable background sync") }
+                }
+            }
+        }
+
         Text(
-            "Clipboard sync is on while this screen is open (Android only allows clipboard reads to the app in the foreground).",
+            when {
+                !paired -> "Pair your phone to sync the clipboard."
+                !store.pcClipboardEnabled -> "Clipboard sync is turned off on your PC."
+                backgroundClipboard ->
+                    "Clipboard text syncs from any app while LinkPhone is in the background."
+                else ->
+                    "Clipboard text syncs while LinkPhone is open. Enable background sync above " +
+                        "to copy from other apps."
+            },
             fontSize = 11.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

@@ -17,6 +17,7 @@ import type {
   PhoneCallInfo,
   PhoneContact,
   Platform,
+  RouteKind,
   SmsActiveThread,
   SmsMessage,
   SmsThread,
@@ -130,6 +131,7 @@ export class AppStore extends EventEmitter {
   private callActiveSince = new Map<string, number>()
   private callSpeaker = false
   private callMuted = false
+  private callRoute: RouteKind = 'unknown'
   private callError = ''
   private media: AppState['media'] = null
   private phoneContacts: PhoneContact[] = []
@@ -1208,6 +1210,7 @@ export class AppStore extends EventEmitter {
     controlReady: boolean
     speaker: boolean
     muted: boolean
+    route?: RouteKind
   }): void {
     const now = Date.now()
     const previousCalls = this.phoneCalls
@@ -1238,10 +1241,12 @@ export class AppStore extends EventEmitter {
     this.callDialerReady = input.dialerReady
     this.callOutgoingReady = input.outgoingReady
     this.callControlReady = input.controlReady
+    this.callRoute = input.route ?? (input.speaker ? 'speaker' : 'unknown')
     if (calls.length > 0 || previousCalls.length > 0) this.callPlaced = null
     this.callSpeaker = input.speaker
     this.callMuted = input.muted
-    this.callError = ''
+    // Keep a failed control visible; only an empty call list clears it.
+    if (calls.length === 0) this.callError = ''
     this.changed()
   }
 
@@ -1268,7 +1273,9 @@ export class AppStore extends EventEmitter {
     // one call out keeps the original timestamp.
     if (previousCalls.length === 1 && nextCount === 1) {
       const previous = previousCalls[0]
-      if (previous.phase === 'active' || previous.phase === 'held') {
+      if ((previous.phase === 'active' || previous.phase === 'held') &&
+        (!call.slot || !previous.slot || call.slot === previous.slot)
+      ) {
         const carried = this.callActiveSince.get(AppStore.callKey(previous))
         if (carried !== undefined) return carried
       }
@@ -1277,6 +1284,7 @@ export class AppStore extends EventEmitter {
   }
 
   private static callKey(call: PhoneCallInfo): string {
+    if (call.slot) return `${call.slot}:${call.id || call.number}`
     return call.id || `${call.number}:${call.incoming ? 'in' : 'out'}`
   }
 
@@ -1455,6 +1463,7 @@ export class AppStore extends EventEmitter {
       callPlaced: this.callPlaced,
       callSpeaker: this.callSpeaker,
       callMuted: this.callMuted,
+      callRoute: this.callRoute,
       callError: this.callError,
       media: this.media,
       phoneContacts: this.phoneContacts,

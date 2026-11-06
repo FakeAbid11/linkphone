@@ -4,6 +4,7 @@ import type {
   CallLogEntry,
   PhoneCallInfo,
   PhoneContact,
+  RouteKind,
   SmsThread
 } from '@shared/protocol'
 import { Icon } from './Icon'
@@ -17,6 +18,7 @@ interface Props {
   callPlaced: { number: string; at: number } | null
   speaker: boolean
   muted: boolean
+  route: RouteKind
   error: string
   connected: boolean
   history: CallLogEntry[]
@@ -52,6 +54,7 @@ export function CallsPanel({
   callPlaced,
   speaker,
   muted,
+  route,
   error,
   connected,
   history,
@@ -190,6 +193,9 @@ export function CallsPanel({
                   now={now}
                   speaker={speaker}
                   muted={muted}
+                  route={route}
+                  hangUpBlocked={call.phase !== 'ringing' &&
+                    calls.some((other) => other.phase === 'ringing')}
                   controlReady={controlReady}
                   onAnswer={onAnswer}
                   onReject={onReject}
@@ -378,6 +384,8 @@ function CallCard({
   now,
   speaker,
   muted,
+  route,
+  hangUpBlocked,
   controlReady,
   onAnswer,
   onReject,
@@ -389,6 +397,8 @@ function CallCard({
   now: number
   speaker: boolean
   muted: boolean
+  route: RouteKind
+  hangUpBlocked: boolean
   controlReady: boolean
   onAnswer: (callId: string) => void
   onReject: (callId: string) => void
@@ -405,6 +415,7 @@ function CallCard({
     since > 0 && (call.phase === 'active' || call.phase === 'held' || ended)
       ? elapsed(Math.max(0, now - since))
       : ''
+  const routeText = !ringing && routeLabel(route)
 
   return (
     <div className={`active-call ${ringing ? 'incoming-call' : ''}`}>
@@ -413,6 +424,7 @@ function CallCard({
       <div className="caller-detail">
         {subtitle}
         {duration ? ` · ${duration}` : ''}
+        {routeText ? ` · ${routeText}` : ''}
         {call.simLabel ? ` · ${call.simLabel}` : ''}
       </div>
 
@@ -440,24 +452,32 @@ function CallCard({
           <button
             className={`call-speaker ${speaker ? 'call-speaker-on' : ''}`}
             disabled={ended || !controlReady}
-            title={controlReady ? undefined : 'Allow call access on your phone'}
+            aria-pressed={speaker}
+            title={controlReady ? 'Toggle the phone speaker' : 'Allow call access on your phone'}
             onClick={() => onSpeaker(!speaker)}
           >
-            <Icon name={speaker ? 'volume_off' : 'volume_up'} size={18} />
+            <Icon name="volume_up" size={18} />
             {speaker ? 'Speaker on' : 'Phone speaker'}
           </button>
           <button
             className={`call-speaker ${muted ? 'call-speaker-on' : ''}`}
             disabled={ended || !controlReady}
-            title={controlReady ? undefined : 'Allow call access on your phone'}
+            aria-pressed={muted}
+            title={controlReady ? 'Mute the phone microphone' : 'Allow call access on your phone'}
             onClick={() => onMute(!muted)}
           >
             {muted ? 'Unmute' : 'Mute'}
           </button>
           <button
             className="call-decline"
-            disabled={ended || !controlReady}
-            title={controlReady ? undefined : 'Allow call access on your phone'}
+            disabled={ended || !controlReady || hangUpBlocked}
+            title={
+              hangUpBlocked
+                ? 'Answer or decline the incoming call first'
+                : controlReady
+                  ? undefined
+                  : 'Allow call access on your phone'
+            }
             onClick={() => onDisconnect(call.id)}
           >
             <Icon name="call_end" size={18} /> Hang up
@@ -466,6 +486,21 @@ function CallCard({
       )}
     </div>
   )
+}
+
+function routeLabel(route: RouteKind): string {
+  switch (route) {
+    case 'earpiece':
+      return 'Earpiece'
+    case 'speaker':
+      return 'Speaker'
+    case 'bluetooth':
+      return 'Bluetooth'
+    case 'headset':
+      return 'Headset'
+    default:
+      return ''
+  }
 }
 
 function logLabel(type: CallLogEntry['type']): string {

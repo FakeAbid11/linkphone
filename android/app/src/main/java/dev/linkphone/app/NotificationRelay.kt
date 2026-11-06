@@ -27,7 +27,6 @@ class NotificationRelay : NotificationListenerService() {
     private val groupChildren = ConcurrentHashMap<String, MutableSet<String>>()
     private val groupSummaries = ConcurrentHashMap<String, String>()
     private val main = Handler(Looper.getMainLooper())
-    private var callKey: String? = null
 
     override fun onListenerConnected() {
         LinkCore.init(this)
@@ -48,20 +47,14 @@ class NotificationRelay : NotificationListenerService() {
         Log.d(TAG, "notification listener disconnected")
         if (instance === this) instance = null
         MediaWatcher.stop()
-        if (callKey != null) {
-            callKey = null
-            CallHub.clearSystemCall()
-        }
+        CallHub.clearNotificationCalls()
     }
 
     override fun onDestroy() {
         isConnected = false
         if (instance === this) instance = null
         MediaWatcher.stop()
-        if (callKey != null) {
-            callKey = null
-            CallHub.clearSystemCall()
-        }
+        CallHub.clearNotificationCalls()
         super.onDestroy()
     }
 
@@ -278,10 +271,8 @@ class NotificationRelay : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         val sbn = sbn ?: return
-        if (sbn.key == callKey) {
-            callKey = null
-            CallHub.clearSystemCall()
-        }
+        // The hub ignores keys it does not know, so ordinary notifications are unaffected.
+        CallHub.clearNotificationCall(sbn.key)
         lastSent.remove(sbn.key)
         lastSentAt.remove(sbn.key)
         forgetGroupKey(sbn.key)
@@ -343,10 +334,14 @@ class NotificationRelay : NotificationListenerService() {
                 "ongoing=${sbn.isOngoing} actions=$actions title=$title text=$text"
         )
 
-        // Without the default-dialer role there is no Call object, so the dialer's running
-        // chronometer is the only evidence that the call actually connected.
+        // A dialer only starts its chronometer when the call connects, and `when` is then the
+        // connect time; this is the most reliable answer signal available without the dialer role.
+        val chronometer = extras?.getBoolean(Notification.EXTRA_SHOW_CHRONOMETER) == true
+        val countDown = extras?.getBoolean(Notification.EXTRA_CHRONOMETER_COUNT_DOWN) == true
+        val connected = chronometer && !countDown
         val phase = when {
             ringing -> PhoneCallPhase.RINGING
+            connected -> PhoneCallPhase.ACTIVE
             TIMER_PATTERN.containsMatchIn("$title $text") -> PhoneCallPhase.ACTIVE
             "$title $text".contains("calling", ignoreCase = true) ||
                 "$title $text".contains("dialing", ignoreCase = true) ||
@@ -355,15 +350,19 @@ class NotificationRelay : NotificationListenerService() {
             else -> PhoneCallPhase.ACTIVE
         }
 
-        callKey = sbn.key
         CallHub.updateSystemCall(
+            sbn.key,
             PhoneCallInfo(
                 id = "system:${sbn.key}",
                 number = number,
                 displayName = displayName,
                 phase = phase,
                 incoming = phase == PhoneCallPhase.RINGING,
-                startedAt = System.currentTimeMillis()
+                startedAt = if (connected && notification.`when` > 0) {
+                    notification.`when`
+                } else {
+                    System.currentTimeMillis()
+                }
             )
         )
     }

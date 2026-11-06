@@ -179,13 +179,13 @@ the socket; the frames above are unchanged.
 | `gallery.preview` | phone → PC | `photoId`, `mime`, `data` |
 | `gallery.download` | PC → phone | `photoId`, `kind?` — the phone replies with a `file.offer` carrying `photoId` |
 | `gallery.error` | phone → PC | `op`, `error` |
-| `call.state` | phone → PC | `calls[]`, `dialerReady`, `speaker`, `muted` |
+| `call.state` | phone → PC | `calls[]` (`id`, `number`, `displayName`, `phase`, `incoming`, `startedAt`, `simLabel?`, `slot?`), `dialerReady`, `outgoingReady`, `controlReady`, `speaker`, `muted`, `route?` |
 | `call.place` | PC → phone | `number` |
 | `call.answer` | PC → phone | `callId` |
 | `call.reject` | PC → phone | `callId` |
 | `call.disconnect` | PC → phone | `callId` |
-| `call.speaker` | PC → phone | `enabled` |
-| `call.mute` | PC → phone | `enabled` — muting needs the call-control service on the phone |
+| `call.speaker` | PC → phone | `enabled` — device-wide best effort |
+| `call.mute` | PC → phone | `enabled` — device-wide best effort; needs the call-control service or `MODIFY_AUDIO_SETTINGS` |
 | `call.error` | phone → PC | `error` |
 | `contacts.request` | PC → phone | — |
 | `contacts.sync` | phone → PC | `contacts[{id,name,numbers[{number,label}]}]`, `granted` |
@@ -292,16 +292,25 @@ include `simLabel` so the PC can show which SIM was used, even after a SIM is re
 ### Call control
 
 Call control works **without** the default-dialer role. With the role, LinkPhone's `InCallService`
-publishes call IDs, number/display label, direction, state and `startedAt`. Without it, the phone
-falls back to the dialer's ongoing notification and `TelephonyRegistry`; those phases are best
-effort, and Android does not expose the exact answer instant, so:
+publishes call IDs, number/display label, direction, state, `startedAt` and the audio route. Without
+it, the phone falls back to the dialer's ongoing notification and `TelephonyRegistry`. Those phases
+are best effort, so:
 
 * the phone never reports `unknown` for a live call;
-* an outgoing call stays `dialing` until the dialer's notification shows a running timer (or the
-  call is answered), then becomes `active`;
+* an outgoing call stays `dialing` until the dialer's notification starts its chronometer
+  (`EXTRA_SHOW_CHRONOMETER`, which dialers enable on connect) or the text shows a running timer;
+* fallback entries carry `slot: "ringing" | "active"`; a waiting call is published alongside the
+  live one instead of replacing it. Answer/Decline target the ringing slot, and Hang up is refused
+  while one exists because `TelecomManager.endCall()` rejects the ringing leg first;
 * the PC keeps the dialed number from `call.place` and fills it in when the phone's report has none;
 * the **PC** stamps the live timer when it first sees `active`, so `startedAt` (phone clock) is only
   informational and clock drift between the two devices cannot corrupt the duration.
+
+`call.speaker` and `call.mute` are device-wide. The reported `speaker`, `muted` and `route`
+(`earpiece`/`speaker`/`bluetooth`/`headset`/`unknown`) are **observed** values, not the requested
+ones. Without the role, mute falls back to `AudioManager.setMicrophoneMute` (deprecated on API 34,
+ignored by some OEMs); the phone restores the microphone when the call ends and after a restart if
+LinkPhone was the one that muted it. Bluetooth routing is displayed, never selected.
 
 Windows sends commands by opaque call ID. Without the role, control uses `TelecomManager`
 (`acceptRingingCall`, `endCall`) and speaker routing uses the call-audio route when available,

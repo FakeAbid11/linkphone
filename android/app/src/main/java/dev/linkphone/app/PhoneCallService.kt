@@ -43,7 +43,9 @@ data class PhoneCallInfo(
     val phase: PhoneCallPhase,
     val incoming: Boolean,
     val startedAt: Long,
-    val simLabel: String? = null
+    val simLabel: String? = null,
+    /** ringing | active — set for fallback calls so the PC can tell a waiting call from the live one. */
+    val slot: String? = null
 )
 
 data class PhoneCallSnapshot(
@@ -52,7 +54,8 @@ data class PhoneCallSnapshot(
     val outgoingReady: Boolean = false,
     val controlReady: Boolean = false,
     val speaker: Boolean = false,
-    val muted: Boolean = false
+    val muted: Boolean = false,
+    val route: String = "unknown"
 )
 
 /** Process-wide call state shared by the phone UI, InCallService and LAN client. */
@@ -62,9 +65,19 @@ object CallHub {
     val state: StateFlow<PhoneCallSnapshot> = _state.asStateFlow()
 
     private var appContext: Context? = null
-    private var systemCall: PhoneCallInfo? = null
+
+    /**
+     * Fallback call state while the InCallService is not bound (no dialer role). Entries are keyed
+     * by notification key; "telephony" is the synthetic entry used when the dialer hides its
+     * notification. Both legs of a waiting call can therefore be shown independently.
+     */
+    private data class FallbackCall(
+        val info: PhoneCallInfo,
+        val telephony: Boolean
+    )
+
+    private val fallbackCalls = LinkedHashMap<String, FallbackCall>()
     private var telephonyPhase: PhoneCallPhase? = null
-    private var systemSpeaker = false
     private var lastPlacedNumber = ""
     private var lastPlacedAt = 0L
     private val placedNumberTtlMs = 120_000L
@@ -72,8 +85,10 @@ object CallHub {
     private var heartbeatActive = false
     private val heartbeat = Runnable {
         heartbeatActive = false
-        if (systemCall != null) publishSystemState()
+        if (fallbackCalls.isNotEmpty()) publishSystemState()
     }
+
+    private const val TELEPHONY_KEY = "telephony"
 
     /**
      * The PC dialed through us, but the notification and telephony fallbacks often report the
@@ -117,32 +132,40 @@ object CallHub {
             PackageManager.PERMISSION_GRANTED
 
     @Synchronized
-    fun updateSystemCall(call: PhoneCallInfo) {
+    fun updateSystemCall(key: String, call: PhoneCallInfo) {
         if (PhoneCallService.instance != null) return
+        val ringing = call.phase == PhoneCallPhase.RINGING
         val number = call.number.ifBlank { recentPlacedNumber() }
-        val previous = systemCall
+        val existing = fallbackCalls[key]
         val candidate = resolvePhase(call.phase)
-        val displayName = call.displayName.ifBlank {
-            number.ifBlank {
-                if (candidate == PhoneCallPhase.RINGING) "Incoming call" else "Calling…"
-            }
-        }
         // The dialer notification and telephony report in either order; never walk a live call back.
-        val phase = if (previous != null &&
-            (previous.phase == PhoneCallPhase.ACTIVE || previous.phase == PhoneCallPhase.HELD) &&
-            candidate != PhoneCallPhase.ACTIVE && candidate != PhoneCallPhase.HELD &&
-            sameCall(previous, number)
+        val phase = if (!ringing && existing != null &&
+            (existing.info.phase == PhoneCallPhase.ACTIVE || existing.info.phase == PhoneCallPhase.HELD) &&
+            (candidate == PhoneCallPhase.DIALING || candidate == PhoneCallPhase.CONNECTING) &&
+            sameCall(existing.info, number)
         ) {
-            previous.phase
+            existing.info.phase
         } else {
             candidate
         }
-        systemCall = call.copy(
-            number = number,
-            displayName = displayName,
-            phase = phase,
-            incoming = phase == PhoneCallPhase.RINGING,
-            startedAt = previous?.startedAt ?: call.startedAt
+        val displayName = call.displayName.ifBlank {
+            number.ifBlank { if (phase == PhoneCallPhase.RINGING) "Incoming call" else "Calling…" }
+        }
+        // A real notification supersedes the synthetic entry for the same call. A ringing
+        // notification must not erase a synthetic live call (call waiting with the dialer hidden).
+        val synthetic = fallbackCalls[TELEPHONY_KEY]
+        if (synthetic != null && (synthetic.info.phase == PhoneCallPhase.RINGING || !ringing)) {
+            fallbackCalls.remove(TELEPHONY_KEY)
+        }
+        fallbackCalls[key] = FallbackCall(
+            call.copy(
+                number = number,
+                displayName = displayName,
+                phase = phase,
+                incoming = phase == PhoneCallPhase.RINGING,
+                startedAt = if (ringing) call.startedAt else existing?.info?.startedAt ?: call.startedAt
+            ),
+            telephony = false
         )
         publishSystemState()
     }
@@ -181,31 +204,63 @@ object CallHub {
             phase
         }
         telephonyPhase = effective
-        val existing = systemCall
-        val number = if (existing != null) "" else recentPlacedNumber()
-        systemCall = if (existing != null) {
-            val keepLive = (existing.phase == PhoneCallPhase.ACTIVE ||
-                existing.phase == PhoneCallPhase.HELD) && effective == PhoneCallPhase.DIALING
-            existing.copy(
-                phase = if (keepLive) existing.phase else effective,
-                incoming = effective == PhoneCallPhase.RINGING
+
+        val synthetic = fallbackCalls[TELEPHONY_KEY]
+        if (effective == PhoneCallPhase.RINGING) {
+            if (fallbackCalls.values.none { it.info.phase == PhoneCallPhase.RINGING }) {
+                fallbackCalls[TELEPHONY_KEY] = FallbackCall(
+                    syntheticCall(effective, recentPlacedNumber()),
+                    telephony = true
+                )
+            }
+        } else if (synthetic != null) {
+            val keepLive = (synthetic.info.phase == PhoneCallPhase.ACTIVE ||
+                synthetic.info.phase == PhoneCallPhase.HELD) && effective == PhoneCallPhase.DIALING
+            fallbackCalls[TELEPHONY_KEY] = synthetic.copy(
+                info = synthetic.info.copy(
+                    phase = if (keepLive) synthetic.info.phase else effective,
+                    incoming = false
+                )
             )
-        } else {
-            PhoneCallInfo(
-                id = "system:telephony",
-                number = number,
-                displayName = when {
-                    number.isNotEmpty() -> ""
-                    effective == PhoneCallPhase.RINGING -> "Incoming call"
-                    else -> "Phone call"
-                },
-                phase = effective,
-                incoming = effective == PhoneCallPhase.RINGING,
-                startedAt = System.currentTimeMillis()
-            )
+        } else if (fallbackCalls.values.none {
+                it.info.phase == PhoneCallPhase.ACTIVE || it.info.phase == PhoneCallPhase.HELD
+            }
+        ) {
+            // Answering the only ringing call, or an outgoing call with no notification yet.
+            val ringingEntry = fallbackCalls.entries
+                .firstOrNull { it.value.info.phase == PhoneCallPhase.RINGING }
+            if (ringingEntry != null) {
+                fallbackCalls[ringingEntry.key] = ringingEntry.value.copy(
+                    info = ringingEntry.value.info.copy(
+                        phase = effective,
+                        incoming = false,
+                        startedAt = System.currentTimeMillis()
+                    )
+                )
+            } else {
+                fallbackCalls[TELEPHONY_KEY] = FallbackCall(
+                    syntheticCall(effective, recentPlacedNumber()),
+                    telephony = true
+                )
+            }
         }
+        // With a call already live, an OFFHOOK is ambiguous between the two legs; leave both
+        // cards alone and let the dialer's own notification resolve it.
         publishSystemState()
     }
+
+    private fun syntheticCall(phase: PhoneCallPhase, number: String): PhoneCallInfo = PhoneCallInfo(
+        id = "system:$TELEPHONY_KEY",
+        number = number,
+        displayName = when {
+            number.isNotEmpty() -> ""
+            phase == PhoneCallPhase.RINGING -> "Incoming call"
+            else -> "Phone call"
+        },
+        phase = phase,
+        incoming = phase == PhoneCallPhase.RINGING,
+        startedAt = System.currentTimeMillis()
+    )
 
     @Synchronized
     fun clearTelephonyCall() {
@@ -213,35 +268,66 @@ object CallHub {
         telephonyPhase = null
         lastPlacedNumber = ""
         lastPlacedAt = 0L
-        systemCall = null
-        systemSpeaker = false
+        fallbackCalls.clear()
+        restoreMute()
         publishSystemState()
     }
 
     @Synchronized
-    fun clearSystemCall() {
+    fun clearNotificationCall(key: String) {
         if (PhoneCallService.instance != null) return
-        // The dialer notification can disappear while telephony still reports a live call.
-        if (telephonyPhase != null) return
-        systemCall = null
-        systemSpeaker = false
+        val removed = fallbackCalls.remove(key) ?: return
+        // The dialer can hide its notification while telephony still reports a live call.
+        if (removed.info.phase != PhoneCallPhase.RINGING &&
+            telephonyPhase == PhoneCallPhase.ACTIVE &&
+            fallbackCalls.isEmpty()
+        ) {
+            fallbackCalls[TELEPHONY_KEY] = FallbackCall(
+                removed.info.copy(id = "system:$TELEPHONY_KEY"),
+                telephony = true
+            )
+        }
+        if (fallbackCalls.isEmpty()) {
+            if (telephonyPhase != PhoneCallPhase.ACTIVE) telephonyPhase = null
+            restoreMute()
+        }
         publishSystemState()
     }
 
+    @Synchronized
+    fun clearNotificationCalls() {
+        if (PhoneCallService.instance != null) return
+        val removed = fallbackCalls.entries.removeAll { !it.value.telephony }
+        if (!removed) return
+        if (fallbackCalls.isEmpty() && telephonyPhase != PhoneCallPhase.ACTIVE) telephonyPhase = null
+        if (fallbackCalls.isEmpty()) restoreMute()
+        publishSystemState()
+    }
+
+    @Synchronized
     private fun publishSystemState() {
         val context = appContext
+        val route = context?.let { routeOf(it) } ?: "unknown"
+        val calls = fallbackCalls.values
+            .sortedBy { it.info.phase != PhoneCallPhase.RINGING }
+            .map {
+                it.info.copy(
+                    slot = if (it.info.phase == PhoneCallPhase.RINGING) "ringing" else "active"
+                )
+            }
         publish(
             PhoneCallSnapshot(
-                calls = listOfNotNull(systemCall),
+                calls = calls,
                 dialerReady = context?.let { isCallReady(it) } ?: false,
                 outgoingReady = context?.let { isOutgoingReady(it) } ?: false,
                 controlReady = context?.let { isRemoteControlReady(it) } ?: false,
-                speaker = systemSpeaker,
-                muted = false
+                speaker = route == "speaker",
+                muted = context?.let { isMicMuted(it) } ?: false,
+                route = route
             )
         )
         // Re-send while a fallback call is live so a dropped frame cannot leave the PC stuck.
-        if (systemCall != null) {
+        if (fallbackCalls.isNotEmpty()) {
             if (!heartbeatActive) {
                 heartbeatActive = true
                 main.postDelayed(heartbeat, callHeartbeatMs)
@@ -250,6 +336,43 @@ object CallHub {
             main.removeCallbacks(heartbeat)
             heartbeatActive = false
         }
+    }
+
+    @Suppress("DEPRECATION")
+    fun isMicMuted(context: Context): Boolean =
+        runCatching {
+            context.getSystemService(AudioManager::class.java)?.isMicrophoneMute == true
+        }.getOrDefault(false)
+
+    /**
+     * Best-effort mute without the dialer role: mutes the microphone for the whole device, which
+     * most phones apply to the call uplink but some OEMs ignore. We publish the read-back value.
+     */
+    @Suppress("DEPRECATION")
+    fun restoreMute() {
+        val context = appContext ?: return
+        val store = runCatching { LinkCore.requireStore() }.getOrNull() ?: return
+        if (!store.muteRestorePending) return
+        runCatching { context.getSystemService(AudioManager::class.java)?.isMicrophoneMute = false }
+        store.muteRestorePending = false
+    }
+
+    fun routeOf(context: Context): String {
+        val audio = context.getSystemService(AudioManager::class.java) ?: return "unknown"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            when (audio.communicationDevice?.type) {
+                AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> return "speaker"
+                AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> return "earpiece"
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET -> return "bluetooth"
+                AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                AudioDeviceInfo.TYPE_USB_HEADSET -> return "headset"
+            }
+        }
+        @Suppress("DEPRECATION")
+        if (audio.isBluetoothScoOn) return "bluetooth"
+        @Suppress("DEPRECATION")
+        if (audio.isSpeakerphoneOn) return "speaker"
+        return "earpiece"
     }
 
     fun isDefaultDialer(context: Context): Boolean {
@@ -305,12 +428,36 @@ object CallHub {
             return@runCatching
         }
         if (!hasAnswerPermission(context)) error("Allow call access on your phone")
+        val ringingKey = ringingKeyFor(callId) ?: error("That call is no longer ringing")
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
         telecom.acceptRingingCall()
+        val entry = fallbackCalls.remove(ringingKey) ?: return@runCatching
+        // Answering a waiting call puts the call that was live on hold.
+        for ((key, value) in fallbackCalls.entries.toList()) {
+            if (value.info.phase == PhoneCallPhase.ACTIVE) {
+                fallbackCalls[key] = value.copy(info = value.info.copy(phase = PhoneCallPhase.HELD))
+            }
+        }
+        fallbackCalls[ringingKey] = entry.copy(
+            info = entry.info.copy(
+                phase = PhoneCallPhase.ACTIVE,
+                incoming = false,
+                startedAt = System.currentTimeMillis()
+            )
+        )
         telephonyPhase = PhoneCallPhase.ACTIVE
-        systemCall = systemCall?.copy(phase = PhoneCallPhase.ACTIVE, incoming = false)
         publishSystemState()
+    }
+
+    /** The id can change between the post and the click; fall back to the only ringing card. */
+    private fun ringingKeyFor(callId: String): String? {
+        val ringing = fallbackCalls.entries.filter { it.value.info.phase == PhoneCallPhase.RINGING }
+        if (ringing.isEmpty()) return null
+        if (callId.isNotEmpty()) {
+            return ringing.firstOrNull { it.value.info.id == callId }?.key ?: ringing.first().key
+        }
+        return ringing.first().key
     }
 
     @Suppress("DEPRECATION")
@@ -322,12 +469,16 @@ object CallHub {
             return@runCatching
         }
         if (!hasAnswerPermission(context)) error("Allow call access on your phone")
+        val ringingKey = ringingKeyFor(callId) ?: error("That call is no longer ringing")
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
+        // endCall() rejects the ringing leg when one exists, which is exactly what we want here.
         telecom.endCall()
-        telephonyPhase = null
-        systemCall = null
-        systemSpeaker = false
+        fallbackCalls.remove(ringingKey)
+        if (fallbackCalls.isEmpty()) {
+            telephonyPhase = null
+            restoreMute()
+        }
         publishSystemState()
     }
 
@@ -340,12 +491,19 @@ object CallHub {
             return@runCatching
         }
         if (!hasAnswerPermission(context)) error("Allow call access on your phone")
+        // endCall() targets the ringing leg first, so hanging up here could end the wrong call.
+        if (fallbackCalls.values.any { it.info.phase == PhoneCallPhase.RINGING }) {
+            error("Answer or decline the incoming call first")
+        }
+        if (fallbackCalls.isEmpty()) error("There is no call to end")
         val telecom = context.getSystemService(TelecomManager::class.java)
             ?: error("Calling is unavailable on this device")
         telecom.endCall()
+        fallbackCalls.clear()
         telephonyPhase = null
-        systemCall = null
-        systemSpeaker = false
+        lastPlacedNumber = ""
+        lastPlacedAt = 0L
+        restoreMute()
         publishSystemState()
     }
 
@@ -372,7 +530,6 @@ object CallHub {
                 audio.clearCommunicationDevice()
             }
         }
-        systemSpeaker = enabled
         publishSystemState()
     }
 
@@ -387,13 +544,31 @@ object CallHub {
     }
 
     /**
-     * Muting has no reliable non-dialer fallback: AudioManager.setMicrophoneMute is device-global and
-     * often ignored on modern OEMs, so require the InCallService instead of claiming success.
+     * Best-effort mute without the dialer role: `setMicrophoneMute` is device-global, deprecated on
+     * API 34 and ignored by some OEMs, so we publish the read-back value instead of assuming success
+     * and restore it whenever the call ends.
      */
+    @Suppress("DEPRECATION")
     fun setMute(context: Context, enabled: Boolean): Result<Unit> = runCatching {
         val service = PhoneCallService.instance
-            ?: error("Allow call access on your phone")
-        main.post { runCatching { service.setMute(enabled) } }
+        if (service != null) {
+            main.post { runCatching { service.setMute(enabled) } }
+            return@runCatching
+        }
+        if (!hasAnswerPermission(context)) error("Allow call access on your phone")
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.MODIFY_AUDIO_SETTINGS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            error("Microphone control is blocked by the phone")
+        }
+        val audio = context.getSystemService(AudioManager::class.java)
+            ?: error("Audio control is unavailable on this device")
+        audio.isMicrophoneMute = enabled
+        if (audio.isMicrophoneMute != enabled) {
+            error("This phone ignored the microphone change")
+        }
+        runCatching { LinkCore.requireStore().muteRestorePending = enabled }
+        publishSystemState()
     }
 
     fun setMute(enabled: Boolean) = main.post {
@@ -524,7 +699,14 @@ class PhoneCallService : InCallService() {
             outgoingReady = CallHub.isOutgoingReady(this),
             controlReady = CallHub.isRemoteControlReady(this),
             speaker = audio?.route == CallAudioState.ROUTE_SPEAKER,
-            muted = audio?.isMuted == true
+            muted = audio?.isMuted == true,
+            route = when (audio?.route) {
+                CallAudioState.ROUTE_SPEAKER -> "speaker"
+                CallAudioState.ROUTE_EARPIECE -> "earpiece"
+                CallAudioState.ROUTE_BLUETOOTH -> "bluetooth"
+                CallAudioState.ROUTE_WIRED_HEADSET -> "headset"
+                else -> "unknown"
+            }
         )
         CallHub.publish(snapshot)
         notifier.update(snapshot)

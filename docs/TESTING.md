@@ -606,6 +606,25 @@ Automatic scans (v0.6.5+):
   respected and not re-enabled by LinkPhone.
 * ✅ Uninstall removes both registry values and the Startup Apps entry.
 
+## 16c. Role-less calling (v0.12.9+)
+
+No default-phone role. Grant **Allow call access** and keep notification access on.
+
+* ✅ Dial from the PC → `Dialing…`; when the other side answers, the card flips to `Connected` within
+  about a second (the dialer's notification starts its chronometer) and the timer starts near `0:00`.
+* ✅ The timer keeps advancing through notification updates and the 20 s heartbeat.
+* ✅ The card shows the observed route: **Earpiece**, **Speaker**, **Bluetooth** or **Headset**.
+  **Phone speaker** flips it and the label follows the read-back state; the icon matches the label.
+* ✅ **Mute** mutes the phone microphone, the button shows `Unmute`, and hanging up restores the
+  microphone. Force-stop LinkPhone while muted, reopen it → the microphone is restored.
+* ✅ A second call while one is live → both cards appear (ringing first); **Answer**/**Decline** act
+  on the ringing one, and **Hang up** on the live card is disabled with “Answer or decline the
+  incoming call first”.
+* ✅ After answering the waiting call, the first card shows `On hold` and keeps its timer.
+* ✅ A failed control stays visible until dismissed instead of vanishing on the next state push.
+* ✅ An OEM that ignores `setMicrophoneMute` leaves the button on `Mute` and shows an error.
+* ✅ A v0.12.8 PC against this APK still shows both cards (unknown `route`/`slot` are ignored).
+
 ## Debugging
 
 ```powershell

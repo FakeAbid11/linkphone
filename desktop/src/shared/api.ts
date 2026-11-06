@@ -1,4 +1,10 @@
-import type { AppState, GalleryPreview, NotificationItem, TransferItem } from './protocol'
+import type {
+  AppState,
+  ClipboardStatus,
+  GalleryPreview,
+  NotificationItem,
+  TransferItem
+} from './protocol'
 
 export interface LinkPhoneApi {
   getState: () => Promise<AppState>
@@ -20,6 +26,8 @@ export interface LinkPhoneApi {
   pathForFile: (file: unknown) => string
   sendFilesFromPaths: (paths: string[]) => Promise<number>
   sendClipboard: (text: string) => Promise<boolean>
+  requestClipboard: () => Promise<boolean>
+  onClipboardStatus: (cb: (status: ClipboardStatus) => void) => () => void
   clearNotifications: () => Promise<void>
   pauseNotifications: (until: number | null) => Promise<void>
   getNotificationHistory: () => Promise<NotificationItem[]>

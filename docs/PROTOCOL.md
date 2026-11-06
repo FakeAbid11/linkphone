@@ -135,7 +135,10 @@ the socket; the frames above are unchanged.
 | `notif.dismiss` | phone → PC | `key` |
 | `notif.action` | PC → phone | `key`, `actionId`, `replyText?` |
 | `notif.cancel` | PC → phone | `keys[]` — dismiss these notifications in the phone shade (best effort) |
-| `clip.set` | both | `text`, `ts` |
+| `clip.set` | both | `text`, `ts`, `manual?` (phone→PC Pull response; accepted even when automatic sync is off) |
+| `clip.enabled` | PC → phone | `enabled` — the desktop automatic-sync toggle |
+| `clip.request` | PC → phone | — ask the phone to read and return its clipboard |
+| `clip.error` | phone → PC | `reason` (`offline`, `unavailable`, `empty`, `too-large`) |
 | `file.offer` | both | `id`, `name`, `size`, `mime`, `target?` (`downloads`/`pictures`/`videos`), `resumeFrom?`, `mtimeMs?`, `photoId?`, `mediaKind?` |
 | `file.accept` | both | `id`, `offset?` (bytes already received; absent means 0) |
 | `file.decline` | both | `id`, `reason?` |
@@ -221,6 +224,13 @@ Progress notifications may include `progress`, `progressMax`, `indeterminate` an
 `notif.post` with the same `key` updates the existing PC entry in place. The phone only sends
 progress-bearing notifications after the PC advertises the `notif.progress` capability in
 `hello.result.caps`; older PCs therefore receive no progress frames and no update notifications.
+
+### Clipboard
+
+Clipboard sync is plain text only and capped at 256 KB. Phone→PC automatic reads require
+LinkPhone to be in the foreground or the optional clipboard AccessibilityService to be enabled;
+PC→phone writes work while the phone app is backgrounded. The service reads clipboard text only,
+never window content. Android 12+ may show a clipboard-access notice once per background read.
 
 ### SMS
 

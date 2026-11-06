@@ -416,6 +416,27 @@ export interface ClipSetMsg {
   t: 'clip.set'
   text: string
   ts: number
+  /** True for a response to a manual Pull; accepted even when automatic sync is off. */
+  manual?: boolean
+}
+
+export interface ClipEnabledMsg {
+  t: 'clip.enabled'
+  enabled: boolean
+}
+
+export interface ClipRequestMsg {
+  t: 'clip.request'
+}
+
+export interface ClipErrorMsg {
+  t: 'clip.error'
+  reason: string
+}
+
+export interface ClipboardStatus {
+  kind: 'received' | 'error'
+  reason?: string
 }
 
 export interface FileOfferMsg {
@@ -809,6 +830,9 @@ export type ControlMsg =
   | MediaActionMsg
   | MediaArtMsg
   | ClipSetMsg
+  | ClipEnabledMsg
+  | ClipRequestMsg
+  | ClipErrorMsg
   | FileOfferMsg
   | FileAcceptMsg
   | FileDeclineMsg

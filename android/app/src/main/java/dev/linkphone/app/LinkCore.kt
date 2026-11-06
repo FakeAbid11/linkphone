@@ -23,6 +23,7 @@ object LinkCore {
             clientRef = LinkClient(app, store)
             updaterRef = AppUpdateManager(app)
             CallHub.attach(app)
+            ClipboardSync.init(app)
             UpdateScheduler.schedule(app)
             ContactsRepository.get(app).preload()
             sweepShareCache(app)

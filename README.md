@@ -32,9 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.12.6** fixes calls dialed from the PC: the card shows the number you dialed, says
-> `Dialing…` until the call connects, then runs a talk timer that starts at connect and keeps
-> ticking.
+> **v0.12.7** adds contact suggestions to the new-message composer: pick a contact and one of its
+> numbers instead of typing it, and start a text from a contact that has no thread yet.
 
 ## Features
 
@@ -43,7 +42,7 @@ service or a relay server.
 | Pairing and discovery | Yes | QR or 8-character code; mDNS, with an IPv6 link-local fallback |
 | Android onboarding | Yes | Three first-launch screens: how it works, permissions and pairing |
 | Notification mirroring | Yes | Live progress, group and ongoing alerts, search, history, mute/clear, actions and reply |
-| SMS | Partial | New or existing conversations, search and retry failed sends; no MMS |
+| SMS | Partial | New or existing conversations with contact suggestions, search and retry failed sends; no MMS |
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
 | Contacts and call history | Yes | Recent calls and contacts share a switch beside the dialer |
 | Phone calls | Partial | Dial, answer, hang up, mute and use the phone speaker from the PC (best effort); talk timer starts when the call connects; audio stays on the phone |
@@ -77,7 +76,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.12.6.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.12.7.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

@@ -138,6 +138,16 @@ Phone → **Allow SMS access**. On the PC open **Messages**.
 * ✅ Send an SMS to the phone from another number: it appears live and triggers a Windows toast.
 * ✅ **New message** sends to a number with no thread, opens the conversation and keeps the bubble
   after a refresh and after restarting LinkPhone.
+* ✅ Typing a name in **To** lists matching contacts; each contact number is its own row with its
+  label (a five-number contact shows five rows).
+* ✅ Arrow keys move the highlight, **Enter** picks it, **Escape** closes the list, and clicking
+  outside closes it. Enter never sends from the To field.
+* ✅ Picking a row fills the number, shows the contact name and label beneath the field, and moves
+  focus to the message body. Manual typing still works.
+* ✅ Contacts off / still loading / phone offline → a clear hint under the field; an unmatched query
+  says "No contacts match — you can still type a number."
+* ✅ **Contacts → Message** opens the existing thread when there is one, and otherwise opens a
+  prefilled new message; Cancel, send then switch tabs → it does not reopen by itself.
 * ✅ Conversation-list search and in-thread message search filter correctly.
 * ❌ Empty list → all three SMS permissions (read, send, receive) must be enabled on the phone.
 * ❌ Send fails → check that the phone has an active SIM and a default SMS subscription.
@@ -247,8 +257,8 @@ Contacts tab.
 * ✅ Contacts lists names, numbers and labels; search matches both names and digits. Granting or
   revoking Contact access in Android settings while LinkPhone is open reloads or clears the list.
 * ✅ The call button places a call through the phone (it is disabled until call access is granted).
-* ✅ **Message** opens an existing SMS conversation; a number with no thread shows
-  “No SMS thread yet — start one on the phone.”
+* ✅ **Message** opens an existing SMS conversation; a number with no thread switches to Messages
+  with the new-message form prefilled and the body focused.
 * ✅ Recent calls shows direction, relative time and talk duration; the call button redials.
 * ✅ Each panel's **Refresh** reloads only that panel; reopening Calls also refreshes both.
 * ✅ An incoming or active call replaces the dialer on the left while the switch and side panel stay

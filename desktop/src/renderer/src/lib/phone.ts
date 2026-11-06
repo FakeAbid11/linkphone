@@ -4,6 +4,18 @@ export function normalizeNumber(value: string): string | null {
   return digits.length > 10 ? digits.slice(-10) : digits
 }
 
+/** All digits, untruncated: for live substring matching while typing. */
+export function digitsOf(value: string): string {
+  return value.replace(/\D/g, '')
+}
+
+/** True when both values parse as phone numbers and describe the same one. */
+export function numbersMatch(a: string, b: string): boolean {
+  const left = normalizeNumber(a)
+  const right = normalizeNumber(b)
+  return left !== null && right !== null && left === right
+}
+
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'

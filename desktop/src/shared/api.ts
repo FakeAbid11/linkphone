@@ -6,6 +6,11 @@ import type {
   TransferItem
 } from './protocol'
 
+export interface ActionResult {
+  ok: boolean
+  error?: string
+}
+
 export interface LinkPhoneApi {
   getState: () => Promise<AppState>
   onState: (cb: (state: AppState) => void) => () => void
@@ -35,8 +40,13 @@ export interface LinkPhoneApi {
   dismissNotification: (key: string) => Promise<void>
   setNotificationMuted: (pkg: string, app: string, muted: boolean) => Promise<void>
   clearNotificationApp: (pkg: string, app: string) => Promise<void>
-  sendNotificationReply: (key: string, actionId: string, text: string) => Promise<void>
-  sendNotificationAction: (key: string, actionId: string) => Promise<void>
+  sendNotificationReply: (
+    key: string,
+    actionId: string,
+    text: string,
+    label?: string
+  ) => Promise<ActionResult>
+  sendNotificationAction: (key: string, actionId: string, label?: string) => Promise<ActionResult>
   requestSmsThreads: () => Promise<void>
   openSmsThread: (threadId: string, address: string) => Promise<void>
   closeSmsThread: () => Promise<void>

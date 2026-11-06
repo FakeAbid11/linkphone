@@ -107,8 +107,17 @@ yourself a message from another app).
   applies it on the phone.
 * ✅ Tapping the notification body opens the source app on the phone. Without a tap intent the body is
   not clickable.
-* ✅ **Reply** does not trigger Open; a notification with four or more actions shows Open plus up to
-  three buttons.
+* ✅ **Reply** does not trigger Open; a notification with four or more actions shows Open, up to two
+  buttons and **Reply** (the reply action is never dropped by the cap).
+* ✅ Send a reply while the phone is connected → the button reads **Sending…** then **Sent** and the
+  text appears in the app. Dismiss the phone notification first and reply → the card keeps the draft
+  and shows “Notification closed — reply from the app instead.”
+* ✅ Reply while the phone is disconnected → “Phone disconnected — reply was not sent.”
+* ✅ A reply longer than 2000 characters is blocked by the input limit.
+* ✅ Ordinary quick actions still fire; if the notification changed after it was mirrored, the PC
+  reports “The notification changed — try again” instead of firing the wrong button.
+* ✅ Reply lands from WhatsApp, Messenger, Telegram and Discord message notifications, and from
+  Instagram Direct where the app exposes a text field (likes/follows never offer Reply).
 * ✅ Dismissing the phone notification removes its action buttons from the PC.
 * ✅ A download/update notification shows a moving progress bar and percentage; the card updates in
   place without moving or showing another toast.

@@ -133,7 +133,8 @@ the socket; the frames above are unchanged.
 |---|---|---|
 | `notif.post` | phone → PC | `notif{key,app,pkg,title,text,when,canReply,actions[],progress?,progressMax?,indeterminate?,ongoing?}` |
 | `notif.dismiss` | phone → PC | `key` |
-| `notif.action` | PC → phone | `key`, `actionId`, `replyText?` |
+| `notif.action` | PC → phone | `key`, `actionId`, `replyText?` (≤2000 chars), `label?` (echo of the button label) |
+| `notif.action.result` | phone → PC | `key`, `ok`, `error?` (`gone`, `unavailable`, `no-action`, `no-reply`, `action-changed`, `blank`, `too-long`, `blocked`) |
 | `notif.cancel` | PC → phone | `keys[]` — dismiss these notifications in the phone shade (best effort) |
 | `clip.set` | both | `text`, `ts`, `manual?` (phone→PC Pull response; accepted even when automatic sync is off) |
 | `clip.enabled` | PC → phone | `enabled` — the desktop automatic-sync toggle |
@@ -215,10 +216,23 @@ downloads folder, and answers with byte-range responses for seeking.
 
 ### Notifications
 
-`notif.post.actions` is a list of `{id, label, reply}`. `id` is either `content` (the notification's
-tap intent) or the original zero-based index into the phone notification's action list. `content` is
-present only when a tap intent exists, so the PC can open the source app; `reply: true` marks the
-free-form reply action used by `notif.action.replyText`. Unknown IDs are ignored by older peers.
+`notif.post.actions` is a list of `{id, label, reply}`. The phone emits at most four actions:
+`content` (the notification's tap intent, when one exists) first, then up to two ordinary buttons,
+then the free-form reply action last so a reply can never be dropped by the cap.
+
+Action ids come in two forms:
+
+* **v2** (the PC advertised `notif.action.v2` in `hello.result.caps`): `content`, `a<index>` for an
+  ordinary button, and `reply` for the free-form RemoteInput action. `reply` is resolved by meaning
+  on the phone — it always fires the action that carries a free-form RemoteInput, even if the app
+  reordered its actions since the notification was posted.
+* **legacy** (older PCs): the original zero-based platform index, as before.
+
+`reply: true` marks the action used by `notif.action.replyText`; text is trimmed, capped at 2000
+characters, and rejected when blank. The PC echoes the button's `label` on ordinary actions; if the
+resolved action no longer matches, the phone answers `action-changed` instead of firing the wrong
+button. `notif.action.result` is only sent to PCs that advertise `notif.action.result` in
+`hello.result.caps`; older desktops keep the fire-and-forget behaviour.
 
 Progress notifications may include `progress`, `progressMax`, `indeterminate` and `ongoing`.
 `notif.post` with the same `key` updates the existing PC entry in place. The phone only sends

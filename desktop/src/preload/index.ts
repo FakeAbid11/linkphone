@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { LinkPhoneApi } from '../shared/api'
+import type { ActionResult, LinkPhoneApi } from '../shared/api'
 import type {
   AppState,
   ClipboardStatus,
@@ -80,10 +80,10 @@ const api: LinkPhoneApi = {
     ipcRenderer.invoke('notification:set-muted', pkg, app, muted) as Promise<void>,
   clearNotificationApp: (pkg, app) =>
     ipcRenderer.invoke('notifications:clear-app', pkg, app) as Promise<void>,
-  sendNotificationReply: (key, actionId, text) =>
-    ipcRenderer.invoke('notification:reply', key, actionId, text) as Promise<void>,
-  sendNotificationAction: (key, actionId) =>
-    ipcRenderer.invoke('notification:action', key, actionId) as Promise<void>,
+  sendNotificationReply: (key, actionId, text, label) =>
+    ipcRenderer.invoke('notification:reply', key, actionId, text, label) as Promise<ActionResult>,
+  sendNotificationAction: (key, actionId, label) =>
+    ipcRenderer.invoke('notification:action', key, actionId, label) as Promise<ActionResult>,
   requestSmsThreads: () => ipcRenderer.invoke('sms:threads') as Promise<void>,
   openSmsThread: (threadId, address) =>
     ipcRenderer.invoke('sms:thread', threadId, address) as Promise<void>,

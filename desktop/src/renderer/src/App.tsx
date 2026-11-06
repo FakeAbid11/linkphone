@@ -220,7 +220,7 @@ export default function App(): JSX.Element {
           <div className="brand-mark"><img src={logo} alt="" /></div>
           <div>
             <div className="brand-name">LinkPhone</div>
-            <div className="brand-sub">Local network · v{state.desktopUpdate.currentVersion || '0.12.9'}</div>
+            <div className="brand-sub">Local network · v{state.desktopUpdate.currentVersion || '0.12.10'}</div>
           </div>
         </div>
 

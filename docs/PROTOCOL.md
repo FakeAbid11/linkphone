@@ -179,7 +179,7 @@ the socket; the frames above are unchanged.
 | `gallery.preview` | phone → PC | `photoId`, `mime`, `data` |
 | `gallery.download` | PC → phone | `photoId`, `kind?` — the phone replies with a `file.offer` carrying `photoId` |
 | `gallery.error` | phone → PC | `op`, `error` |
-| `call.state` | phone → PC | `calls[]` (`id`, `number`, `displayName`, `phase`, `incoming`, `startedAt`, `simLabel?`, `slot?`), `dialerReady`, `outgoingReady`, `controlReady`, `speaker`, `muted`, `route?` |
+| `call.state` | phone → PC | `calls[]` (`id`, `number`, `displayName`, `phase`, `incoming`, `startedAt`, `simLabel?`, `slot?`, `canControl?`, `viaNotification?`), `dialerReady`, `outgoingReady`, `controlReady`, `speaker`, `muted`, `route?` |
 | `call.place` | PC → phone | `number` |
 | `call.answer` | PC → phone | `callId` |
 | `call.reject` | PC → phone | `callId` |
@@ -311,6 +311,15 @@ are best effort, so:
 ones. Without the role, mute falls back to `AudioManager.setMicrophoneMute` (deprecated on API 34,
 ignored by some OEMs); the phone restores the microphone when the call ends and after a restart if
 LinkPhone was the one that muted it. Bluetooth routing is displayed, never selected.
+
+**VoIP calls** (WhatsApp, Telegram, Messenger, Instagram) are self-managed connections that Telecom
+cannot answer or end. When a card came from an app's notification, the phone dispatches that
+notification's own Answer/Decline/Hang up action instead — the same thing tapping the button in the
+shade does. `viaNotification` marks those cards and `canControl` tells the PC whether the controls
+should be enabled, independent of `ANSWER_PHONE_CALLS`. Because a sent `PendingIntent` does not prove
+the app acted, the phone waits five seconds for a state change and reports `call.error`
+("Nothing happened — tap Answer on your phone") when none arrives. Calls whose app only posts a
+full-screen intent with no actions cannot be controlled.
 
 Windows sends commands by opaque call ID. Without the role, control uses `TelecomManager`
 (`acceptRingingCall`, `endCall`) and speaker routing uses the call-audio route when available,

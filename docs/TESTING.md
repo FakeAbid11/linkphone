@@ -625,6 +625,21 @@ No default-phone role. Grant **Allow call access** and keep notification access 
 * ✅ An OEM that ignores `setMicrophoneMute` leaves the button on `Mute` and shows an error.
 * ✅ A v0.12.8 PC against this APK still shows both cards (unknown `route`/`slot` are ignored).
 
+## 23. VoIP call control (v0.12.10+)
+
+Notification access is enough; `ANSWER_PHONE_CALLS` may stay denied. Audio always stays on the phone.
+
+* ✅ WhatsApp audio call rings → **Answer** answers it on the phone, the card switches to Connected
+  and the timer runs; **Decline** rejects it.
+* ✅ An active WhatsApp call → **Hang up** ends it.
+* ✅ Telegram, Messenger and an Instagram Direct call respond the same way where the app exposes
+  Answer/Decline/Hang up actions. A full-screen-intent-only call may offer no card.
+* ✅ Deny `ANSWER_PHONE_CALLS` → VoIP cards remain controllable; SIM cards show the existing warning.
+* ✅ An app that ignores the action shows “Nothing happened — tap Answer on your phone” within ~5 s.
+* ✅ A VoIP call and a SIM call at the same time → each card controls its own call; hanging up the
+  VoIP card does not touch the SIM leg.
+* ✅ SIM calling, call waiting, mute, route and the talk timer behave exactly as in §22.
+
 ## Debugging
 
 ```powershell

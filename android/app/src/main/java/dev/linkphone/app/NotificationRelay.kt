@@ -322,8 +322,9 @@ class NotificationRelay : NotificationListenerService() {
             extras?.getCharSequence(Notification.EXTRA_TEXT)
                 ?: extras?.getCharSequence(Notification.EXTRA_BIG_TEXT)
             )?.toString()?.trim().orEmpty()
-        val number = extractNumber("$title $text") ?: title.ifBlank { text }
-        val displayName = title.ifBlank { text }.ifBlank { number }.ifBlank { "Unknown" }
+        // Keep the number only when it really is a number; a contact name belongs in the title.
+        val number = extractNumber("$title $text").orEmpty()
+        val displayName = title.ifBlank { text }
 
         Log.d(
             "LinkPhone",
@@ -331,14 +332,26 @@ class NotificationRelay : NotificationListenerService() {
                 "ongoing=${sbn.isOngoing} actions=$actions title=$title text=$text"
         )
 
+        // Without the default-dialer role there is no Call object, so the dialer's running
+        // chronometer is the only evidence that the call actually connected.
+        val phase = when {
+            ringing -> PhoneCallPhase.RINGING
+            TIMER_PATTERN.containsMatchIn("$title $text") -> PhoneCallPhase.ACTIVE
+            "$title $text".contains("calling", ignoreCase = true) ||
+                "$title $text".contains("dialing", ignoreCase = true) ||
+                "$title $text".contains("connecting", ignoreCase = true) -> PhoneCallPhase.DIALING
+            CallHub.hasPendingOutgoing() -> PhoneCallPhase.DIALING
+            else -> PhoneCallPhase.ACTIVE
+        }
+
         callKey = sbn.key
         CallHub.updateSystemCall(
             PhoneCallInfo(
                 id = "system:${sbn.key}",
                 number = number,
                 displayName = displayName,
-                phase = if (ringing) PhoneCallPhase.RINGING else PhoneCallPhase.ACTIVE,
-                incoming = ringing,
+                phase = phase,
+                incoming = phase == PhoneCallPhase.RINGING,
                 startedAt = System.currentTimeMillis()
             )
         )
@@ -404,6 +417,9 @@ class NotificationRelay : NotificationListenerService() {
         private const val THROTTLE_MS = 2_000L
         private const val REBIND_INTERVAL_MS = 10_000L
         private const val MAX_REBIND_ATTEMPTS = 3
+
+        /** A dialer chronometer such as "00:42" means the call is connected. */
+        private val TIMER_PATTERN = Regex("""\b\d{1,2}:\d{2}\b""")
 
         @Volatile private var instance: NotificationRelay? = null
 

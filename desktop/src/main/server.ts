@@ -1410,9 +1410,12 @@ export class LinkServer extends EventEmitter {
   placeCall(number: string, accountId?: string): void {
     if (!this.hasConnectedPeer()) return
     this.store.setCallError('')
+    const dialed = number.slice(0, 64)
+    // Remember the dialed number locally: the phone's fallback call state may arrive without one.
+    this.store.setCallPlaced(dialed)
     this.broadcast({
       t: 'call.place',
-      number: number.slice(0, 64),
+      number: dialed,
       accountId: accountId?.slice(0, 256)
     })
   }
@@ -1600,13 +1603,13 @@ function parsePhoneCall(raw: RawMsg): PhoneCallInfo {
   ]
   return {
     id: str(raw.id).slice(0, 64),
-    number: str(raw.number, 'Unknown').slice(0, 128),
+    number: str(raw.number).slice(0, 128),
     displayName: str(raw.displayName).slice(0, 200),
     phase: allowed.includes(phase as PhoneCallInfo['phase'])
       ? (phase as PhoneCallInfo['phase'])
       : 'unknown',
     incoming: bool(raw.incoming),
-    startedAt: Math.max(0, num(raw.startedAt, Date.now())),
+    startedAt: Math.max(0, num(raw.startedAt)),
     simLabel: str(raw.simLabel).slice(0, 24) || undefined
   }
 }

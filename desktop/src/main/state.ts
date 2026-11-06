@@ -126,6 +126,8 @@ export class AppStore extends EventEmitter {
   private callOutgoingReady = false
   private callControlReady = false
   private callPlaced: { number: string; at: number } | null = null
+  private lastDialed: { number: string; at: number } | null = null
+  private callActiveSince = new Map<string, number>()
   private callSpeaker = false
   private callMuted = false
   private callError = ''
@@ -1207,16 +1209,75 @@ export class AppStore extends EventEmitter {
     speaker: boolean
     muted: boolean
   }): void {
+    const now = Date.now()
     const previousCalls = this.phoneCalls
-    this.phoneCalls = input.calls
+    const previousById = new Map(previousCalls.map((call) => [call.id, call]))
+    const stamps = new Map<string, number>()
+    // An incoming call means the last dialed number is irrelevant from now on.
+    if (input.calls.some((call) => call.incoming)) this.lastDialed = null
+
+    const calls = input.calls.map((call) => {
+      const key = AppStore.callKey(call)
+      const activeSince = this.liveCallStamp(call, key, previousCalls, input.calls.length, stamps, now)
+      if (activeSince !== undefined) stamps.set(key, activeSince)
+
+      const earlier = previousById.get(call.id)
+      let number = call.number
+      if (!number && earlier?.number) number = earlier.number
+      // The fallback call report can arrive without a number, and its id can change mid-call.
+      if (!number && !call.incoming && this.lastDialed && now - this.lastDialed.at < 90_000) {
+        number = this.lastDialed.number
+      }
+      const displayName = call.displayName || earlier?.displayName || ''
+
+      return { ...call, number, displayName, activeSince }
+    })
+
+    this.callActiveSince = stamps
+    this.phoneCalls = calls
     this.callDialerReady = input.dialerReady
     this.callOutgoingReady = input.outgoingReady
     this.callControlReady = input.controlReady
-    if (input.calls.length > 0 || previousCalls.length > 0) this.callPlaced = null
+    if (calls.length > 0 || previousCalls.length > 0) this.callPlaced = null
     this.callSpeaker = input.speaker
     this.callMuted = input.muted
     this.callError = ''
     this.changed()
+  }
+
+  /**
+   * The phone's timestamps come from its own clock and start at dial time, so the live timer is
+   * stamped here instead: once when the call is first seen active or held, then carried.
+   */
+  private liveCallStamp(
+    call: PhoneCallInfo,
+    key: string,
+    previousCalls: PhoneCallInfo[],
+    nextCount: number,
+    stamps: Map<string, number>,
+    now: number
+  ): number | undefined {
+    const existing = stamps.get(key) ?? this.callActiveSince.get(key)
+    if (call.phase !== 'active' && call.phase !== 'held') {
+      return call.phase === 'disconnecting' || call.phase === 'disconnected'
+        ? existing
+        : undefined
+    }
+    if (existing !== undefined) return existing
+    // The synthetic id changes between the dialer notification and telephony; one call in and
+    // one call out keeps the original timestamp.
+    if (previousCalls.length === 1 && nextCount === 1) {
+      const previous = previousCalls[0]
+      if (previous.phase === 'active' || previous.phase === 'held') {
+        const carried = this.callActiveSince.get(AppStore.callKey(previous))
+        if (carried !== undefined) return carried
+      }
+    }
+    return now
+  }
+
+  private static callKey(call: PhoneCallInfo): string {
+    return call.id || `${call.number}:${call.incoming ? 'in' : 'out'}`
   }
 
   setCallError(error: string): void {
@@ -1238,8 +1299,8 @@ export class AppStore extends EventEmitter {
   }
 
   setCallPlaced(number: string | null): void {
-    if (this.phoneCalls.length > 0) return
     this.callPlaced = number ? { number, at: Date.now() } : null
+    if (number) this.lastDialed = { number, at: Date.now() }
     this.changed()
   }
 

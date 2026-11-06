@@ -165,6 +165,8 @@ export interface PhoneCallInfo {
   phase: PhoneCallPhase
   incoming: boolean
   startedAt: number
+  /** Desktop epoch ms stamped when the call was first seen active; drives the live timer. */
+  activeSince?: number
   simLabel?: string
 }
 

@@ -32,8 +32,9 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.12.5** makes clipboard text sync both ways: foreground by default, with an optional
-> accessibility mode for copying in other apps, plus a manual Pull from phone and offline retry.
+> **v0.12.6** fixes calls dialed from the PC: the card shows the number you dialed, says
+> `Dialing…` until the call connects, then runs a talk timer that starts at connect and keeps
+> ticking.
 
 ## Features
 
@@ -45,7 +46,7 @@ service or a relay server.
 | SMS | Partial | New or existing conversations, search and retry failed sends; no MMS |
 | Dual SIM | Yes | Pick the SMS SIM and call SIM from the PC; labels on messages, calls and history |
 | Contacts and call history | Yes | Recent calls and contacts share a switch beside the dialer |
-| Phone calls | Partial | Dial, answer, hang up, mute and use the phone speaker from the PC (best effort); audio stays on the phone |
+| Phone calls | Partial | Dial, answer, hang up, mute and use the phone speaker from the PC (best effort); talk timer starts when the call connects; audio stays on the phone |
 | Find my phone | Yes | Ring the connected phone for 5–30 s and stop it from the phone or the PC |
 | Media controls | Yes | Album art, seek and phone volume plus play/pause and next/previous |
 | Photo albums | Yes | Thumbnails, paged albums, previews, downloads, uploads and inline video playback |
@@ -76,7 +77,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.12.5.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.12.6.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**
@@ -139,6 +140,11 @@ With notification access off, the card still appears from call state; with phone
 the PC keeps the “Call sent to your phone” confirmation. Microphone and call audio never cross the
 network. Do not depend on LinkPhone for emergency calling; use the phone's emergency interface
 directly.
+
+The card shows the number you dialed and `Dialing…` until the call connects, then `Connected` and a
+talk timer. The timer is kept by the PC (not the phone’s clock), so its length is unaffected by clock
+drift; without the default-phone role Android cannot report the exact answer instant, so the switch
+to `Connected` follows the dialer’s running call timer and can lag by about a second.
 
 </details>
 

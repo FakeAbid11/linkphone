@@ -193,11 +193,16 @@ includes `ANSWER_PHONE_CALLS`) and keep notification access on. On Windows open 
 Best-effort no-role control:
 
 * ✅ The PC dialer **Call**, recent-call redial and contact call buttons are enabled.
-* ✅ Dialing opens the phone's system call UI and places the call; once the system dialer posts its
-  ongoing call notification, the PC shows the active call card.
-* ✅ **Hang up** attempts `TelecomManager.endCall()`; the card clears when the system notification
-  disappears. If the OEM blocks it, a visible `call.error` appears and the phone still controls the
-  call.
+* ✅ Dialing opens the phone's system call UI and places the call; the PC card shows the **number you
+  dialed** and `Dialing…` with no timer, never `Unknown`.
+* ✅ When the call connects the card switches to `Connected` and the timer starts near `0:00`, then
+  keeps advancing through notification and telephony updates (v0.12.6).
+* ✅ Put the call on hold → the timer keeps running; the final duration stays visible while the card
+  says `Call ended`.
+* ✅ A call longer than an hour rolls over to `h:mm:ss`.
+* ✅ Change the phone's clock by an hour mid-call → the PC timer is unaffected (it is timed on the PC).
+* ✅ Hang up → the card clears once the system notification disappears. If the OEM blocks it, a
+  visible `call.error` appears and the phone still controls the call.
 * ✅ An incoming call produces a ringing card; **Answer** uses `acceptRingingCall` and **Decline**
   ends the ringing call. OEM blocks show an error instead of a false success.
 * ✅ **Phone speaker** attempts to route communication audio to the speaker and reports the requested

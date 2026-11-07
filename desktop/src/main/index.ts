@@ -737,15 +737,43 @@ async function bootstrap(): Promise<void> {
     if (store.isNotificationsPaused()) return
     if (!Notification.isSupported()) return
     try {
+      const nonReplyActions = (item.actions || []).filter((a) => !a.reply && a.id !== 'content' && a.label)
+      const actions = nonReplyActions.slice(0, 2).map((a) => ({
+        type: 'button' as const,
+        text: a.label
+      }))
+
+      const replyAction = (item.actions || []).find((a) => a.reply)
+      const canInlineReply = Boolean(item.canReply && replyAction)
+
       const n = new Notification({
-        title: item.title || item.app,
+        title: item.title ? `${item.app} · ${item.title}` : item.app,
         body: item.text,
-        silent: false
+        silent: false,
+        hasReply: canInlineReply,
+        replyPlaceholder: 'Reply from PC…',
+        actions: actions.length > 0 ? actions : undefined
       })
       n.on('click', () => {
         showWindow()
         store.dismissNotification(item.key)
         server.sendNotificationCancel([item.key])
+      })
+      n.on('action', (_event, index) => {
+        const action = nonReplyActions[index]
+        if (action) {
+          void server.sendNotificationAction(item.key, action.id, undefined, action.label)
+        }
+      })
+      n.on('reply', (_event, replyText) => {
+        if (typeof replyText === 'string' && replyText.trim() && replyAction) {
+          void server.sendNotificationAction(
+            item.key,
+            replyAction.id,
+            replyText.trim(),
+            replyAction.label
+          )
+        }
       })
       n.show()
     } catch {
@@ -759,9 +787,20 @@ async function bootstrap(): Promise<void> {
       const toast = new Notification({
         title: 'Incoming phone call',
         body: call.displayName || call.number || 'Unknown caller',
-        silent: false
+        silent: false,
+        actions: [
+          { type: 'button' as const, text: 'Answer' },
+          { type: 'button' as const, text: 'Decline' }
+        ]
       })
       toast.on('click', () => showWindow())
+      toast.on('action', (_event, index) => {
+        if (index === 0) {
+          server.answerCall(call.id)
+        } else if (index === 1) {
+          server.rejectCall(call.id)
+        }
+      })
       toast.show()
     } catch {
       /* notifications unavailable */

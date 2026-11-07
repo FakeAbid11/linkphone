@@ -1,7 +1,7 @@
 {
   "name": "linkphone-desktop",
   "productName": "LinkPhone",
-  "version": "0.12.19",
+  "version": "0.12.20",
   "private": true,
   "description": "LinkPhone - your Android phone, on your PC. LAN only.",
   "author": "LinkPhone",
@@ -12,6 +12,7 @@
     "build": "electron-vite build",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "dist:win": "electron-vite build && electron-builder --win nsis --publish never",
+    "dist:linux": "electron-vite build && electron-builder --linux AppImage deb --publish never",
     "dist:dir": "electron-vite build && electron-builder --win --dir --publish never"
   },
   "dependencies": {
@@ -58,10 +59,20 @@
       }
     ],
     "win": {
+      "artifactName": "${productName}.Setup.${version}.${ext}",
       "target": [
         "nsis"
       ],
       "icon": "build/icon.ico"
+    },
+    "linux": {
+      "artifactName": "${productName}-${version}.${ext}",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "build/icon.png"
     },
     "nsis": {
       "oneClick": false,

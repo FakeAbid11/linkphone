@@ -6,7 +6,11 @@
 -dontwarn javax.annotation.**
 -keepnames class okhttp3.internal.publicsuffix.PublicSuffixDatabase
 
-# AndroidX Security / EncryptedSharedPreferences
+# Google Tink / AndroidX Security Crypto compile-time annotations
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn org.checkerframework.**
+-dontwarn com.google.crypto.tink.**
+-keep class com.google.crypto.tink.** { *; }
 -keep class androidx.security.crypto.** { *; }
 -dontwarn androidx.security.crypto.**
 

@@ -7,6 +7,8 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -265,9 +267,14 @@ private fun ShareScreen(onClose: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (state.running) {
-                val fraction = if (state.total > 0) {
+                val target = if (state.total > 0) {
                     (state.done.toFloat() / state.total).coerceIn(0f, 1f)
                 } else 0f
+                val fraction by animateFloatAsState(
+                    targetValue = target,
+                    animationSpec = tween(200),
+                    label = "share"
+                )
                 LinearProgressIndicator(
                     progress = { fraction },
                     modifier = Modifier

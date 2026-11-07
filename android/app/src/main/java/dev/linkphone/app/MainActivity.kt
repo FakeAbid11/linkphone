@@ -1,6 +1,8 @@
 package dev.linkphone.app
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -440,7 +442,7 @@ private fun Screen(modifier: Modifier = Modifier) {
         )
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -480,7 +482,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                                 )
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
                                         transferLabel(transfer),
@@ -510,9 +512,14 @@ private fun Screen(modifier: Modifier = Modifier) {
                                     }
                                 }
                             }
-                            val fraction = if (transfer.size > 0) {
+                            val target = if (transfer.size > 0) {
                                 (transfer.received.toFloat() / transfer.size).coerceIn(0f, 1f)
                             } else 0f
+                            val fraction by animateFloatAsState(
+                                targetValue = target,
+                                animationSpec = tween(200),
+                                label = "transfer"
+                            )
                             LinearProgressIndicator(
                                 progress = { fraction },
                                 modifier = Modifier.fillMaxWidth().height(4.dp)
@@ -529,7 +536,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Symbol(Symbols.settings, 20.sp)
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Setup", style = MaterialTheme.typography.titleMedium)
                     Text(
@@ -581,7 +588,7 @@ private fun Screen(modifier: Modifier = Modifier) {
 
         if (store.hasPairing()) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     CardTitle(Symbols.link, "Paired PC")
                     Text(
                         "${store.serverName ?: "PC"} · ${store.host ?: ""}:${store.port}",
@@ -879,7 +886,7 @@ private fun UpdateCard(
     }
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -911,8 +918,13 @@ private fun UpdateCard(
                 style = MaterialTheme.typography.bodySmall
             )
             if (update.phase == AppUpdatePhase.DOWNLOADING) {
+                val progress by animateFloatAsState(
+                    targetValue = (update.progress / 100f).coerceIn(0f, 1f),
+                    animationSpec = tween(200),
+                    label = "update"
+                )
                 LinearProgressIndicator(
-                    progress = { (update.progress / 100f).coerceIn(0f, 1f) },
+                    progress = { progress },
                     modifier = Modifier.fillMaxWidth().height(4.dp)
                 )
             }
@@ -938,39 +950,48 @@ private fun StatusCard(
     paired: Boolean,
     onReconnect: () -> Unit
 ) {
-    val (label, detail, color) = when (status.state) {
-        LinkState.CONNECTED -> Triple(
-            "Connected to ${status.serverName.ifBlank { "PC" }}",
-            if (notifAccess) "Notifications and messages mirror here" else "Messages mirror here",
-            Primary
-        )
-        LinkState.PAIRING -> Triple("Pairing…", status.detail, Secondary)
-        LinkState.CONNECTING -> Triple("Connecting…", status.detail, Secondary)
-        LinkState.ERROR -> Triple("Offline", status.detail.ifBlank { "Not connected" }, Secondary)
-        LinkState.IDLE -> Triple(
-            if (paired) "Paired, not connected" else "Not connected",
-            if (paired) "Open LinkPhone on your PC or try again" else "Scan for your PC below",
-            Secondary
-        )
-    }
-
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Row(
-            Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Symbol(Symbols.smartphone, 22.sp, color)
-            Column(Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.titleMedium)
-                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Crossfade(
+            targetState = status.state,
+            animationSpec = tween(220),
+            label = "connection"
+        ) { state ->
+            val (label, detail, color) = when (state) {
+                LinkState.CONNECTED -> Triple(
+                    "Connected to ${status.serverName.ifBlank { "PC" }}",
+                    if (notifAccess) "Notifications and messages mirror here" else "Messages mirror here",
+                    Primary
+                )
+                LinkState.PAIRING -> Triple("Pairing…", status.detail, Secondary)
+                LinkState.CONNECTING -> Triple("Connecting…", status.detail, Secondary)
+                LinkState.ERROR -> Triple("Offline", status.detail.ifBlank { "Not connected" }, Secondary)
+                LinkState.IDLE -> Triple(
+                    if (paired) "Paired, not connected" else "Not connected",
+                    if (paired) "Open LinkPhone on your PC or try again" else "Scan for your PC below",
+                    Secondary
+                )
             }
-            if (paired && (status.state == LinkState.IDLE || status.state == LinkState.ERROR)) {
-                TextButton(onClick = onReconnect) { ButtonLabel(Symbols.refresh, "Reconnect") }
-            } else if (status.state == LinkState.CONNECTING || status.state == LinkState.PAIRING) {
-                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            Row(
+                Modifier.padding(Spacing.l).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.m)
+            ) {
+                LinkDot(active = state == LinkState.CONNECTED)
+                Symbol(Symbols.smartphone, 22.sp, color)
+                Column(Modifier.weight(1f)) {
+                    Text(label, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (paired && (state == LinkState.IDLE || state == LinkState.ERROR)) {
+                    TextButton(onClick = onReconnect) { ButtonLabel(Symbols.refresh, "Reconnect") }
+                } else if (state == LinkState.CONNECTING || state == LinkState.PAIRING) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                }
             }
-            Spacer(Modifier.width(2.dp))
         }
     }
 }

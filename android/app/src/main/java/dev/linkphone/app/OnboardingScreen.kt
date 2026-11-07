@@ -238,7 +238,7 @@ fun OnboardingScreen(
 
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (step > 0) {
                 OutlinedButton(
@@ -285,14 +285,14 @@ private fun WelcomeStep() {
             modifier = Modifier.size(150.dp, 72.dp),
             contentScale = ContentScale.Fit
         )
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
         Text("LinkPhone", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
             "Your phone, on your PC — over your own Wi-Fi.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.height(24.dp))
         FeatureRow(
             Symbols.smartphone,
             "No cloud, no account",
@@ -354,14 +354,15 @@ private fun PermissionsStep(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
         PermissionRow(
             glyph = Symbols.notifications,
             title = "Notifications",
             detail = "Mirror notifications and reply from the PC.",
             granted = notifAccess,
             action = "Open settings",
-            onAction = onOpenNotificationSettings
+            onAction = onOpenNotificationSettings,
+            settingsAction = Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
         )
         PermissionRow(
             glyph = Symbols.sms,
@@ -428,7 +429,8 @@ private fun PermissionRow(
     detail: String,
     granted: Boolean,
     action: String,
-    onAction: () -> Unit
+    onAction: () -> Unit,
+    settingsAction: String = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
 ) {
     val context = LocalContext.current
     if (granted) {
@@ -456,12 +458,12 @@ private fun PermissionRow(
             onAction = onAction,
             secondaryLabel = "Open settings",
             onSecondary = {
-                context.startActivity(
-                    Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.fromParts("package", context.packageName, null)
-                    )
-                )
+                val intent = if (settingsAction == Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS) {
+                    Intent(settingsAction)
+                } else {
+                    Intent(settingsAction, Uri.fromParts("package", context.packageName, null))
+                }
+                context.startActivity(intent)
             }
         )
     }
@@ -477,17 +479,27 @@ private fun PairStep(
     val status by client.status.collectAsStateWithLifecycle()
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Pair with your PC", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(
-            "1. Open LinkPhone on Windows.\n" +
-                "2. In the sidebar, choose “Scan QR code instead”.\n" +
-                "3. Scan the code here, or find the PC on your network.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(2.dp))
+        Text("Pair with your PC", style = MaterialTheme.typography.headlineSmall)
+        listOf(
+            "Open LinkPhone on Windows.",
+            "In the sidebar, choose “Scan QR code instead”.",
+            "Scan the code here, or find the PC on your network."
+        ).forEach { step ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s)
+            ) {
+                LinkDot(active = false)
+                Text(
+                    step,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.height(Spacing.s))
         PairingSection(store = store, client = client, onNotice = onNotice)
         if (status.state == LinkState.CONNECTING || status.state == LinkState.PAIRING) {
             Row(

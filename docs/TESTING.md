@@ -655,6 +655,24 @@ Notification access is enough; `ANSWER_PHONE_CALLS` may stay denied. Audio alway
 * ✅ Hang up → the card disappears immediately, and the next heartbeat cannot resurrect it.
 * ✅ Wrong/blank custom notifications produce at most one “Calling…” card per app.
 
+## 25. Ongoing non-call notifications (v0.12.12+)
+
+With notification access on, these must **not** produce a call card:
+
+* ✅ An ongoing system notification such as “Continuity” or “Networking”, a VPN/network status card,
+  a music player and any foreground-service notification.
+* ✅ A missed-call notification (it must not appear as an active call).
+* ✅ A calendar invite with **Decline**, and a file-transfer prompt with **Accept/Decline** — they stay
+  normal notifications (or are filtered) and never become calls.
+
+Real calls still work:
+
+* ✅ An incoming/active SIM call shows exactly one card; a blank dialer notification (custom
+  RemoteViews) still produces a card from the dialer package.
+* ✅ WhatsApp/Telegram/Messenger/Instagram calls (`CATEGORY_CALL`) still show one card and remain
+  controllable.
+* ✅ After updating the APK, any false cards disappear when the phone reconnects or within 20 s.
+
 ## Debugging
 
 ```powershell

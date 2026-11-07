@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.telecom.TelecomManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -33,6 +34,8 @@ class NotificationRelay : NotificationListenerService() {
     private val groupChildren = ConcurrentHashMap<String, MutableSet<String>>()
     private val groupSummaries = ConcurrentHashMap<String, String>()
     private val main = Handler(Looper.getMainLooper())
+    /** Cached so isSystemCall never performs a Telecom binder call per notification. */
+    @Volatile private var cachedDialerPackage: String? = null
 
     override fun onListenerConnected() {
         LinkCore.init(this)
@@ -40,6 +43,7 @@ class NotificationRelay : NotificationListenerService() {
         isConnected = true
         Log.d(TAG, "notification listener connected")
         MediaWatcher.start(this)
+        refreshDialerPackage()
         reconcileCalls()
         if (LinkCore.clientOrNull()?.isReady == true) backfill()
     }
@@ -310,22 +314,17 @@ class NotificationRelay : NotificationListenerService() {
     private fun isSystemCall(sbn: StatusBarNotification, notification: Notification): Boolean {
         if (sbn.packageName == packageName) return false
         val categoryCall = notification.category == Notification.CATEGORY_CALL
-        val callAction = notification.actions.orEmpty().any { action ->
-            val label = action.title?.toString().orEmpty().lowercase()
-            label.contains("answer") || label.contains("decline") ||
-                label.contains("reject") || label.contains("hang up") ||
-                label.contains("end call") ||
-                // Localized dialers/VoIP apps: only for notifications already tagged as calls.
-                (categoryCall && actionKind(action) != null)
-        }
+        val callShaped = isCallShaped(notification, categoryCall)
+        val dialer = isDialerPackage(sbn.packageName)
+        // Ordinary ongoing notifications (VPN, system status, music, foreground services) are not
+        // calls. Only a call-shaped action, the CALL category or a dialer may produce a card.
+        if (!callShaped && !categoryCall && !dialer) return false
         val ongoing = sbn.isOngoing ||
             notification.flags and Notification.FLAG_ONGOING_EVENT != 0
-        // A call needs the call category or an ongoing call-like notification. A plain
-        // calendar/email "Decline" action must stay a normal notification.
-        if (!ongoing && !callAction) return false
-        if (!categoryCall && !ongoing) return false
+        if (!ongoing && !callShaped) return false
 
-        if (!callAction) {
+        if (!callShaped) {
+            // Blank/dialer RemoteViews and localized dialers land here; a missed call must not.
             val extras = notification.extras
             val text = buildString {
                 append(extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty())
@@ -337,7 +336,40 @@ class NotificationRelay : NotificationListenerService() {
             }.lowercase()
             if (text.contains("missed")) return false
         }
+        // No call UI offers an inline text reply; prompts with RemoteInput are not calls.
+        if (!categoryCall && notification.actions.orEmpty().any { isFreeFormReply(it) }) return false
         return true
+    }
+
+    /**
+     * A hang-up/answer action is the strongest signal; "decline"/"reject" alone is not, because
+     * file-transfer and calendar prompts use it. Localized labels are covered when the notification
+     * is already tagged as a call.
+     */
+    private fun isCallShaped(notification: Notification, categoryCall: Boolean): Boolean {
+        val hangUpWords = listOf(
+            "hang up", "hangup", "end call", "auflegen", "raccrocher", "colgar",
+            "encerrar", "riaggancia", "挂断"
+        )
+        return notification.actions.orEmpty().any { action ->
+            val label = action.title?.toString().orEmpty().lowercase()
+            label.contains("answer") ||
+                hangUpWords.any { label.contains(it) } ||
+                (categoryCall && actionKind(action) != null)
+        }
+    }
+
+    private fun isDialerPackage(pkg: String): Boolean {
+        val cached = cachedDialerPackage
+        if (!cached.isNullOrBlank() && cached == pkg) return true
+        val lower = pkg.lowercase()
+        return lower.contains("incallui") || lower.contains("dialer") || lower.contains("telecom")
+    }
+
+    private fun refreshDialerPackage() {
+        cachedDialerPackage = runCatching {
+            getSystemService(TelecomManager::class.java)?.defaultDialerPackage
+        }.getOrNull()
     }
 
     private fun handleSystemCall(sbn: StatusBarNotification, notification: Notification) {
@@ -580,6 +612,7 @@ class NotificationRelay : NotificationListenerService() {
 
         fun onClientReady() {
             instance?.let {
+                it.refreshDialerPackage()
                 it.reconcileCallNotifications()
                 it.backfill()
             }

@@ -541,19 +541,21 @@ class LinkClient(context: Context, private val store: PairStore) {
         }
 
         val salt = Base64.decode(msg.optString("salt"), Base64.NO_WRAP)
-        val derived = Crypto.deriveKey(code, salt)
-        key = derived
-        sendSeq = 0
-        recvSeq = 0
         _status.value = LinkStatus(LinkState.PAIRING, serverName, "Pairing")
-        sendPlain(
-            JSONObject().apply {
-                put("t", "pair.request")
-                put("deviceName", deviceName)
-                put("platform", "android")
-                put("proof", b64(Crypto.hmac(derived, "pair:${store.deviceId}")))
-            }
-        )
+        scope.launch(Dispatchers.Default) {
+            val derived = Crypto.deriveKey(code, salt)
+            key = derived
+            sendSeq = 0
+            recvSeq = 0
+            sendPlain(
+                JSONObject().apply {
+                    put("t", "pair.request")
+                    put("deviceName", deviceName)
+                    put("platform", "android")
+                    put("proof", b64(Crypto.hmac(derived, "pair:${store.deviceId}")))
+                }
+            )
+        }
     }
 
     private fun onAuthChallenge(msg: JSONObject) {

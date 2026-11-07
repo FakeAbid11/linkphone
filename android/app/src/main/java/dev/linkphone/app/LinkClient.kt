@@ -86,7 +86,8 @@ data class OutgoingNotification(
     val progress: Int? = null,
     val progressMax: Int? = null,
     val indeterminate: Boolean = false,
-    val ongoing: Boolean = false
+    val ongoing: Boolean = false,
+    val icon: String? = null
 )
 
 /**
@@ -1320,6 +1321,7 @@ class LinkClient(context: Context, private val store: PairStore) {
                     notification.progressMax?.let { put("progressMax", it) }
                     put("indeterminate", notification.indeterminate)
                     put("ongoing", notification.ongoing)
+                    notification.icon?.let { put("icon", it) }
                 }
             )
         }

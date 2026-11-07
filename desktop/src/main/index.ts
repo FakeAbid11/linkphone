@@ -748,10 +748,24 @@ async function bootstrap(): Promise<void> {
       const replyAction = (item.actions || []).find((a: NotificationAction) => a.reply)
       const canInlineReply = Boolean(item.canReply && replyAction)
 
+      let notifIcon: Electron.NativeImage | undefined
+      if (item.icon) {
+        try {
+          const img = nativeImage.createFromDataURL(item.icon)
+          if (!img.isEmpty()) notifIcon = img
+        } catch {
+          // fallback to app icon
+        }
+      }
+      if (!notifIcon) {
+        notifIcon = appIcon('icon.png')
+      }
+
       const n = new Notification({
         title: item.title ? `${item.app} · ${item.title}` : item.app,
         body: item.text,
         silent: false,
+        icon: notifIcon,
         hasReply: canInlineReply,
         replyPlaceholder: 'Reply from PC…',
         actions: actions.length > 0 ? actions : undefined

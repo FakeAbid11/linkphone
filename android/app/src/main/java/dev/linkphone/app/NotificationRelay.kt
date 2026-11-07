@@ -13,7 +13,11 @@ import android.service.notification.StatusBarNotification
 import android.telecom.TelecomManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.util.Base64
 import androidx.core.app.NotificationManagerCompat
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.ConcurrentHashMap
 
 /** A call notification reduced to what CallHub needs; `id` is replaced by the call identity there. */
@@ -27,6 +31,31 @@ enum class CallActionKind { ANSWER, DECLINE, HANGUP }
  * Requires the user to grant notification access in system settings.
  */
 class NotificationRelay : NotificationListenerService() {
+
+    private val iconCache = ConcurrentHashMap<String, String>()
+
+    private fun getAppIconBase64(pkg: String): String? {
+        iconCache[pkg]?.let { return it }
+        val base64 = runCatching {
+            val drawable = packageManager.getApplicationIcon(pkg)
+            val size = 48
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, canvas.width, canvas.height)
+            drawable.draw(canvas)
+            val stream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 90, stream)
+            val bytes = stream.toByteArray()
+            bitmap.recycle()
+            val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            "data:image/png;base64,$b64"
+        }.getOrNull()
+        if (base64 != null) {
+            if (iconCache.size > 64) iconCache.clear()
+            iconCache[pkg] = base64
+        }
+        return base64
+    }
 
     private val lastSent = ConcurrentHashMap<String, String>()
     private val lastSentAt = ConcurrentHashMap<String, Long>()
@@ -198,7 +227,8 @@ class NotificationRelay : NotificationListenerService() {
                 progress = progress,
                 progressMax = if (!indeterminate && progressMax > 0) progressMax else null,
                 indeterminate = indeterminate,
-                ongoing = ongoing
+                ongoing = ongoing,
+                icon = getAppIconBase64(sbn.packageName)
             )
         )
         if (!sent) {

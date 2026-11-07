@@ -285,10 +285,10 @@ private fun WelcomeStep() {
             contentScale = ContentScale.Fit
         )
         Spacer(Modifier.height(10.dp))
-        Text("LinkPhone", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Text("LinkPhone", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
             "Your phone, on your PC — over your own Wi-Fi.",
-            fontSize = 14.sp,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(26.dp))
@@ -319,8 +319,8 @@ private fun FeatureRow(glyph: String, title: String, detail: String) {
     ) {
         Symbol(glyph, 22.sp, MaterialTheme.colorScheme.onBackground)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(detail, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -347,10 +347,10 @@ private fun PermissionsStep(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Permissions", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Text("Permissions", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
             "All optional. Each one is explained below and can be changed later on the main screen.",
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(6.dp))
@@ -414,7 +414,7 @@ private fun PermissionsStep(
         Text(
             "Notification access lets the PC show the live call card. Call access enables answer, " +
                 "decline and hang up; speaker routing varies by phone.",
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -437,8 +437,8 @@ private fun PermissionRow(
         ) {
             Symbol(glyph, 20.sp, MaterialTheme.colorScheme.onBackground)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Text(detail, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (granted) {
                 Row(
@@ -446,7 +446,7 @@ private fun PermissionRow(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Symbol(Symbols.check_circle, 16.sp, LocalContentColor.current)
-                    Text("Allowed", fontSize = 12.sp)
+                    Text("Allowed", style = MaterialTheme.typography.bodySmall)
                 }
             } else {
                 OutlinedButton(onClick = onAction) { Text(action) }
@@ -467,12 +467,12 @@ private fun PairStep(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Pair with your PC", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Text("Pair with your PC", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
             "1. Open LinkPhone on Windows.\n" +
                 "2. In the sidebar, choose “Scan QR code instead”.\n" +
                 "3. Scan the code here, or find the PC on your network.",
-            fontSize = 13.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(2.dp))
@@ -485,19 +485,19 @@ private fun PairStep(
                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 Text(
                     if (status.state == LinkState.PAIRING) "Pairing…" else "Connecting…",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else if (status.state == LinkState.ERROR && status.detail.isNotBlank()) {
             Text(
                 status.detail,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         notice?.let {
-            Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

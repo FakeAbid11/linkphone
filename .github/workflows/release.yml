@@ -85,7 +85,7 @@ jobs:
                apps" when asked).
                **If v0.1 is installed, uninstall it first and pair again.** v0.1 used a temporary
                CI signing key; v0.2 started the permanent signing key. v0.2+ update in place.
-            2. **PC** — download and run `LinkPhone.Setup.0.12.13.exe`. SmartScreen will warn because
+            2. **PC** — download and run `LinkPhone.Setup.0.12.14.exe`. SmartScreen will warn because
                the installer is unsigned: *More info → Run anyway*. Allow it on **private**
                networks when Windows Firewall asks.
             3. Make sure both devices are on the same Wi-Fi (not a guest network).

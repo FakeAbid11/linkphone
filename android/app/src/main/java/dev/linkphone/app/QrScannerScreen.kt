@@ -15,6 +15,7 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size as GeometrySize
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -215,11 +218,21 @@ fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
                         }
                     }
 
+                    Canvas(Modifier.fillMaxSize()) {
+                        val half = 130.dp.toPx()
+                        val cx = size.width / 2f
+                        val cy = size.height / 2f
+                        val shade = Color.Black.copy(alpha = 0.55f)
+                        drawRect(shade, Offset(0f, 0f), GeometrySize(size.width, cy - half))
+                        drawRect(shade, Offset(0f, cy + half), GeometrySize(size.width, size.height - cy - half))
+                        drawRect(shade, Offset(0f, cy - half), GeometrySize(cx - half, half * 2))
+                        drawRect(shade, Offset(cx + half, cy - half), GeometrySize(size.width - cx - half, half * 2))
+                    }
                     Box(
                         Modifier
                             .align(Alignment.Center)
                             .size(260.dp)
-                            .border(2.dp, Color.White, RoundedCornerShape(20.dp))
+                            .border(2.dp, Color.White, RoundedCornerShape(12.dp))
                     )
                 }
 
@@ -232,8 +245,8 @@ fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
                 ) {
                     Text(
                         "Scan the QR on your PC",
-                        color = Color.White,
-                        fontSize = 17.sp
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleLarge
                     )
                     Text(
                         "LinkPhone → sidebar → “Scan QR code instead”",

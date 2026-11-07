@@ -7,6 +7,8 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -206,7 +208,7 @@ class ShareActivity : ComponentActivity() {
         LinkCore.init(this)
         ShareSender.enqueue(this, uris)
         setContent {
-            MaterialTheme(colorScheme = DarkColors) {
+            LinkPhoneTheme {
                 ShareScreen(onClose = { finish() })
             }
         }
@@ -229,20 +231,20 @@ class ShareActivity : ComponentActivity() {
 @Composable
 private fun ShareScreen(onClose: () -> Unit) {
     val state by ShareSender.state.collectAsStateWithLifecycle()
-    Surface(Modifier.fillMaxSize(), color = Color.Black) {
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
             Modifier
                 .fillMaxSize()
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Send to LinkPhone", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text("Send to LinkPhone", style = MaterialTheme.typography.titleLarge)
             if (state.names.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     state.names.take(5).forEach { name ->
                         Text(
                             name,
-                            fontSize = 13.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -251,7 +253,7 @@ private fun ShareScreen(onClose: () -> Unit) {
                     if (state.names.size > 5) {
                         Text(
                             "+${state.names.size - 5} more…",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -259,7 +261,7 @@ private fun ShareScreen(onClose: () -> Unit) {
             }
             Text(
                 state.message.ifBlank { "Preparing…" },
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (state.running) {
@@ -273,9 +275,9 @@ private fun ShareScreen(onClose: () -> Unit) {
                         .height(4.dp)
                 )
             }
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(24.dp))
             Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-                Text(if (state.running) "Continue in background" else "Close")
+                Text(if (state.running) "Continue" else "Close")
             }
         }
     }

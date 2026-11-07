@@ -69,99 +69,6 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 
-private val Primary = Color.White
-private val Secondary = Color(0xFFB3B3B3)
-private val MaterialSymbols = FontFamily(Font(R.font.material_symbols_rounded))
-
-internal object Symbols {
-    const val smartphone = "\ue7ba"
-    const val system_update = "\uf2cd"
-    const val search = "\uef7a"
-    const val notifications = "\ue7f5"
-    const val sms = "\ue625"
-    const val photo_library = "\ue413"
-    const val contacts = "\ue0ba"
-    const val call = "\uf0d4"
-    const val folder = "\ue2c7"
-    const val link = "\ue250"
-    const val qr_code_scanner = "\uf206"
-    const val check_circle = "\uf0be"
-    const val download = "\uf090"
-    const val install_desktop = "\ueb71"
-    const val refresh = "\ue5d5"
-    const val close = "\ue5cd"
-    const val settings = "\ue8b8"
-    const val upload = "\uf09b"
-    const val volume_up = "\ue050"
-    const val stop = "\ue047"
-    const val info = "\ue88e"
-}
-
-internal val DarkColors = darkColorScheme(
-    primary = Primary,
-    onPrimary = Color.Black,
-    primaryContainer = Color(0xFF1C1C1C),
-    onPrimaryContainer = Color.White,
-    secondary = Secondary,
-    onSecondary = Color.Black,
-    secondaryContainer = Color(0xFF1C1C1C),
-    onSecondaryContainer = Color.White,
-    tertiary = Secondary,
-    onTertiary = Color.Black,
-    background = Color.Black,
-    onBackground = Color.White,
-    surface = Color(0xFF121212),
-    onSurface = Color.White,
-    surfaceVariant = Color(0xFF1C1C1C),
-    onSurfaceVariant = Secondary,
-    outline = Color(0xFF3A3A3A),
-    error = Color.White,
-    onError = Color.Black,
-    errorContainer = Color(0xFF1C1C1C),
-    onErrorContainer = Color.White
-)
-
-@Composable
-internal fun Symbol(
-    glyph: String,
-    size: TextUnit = 20.sp,
-    tint: Color = Color.Unspecified,
-    contentDescription: String? = null
-) {
-    Text(
-        text = glyph,
-        fontFamily = MaterialSymbols,
-        fontSize = size,
-        lineHeight = size,
-        color = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else tint,
-        modifier = Modifier.clearAndSetSemantics {
-            if (contentDescription != null) this.contentDescription = contentDescription
-        }
-    )
-}
-
-@Composable
-internal fun ButtonLabel(glyph: String, label: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Symbol(glyph, 18.sp, LocalContentColor.current)
-        Text(label)
-    }
-}
-
-@Composable
-internal fun CardTitle(glyph: String, text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Symbol(glyph)
-        Text(text, fontWeight = FontWeight.SemiBold)
-    }
-}
-
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -178,7 +85,7 @@ class MainActivity : ComponentActivity() {
             var showOnboarding by remember {
                 mutableStateOf(!store.onboardingDone && !store.hasPairing())
             }
-            MaterialTheme(colorScheme = DarkColors) {
+            LinkPhoneTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
                         if (showOnboarding) {
@@ -447,7 +354,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                 Text(
                     "Your PC, on your phone",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
         }
@@ -470,7 +377,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                 ) {
                     Symbol(Symbols.volume_up)
                     Spacer(Modifier.width(8.dp))
-                    Text("Phone is ringing", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text("Phone is ringing", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     TextButton(onClick = { PhoneRinger.stop() }) {
                         ButtonLabel(Symbols.stop, "Stop")
                     }
@@ -486,7 +393,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                 ) {
                     Symbol(Symbols.info, 18.sp)
                     Spacer(Modifier.width(8.dp))
-                    Text(text, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    Text(text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     TextButton(onClick = { notice = null }) { ButtonLabel(Symbols.close, "Dismiss") }
                 }
             }
@@ -505,7 +412,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                                 "to see videos on your PC."
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedButton(onClick = {
                         videoPermission.launch(Manifest.permission.READ_MEDIA_VIDEO)
@@ -549,7 +456,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                             "Connect your phone to send files."
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                 } else {
                     transfers.forEach { transfer ->
@@ -560,7 +467,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                             ) {
                                 Text(
                                     (if (transfer.direction == "in") "↓ " else "↑ ") + transfer.name,
-                                    fontSize = 13.sp,
+                                    style = MaterialTheme.typography.bodySmall,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
@@ -571,7 +478,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                                 ) {
                                     Text(
                                         transferLabel(transfer),
-                                        fontSize = 12.sp,
+                                        style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     if (
@@ -582,7 +489,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                                         TextButton(
                                             onClick = { client.cancelTransfer(transfer.id) },
                                             contentPadding = PaddingValues(horizontal = 8.dp)
-                                        ) { Text("Cancel", fontSize = 12.sp) }
+                                        ) { Text("Cancel", style = MaterialTheme.typography.bodySmall) }
                                     }
                                     if (
                                         transfer.direction == "out" &&
@@ -593,7 +500,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                                         TextButton(
                                             onClick = { client.retryTransfer(transfer.id) },
                                             contentPadding = PaddingValues(horizontal = 8.dp)
-                                        ) { Text("Retry", fontSize = 12.sp) }
+                                        ) { Text("Retry", style = MaterialTheme.typography.bodySmall) }
                                     }
                                 }
                             }
@@ -618,7 +525,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                 Symbol(Symbols.settings, 20.sp)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Setup", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text("Setup", style = MaterialTheme.typography.titleMedium)
                     Text(
                         when {
                             !paired -> "Pair your phone to get started"
@@ -627,7 +534,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                             else -> "All set"
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
                 if (paired) {
@@ -669,7 +576,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                     Text(
                         "${store.serverName ?: "PC"} · ${store.host ?: ""}:${store.port}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 13.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = {
@@ -693,7 +600,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                     Text(
                         "Required to mirror notifications. Android asks you to allow it in system settings.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedButton(onClick = {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -708,7 +615,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                         "Notification access is on, but the listener is disconnected. " +
                             "Reconnect it to mirror notifications from your phone.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = {
@@ -733,7 +640,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                             "optimization can pause background networking; LinkPhone can ask to be " +
                             "exempt. You can undo this in system settings.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedButton(onClick = {
                         val request = Intent(
@@ -762,7 +669,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                         "Allow LinkPhone to read and send SMS so your texts show up on the PC. " +
                             "It stays a normal app — it never becomes your default SMS app.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedButton(onClick = {
                         smsPermission.launch(
@@ -785,7 +692,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                         "Allow LinkPhone to show photo and video albums on your PC. You can grant " +
                             "all media or a selected set on newer Android versions.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedButton(onClick = {
                         photoPermission.launch(photoPermissions())
@@ -802,7 +709,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                         "Allow contact access to show names instead of numbers and to browse your " +
                             "contact list from the PC.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedButton(onClick = {
                         contactsPermission.launch(Manifest.permission.READ_CONTACTS)
@@ -818,7 +725,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                     Text(
                         "Allow call-log access to see recent calls and call back from the PC.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedButton(onClick = {
                         callLogPermission.launch(Manifest.permission.READ_CALL_LOG)
@@ -834,7 +741,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                     Text(
                         "Allow phone access to label texts and calls by SIM and pick a SIM from the PC.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedButton(onClick = {
                         simPermission.launch(Manifest.permission.READ_PHONE_STATE)
@@ -851,7 +758,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                         "Dial, answer, decline, hang up and switch the phone speaker from Windows. " +
                             "Audio always stays on this phone. No default-phone role is required.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     if (!outgoingReady) {
                         OutlinedButton(onClick = {
@@ -888,7 +795,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                             "screen. Enable accessibility to sync text copied in other apps. " +
                             "LinkPhone reads clipboard text only, never screen content.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
                     OutlinedButton(onClick = {
                         ClipboardAccessibilityService.openSettings(context)
@@ -907,7 +814,7 @@ private fun Screen(modifier: Modifier = Modifier) {
                     "Clipboard text syncs while LinkPhone is open. Enable background sync above " +
                         "to copy from other apps."
             },
-            fontSize = 11.sp,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -1039,7 +946,7 @@ private fun UpdateCard(
                     Text(
                         "Current version ${update.currentVersion}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
+                        style = MaterialTheme.typography.labelSmall
                     )
                 }
                 when (update.phase) {
@@ -1057,7 +964,7 @@ private fun UpdateCard(
             Text(
                 text,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp
+                style = MaterialTheme.typography.bodySmall
             )
             if (update.phase == AppUpdatePhase.DOWNLOADING) {
                 LinearProgressIndicator(
@@ -1111,8 +1018,8 @@ private fun StatusCard(
         ) {
             Symbol(Symbols.smartphone, 22.sp, color)
             Column(Modifier.weight(1f)) {
-                Text(label, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                Text(detail, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(label, style = MaterialTheme.typography.titleMedium)
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (paired && (status.state == LinkState.IDLE || status.state == LinkState.ERROR)) {
                 TextButton(onClick = onReconnect) { ButtonLabel(Symbols.refresh, "Reconnect") }

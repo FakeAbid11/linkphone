@@ -131,7 +131,7 @@ fun PairingSection(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CardTitle(Symbols.search, "Find your PC")
             Text(
                 "Scan the QR code on your PC for one-tap pairing, or look for it on your network.",

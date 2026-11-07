@@ -241,7 +241,7 @@ fun QrScannerScreen(onResult: (String) -> Unit, onClose: () -> Unit) {
                         .align(Alignment.TopCenter)
                         .padding(top = 32.dp, start = 24.dp, end = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         "Scan the QR on your PC",

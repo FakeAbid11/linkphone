@@ -1374,6 +1374,15 @@ button {
   text-align: center;
 }
 
+.gallery-notice {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .gallery-error {
   color: var(--text);
   font-weight: 500;

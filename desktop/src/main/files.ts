@@ -42,7 +42,8 @@ export class FileReceiver {
     private readonly dir: string,
     private readonly onUpdate: (patch: Partial<TransferItem> & { id: string }) => void,
     private readonly onAccept: (id: string, offset: number, deviceId: string) => void,
-    private readonly onDecline: (id: string, reason: string, deviceId: string) => void
+    private readonly onDecline: (id: string, reason: string, deviceId: string) => void,
+    private readonly onAck: (id: string, offset: number, deviceId: string) => void
   ) {
     this.sweepPartials()
   }
@@ -143,6 +144,9 @@ export class FileReceiver {
     if (sink.received - reported >= 512 * 1024 || sink.received === sink.size) {
       this.lastReport.set(id, sink.received)
       this.onUpdate({ id, received: sink.received })
+      // The sender only advances its window on acks, and needs the final one (received == size)
+      // before it will send file.done.
+      this.onAck(id, sink.received, sink.deviceId)
     }
   }
 

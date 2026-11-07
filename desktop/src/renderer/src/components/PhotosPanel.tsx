@@ -130,8 +130,30 @@ export function PhotosPanel({
           (item.status === 'pending' || item.status === 'active')
       )
     : undefined
-  const previewDone = previewDownload?.status === 'done'
-  const previewFailed = previewDownload?.status === 'failed'
+  const previewDone =
+    previewDownload?.status === 'done' ||
+    Boolean(
+      preview &&
+        transfers.some(
+          (item) =>
+            item.photoId === preview.photoId &&
+            item.mediaKind === 'image' &&
+            item.status === 'done' &&
+            Boolean(item.path)
+        )
+    )
+  const previewFailedTransfer = preview
+    ? transfers.find(
+        (item) =>
+          item.photoId === preview.photoId &&
+          item.mediaKind === 'image' &&
+          (item.status === 'failed' ||
+            item.status === 'interrupted' ||
+            item.status === 'canceled')
+      )
+    : undefined
+  const previewFailed = previewDownload?.status === 'failed' || Boolean(previewFailedTransfer)
+  const previewError = previewDownload?.error ?? previewFailedTransfer?.error
   const visibleIds = useMemo(
     () =>
       albumId
@@ -174,6 +196,9 @@ export function PhotosPanel({
 
   return (
     <div className="photos">
+      {error && photos.length > 0 && (
+        <div className="gallery-notice" role="status">{error}</div>
+      )}
       {albumId ? (
         <>
           <div className="gallery-head">
@@ -431,9 +456,17 @@ export function PhotosPanel({
                           : 0
                       }%…`
                     : previewFailed
-                      ? previewDownload?.error || 'Download failed'
+                      ? previewError || 'Download failed'
                       : 'Original will be saved to Downloads/LinkPhone'}
               </span>
+              {previewDone && (
+                <button
+                  className="link-btn"
+                  onClick={() => void window.linkphone.openDownloads()}
+                >
+                  Open folder
+                </button>
+              )}
               <button
                 className="btn"
                 onClick={() => onDownload(preview.photoId)}

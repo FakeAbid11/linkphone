@@ -673,6 +673,16 @@ Real calls still work:
   controllable.
 * ✅ After updating the APK, any false cards disappear when the phone reconnects or within 20 s.
 
+## 26. Photo saving (v0.12.17+)
+
+* ✅ Open a photo → **Download original**: the label shows progress, then **Downloaded** and
+  "Saved to Downloads/LinkPhone"; the file exists in `%USERPROFILE%\Downloads\LinkPhone`.
+* ✅ **Open folder** next to the completed state opens that folder.
+* ✅ Cancel a transfer mid-way → the lightbox shows the reason and **Retry** works.
+* ✅ Revoke photo access on the phone → an inline notice appears above the grid instead of a silent
+  no-op.
+* ✅ A large photo (> 1 MB) and a large file both complete; transfers no longer stop at 512 KiB.
+
 ## Debugging
 
 ```powershell

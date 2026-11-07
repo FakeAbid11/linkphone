@@ -212,6 +212,15 @@ export class LinkServer extends EventEmitter {
           (candidate) => candidate.deviceId === deviceId && candidate.phase === 'ready'
         )
         if (peer) this.send(peer, { t: 'file.decline', id, reason })
+        // A declined offer must not leave a phantom "active" row in the UI.
+        store.patchTransfer(id, { status: 'failed', error: reason })
+        this.failGalleryDownload(id, reason)
+      },
+      (id, offset, deviceId) => {
+        const peer = [...this.peers].find(
+          (candidate) => candidate.deviceId === deviceId && candidate.phase === 'ready'
+        )
+        if (peer) this.send(peer, { t: 'file.ack', id, offset })
       }
     )
   }
@@ -756,6 +765,7 @@ export class LinkServer extends EventEmitter {
           this.finishOutbound(id, 'canceled', str(msg.reason, 'canceled by phone'))
         } else {
           this.receiver.abort(id, str(msg.reason, 'canceled by phone'), 'canceled')
+          this.failGalleryDownload(id, str(msg.reason, 'canceled by phone'))
         }
         return
       }
@@ -1184,6 +1194,20 @@ export class LinkServer extends EventEmitter {
   private finishOutbound(id: string, status: TransferItem['status'], error?: string): void {
     this.store.patchTransfer(id, { status, error })
     this.outbound.delete(id)
+  }
+
+  /** Keeps the photos/videos lightbox in sync when an incoming offer fails. */
+  private failGalleryDownload(id: string, error: string): void {
+    const item = this.store.getTransfer(id)
+    if (!item?.photoId) return
+    this.store.setGalleryDownload(`${item.mediaKind ?? 'image'}:${item.photoId}`, {
+      transferId: id,
+      status: 'failed',
+      received: item.received,
+      size: item.size,
+      path: item.path,
+      error
+    })
   }
 
   /** Called by the desktop clipboard watcher. */

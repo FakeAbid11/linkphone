@@ -28,9 +28,9 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Build debug and release APKs (verify R8)
         working-directory: android
-        run: gradle assembleDebug --no-daemon --stacktrace
+        run: gradle assembleDebug assembleRelease --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v5

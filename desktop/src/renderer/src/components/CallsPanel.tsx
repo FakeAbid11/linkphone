@@ -411,7 +411,7 @@ function CallCard({
   const ended = call.phase === 'disconnected'
   // VoIP cards can be controlled through their app's own notification action.
   const canControl = controlReady || call.canControl === true
-  const title = call.displayName || call.number || (call.incoming ? 'Incoming call' : 'Calling…')
+  const title = call.displayName || call.number || (call.incoming ? 'Incoming call' : 'Unknown number')
   const subtitle = call.displayName && call.number ? call.number : phaseLabel(call.phase)
   const since = call.activeSince ?? call.startedAt
   const duration =
@@ -422,13 +422,25 @@ function CallCard({
 
   return (
     <div className={`active-call ${ringing ? 'incoming-call' : ''}`}>
-      <div className="caller-avatar">{title.slice(0, 2).toUpperCase()}</div>
-      <div className="caller-name">{title}</div>
-      <div className="caller-detail">
-        {subtitle}
-        {duration ? ` · ${duration}` : ''}
-        {routeText ? ` · ${routeText}` : ''}
-        {call.simLabel ? ` · ${call.simLabel}` : ''}
+      <div className="call-identity">
+        <div className="caller-avatar">{title.slice(0, 2).toUpperCase()}</div>
+        <div className="caller-text">
+          <div className="caller-name">{title}</div>
+          <div className="caller-detail">
+            {subtitle}
+            {routeText ? ` · ${routeText}` : ''}
+            {call.simLabel ? ` · ${call.simLabel}` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div className="call-meta">
+        {duration ? (
+          <span className="call-timer">
+            {!ended && <span className="link-dot" aria-hidden="true" />}
+            {duration}
+          </span>
+        ) : null}
       </div>
 
       {ringing ? (

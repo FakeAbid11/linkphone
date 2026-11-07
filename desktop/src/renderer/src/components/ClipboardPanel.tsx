@@ -93,7 +93,7 @@ export function ClipboardPanel({ enabled, connected, onToggle, onSend }: Props):
         id="clip-text"
         className="clip-area"
         value={draft}
-        placeholder="Paste or type anything — a link, an address, a Wi-Fi password…"
+        placeholder="Paste or type text"
         onChange={(e) => {
           setDraft(e.target.value)
           setStatus('idle')

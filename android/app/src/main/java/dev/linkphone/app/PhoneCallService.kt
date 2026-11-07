@@ -201,7 +201,7 @@ object CallHub {
             candidate
         }
         val displayName = call.displayName.ifBlank {
-            number.ifBlank { if (phase == PhoneCallPhase.RINGING) "Incoming call" else "Calling…" }
+            number.ifBlank { if (phase == PhoneCallPhase.RINGING) "Incoming call" else "Unknown number" }
         }
         // A real notification supersedes the synthetic entry for the same call. A ringing
         // notification must not erase a synthetic live call (call waiting with the dialer hidden).

@@ -7,6 +7,7 @@
 }
 
 :root {
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --bg: #000000;
   --bg-elev: #121212;
   --bg-soft: #1c1c1c;
@@ -110,8 +111,8 @@ button {
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 18px 16px;
+  gap: 16px;
+  padding: 20px 16px;
   background: var(--bg-elev);
   border-right: 1px solid var(--line);
   min-height: 0;
@@ -122,16 +123,16 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 2px 4px;
+  padding: 4px;
 }
 
 .brand-name {
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0.2px;
 }
 
 .brand-sub {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -145,8 +146,8 @@ button {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--bg-soft);
@@ -192,7 +193,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -220,7 +221,7 @@ button {
 }
 
 .device-meta {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 2px;
   overflow: hidden;
@@ -243,8 +244,8 @@ button {
   width: 22px;
   height: 10px;
   padding: 1px;
-  border: 1px solid #b3b3b3;
-  border-radius: 3px;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
 }
 
 .battery-shell::after {
@@ -255,15 +256,15 @@ button {
   width: 2px;
   height: 4px;
   border-radius: 0 2px 2px 0;
-  background: #b3b3b3;
+  background: var(--muted);
 }
 
 .battery-fill {
   display: block;
   height: 100%;
   max-width: 100%;
-  border-radius: 1px;
-  background: #b3b3b3;
+  border-radius: 4px;
+  background: var(--muted);
 }
 
 .device-battery-charging {
@@ -275,19 +276,18 @@ button {
 }
 
 .dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   display: inline-block;
 }
 
 .dot-on {
   background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
 }
 
 .dot-off {
-  background: #4a4a4a;
+  background: var(--line-strong);
 }
 
 .tabs {
@@ -300,12 +300,12 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 8px 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
-  font-size: 13.5px;
+  font-size: 14px;
   text-align: left;
 }
 
@@ -338,11 +338,11 @@ button {
 .badge {
   min-width: 20px;
   padding: 1px 6px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--accent);
   color: #000000;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -355,18 +355,16 @@ button {
 }
 
 .call-tab-ring {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
-  animation: call-pulse 1.4s ease-in-out infinite;
+  background: var(--text);
+  animation: call-pulse 1.6s ease-in-out infinite;
 }
 
 @keyframes call-pulse {
   50% {
     opacity: 0.45;
-    transform: scale(0.85);
   }
 }
 
@@ -378,15 +376,13 @@ button {
 
 .pairing {
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 14px;
+  border-radius: 16px;
+  padding: 16px;
   background: var(--bg-soft);
 }
 
 .pairing-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -396,13 +392,13 @@ button {
   margin: 6px 0 2px;
   padding: 8px 0;
   border: 0;
-  border-radius: 9px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   color: var(--accent);
   font-family: 'Cascadia Mono', Consolas, monospace;
   font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  font-weight: 600;
+  letter-spacing: 0.12em;
 }
 
 .pairing-code:hover {
@@ -410,7 +406,7 @@ button {
 }
 
 .pairing-hint {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
   text-align: center;
 }
@@ -422,7 +418,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .net-row {
@@ -448,7 +444,7 @@ button {
 }
 
 .pairing .link-btn {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 /* ---------------- main ---------------- */
@@ -470,13 +466,13 @@ button {
 
 .main-head h1 {
   margin: 0;
-  font-size: 19px;
-  font-weight: 650;
+  font-size: 20px;
+  font-weight: 600;
 }
 
 .main-head p {
-  margin: 3px 0 0;
-  font-size: 12.5px;
+  margin: 4px 0 0;
+  font-size: 13px;
 }
 
 .head-actions {
@@ -497,11 +493,11 @@ button {
   justify-content: center;
   gap: 6px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--text);
   color: var(--bg);
   padding: 8px 16px;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -510,7 +506,7 @@ button {
 }
 
 .btn-ghost {
-  border: 1px solid #4a4a4a;
+  border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--text);
 }
@@ -520,7 +516,7 @@ button {
 }
 
 .btn-small {
-  padding: 5px 10px;
+  padding: 6px 12px;
 }
 
 .icon-btn {
@@ -558,7 +554,7 @@ button {
 }
 
 .empty-art .material-symbols-rounded {
-  font-size: 34px;
+  font-size: 32px;
 }
 
 .empty h2 {
@@ -587,7 +583,7 @@ button {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--bg-elev);
@@ -597,13 +593,13 @@ button {
   width: 30px;
   height: 30px;
   flex: 0 0 30px;
-  border-radius: 9px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   background: rgba(255, 255, 255, 0.08);
   color: var(--accent);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .notif-body {
@@ -618,10 +614,8 @@ button {
 }
 
 .notif-app {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 
 .notif-time {
@@ -630,14 +624,14 @@ button {
 
 .notif-title {
   margin-top: 3px;
-  font-size: 13.5px;
-  font-weight: 620;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .notif-text {
   margin-top: 2px;
   font-size: 13px;
-  color: #b3b3b3;
+  color: var(--muted);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -645,7 +639,7 @@ button {
 .reply-row {
   display: flex;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .reply-row input,
@@ -669,11 +663,14 @@ button {
 .reply-error,
 .reply-sent {
   margin: 6px 0 0;
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .reply-error {
+  padding-left: 8px;
+  border-left: 2px solid var(--line-strong);
   color: var(--text);
+  font-weight: 500;
 }
 
 .reply-sent {
@@ -688,10 +685,10 @@ button {
   align-items: center;
   padding: 22px;
   border: 1px dashed #3a3a3a;
-  border-radius: 14px;
-  margin-bottom: 22px;
+  border-radius: 16px;
+  margin-bottom: 24px;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 150ms var(--ease), background 150ms var(--ease);
 }
 
 .dropzone:hover {
@@ -700,15 +697,15 @@ button {
 }
 
 .dropzone p {
-  margin: 3px 0 0;
-  font-size: 12.5px;
+  margin: 4px 0 0;
+  font-size: 13px;
 }
 
 .files-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .files-head h2 {
@@ -727,7 +724,7 @@ button {
 
 .transfer {
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 8px;
   padding: 10px 12px;
   background: var(--bg-elev);
 }
@@ -747,9 +744,9 @@ button {
 }
 
 .pill {
-  font-size: 10.5px;
+  font-size: 11px;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--bg-soft);
   color: var(--muted);
   text-transform: capitalize;
@@ -769,6 +766,7 @@ button {
 }
 
 .pill-active {
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
@@ -784,11 +782,11 @@ button {
 .progress-fill {
   height: 100%;
   background: var(--text);
-  transition: width 0.2s ease;
+  transition: width 200ms var(--ease);
 }
 
 .transfer-meta {
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 /* ---------------- clipboard ---------------- */
@@ -806,7 +804,7 @@ button {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--bg-elev);
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 
 .clip-toggle p {
@@ -836,13 +834,13 @@ button {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #b3b3b3;
-  transition: transform 0.15s ease, background 0.15s ease;
+  background: var(--muted);
+  transition: transform 150ms var(--ease), background 150ms var(--ease);
 }
 
 .switch-on {
-  background: #b3b3b3;
-  border-color: #b3b3b3;
+  background: var(--muted);
+  border-color: var(--muted);
 }
 
 .switch-on span {
@@ -852,7 +850,7 @@ button {
 
 .field-label {
   display: block;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
   margin-bottom: 6px;
 }
@@ -875,8 +873,8 @@ button {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-top: 10px;
-  font-size: 11.5px;
+  margin-top: 8px;
+  font-size: 12px;
 }
 
 ::-webkit-scrollbar {
@@ -896,7 +894,7 @@ button {
 }
 
 .qr-wrap {
-  margin-top: 10px;
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -904,7 +902,7 @@ button {
 }
 
 .qr-wrap img {
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   padding: 4px;
 }
@@ -914,7 +912,7 @@ button {
   height: 176px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px dashed var(--line);
   color: var(--muted);
   font-size: 12px;
@@ -944,7 +942,7 @@ button {
 .sms-new {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   max-width: 560px;
 }
 
@@ -957,9 +955,9 @@ button {
 .sms-new textarea,
 .sms-new select {
   width: 100%;
-  padding: 10px 11px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg);
   color: var(--text);
   font: inherit;
@@ -998,8 +996,8 @@ button {
   align-items: center;
   gap: 10px;
   min-height: 28px;
-  padding: 7px 9px;
-  border-radius: 9px;
+  padding: 8px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
@@ -1012,7 +1010,7 @@ button {
   width: 28px;
   height: 28px;
   flex: 0 0 28px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .sms-suggest-text {
@@ -1046,12 +1044,12 @@ button {
   width: 22px;
   height: 22px;
   flex: 0 0 22px;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .sms-to-hint {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
 }
 
@@ -1086,7 +1084,7 @@ button {
   background: rgba(255, 255, 255, 0.08);
   color: var(--accent);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .sms-row-body {
@@ -1101,7 +1099,7 @@ button {
 }
 
 .sms-address {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1115,7 +1113,7 @@ button {
 
 .sms-snippet {
   margin-top: 2px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1139,7 +1137,7 @@ button {
 }
 
 .sms-peer {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -1163,7 +1161,7 @@ button {
 .bubble {
   max-width: 74%;
   padding: 8px 12px;
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--bg-soft);
   border: 1px solid var(--line);
 }
@@ -1183,7 +1181,7 @@ button {
 }
 
 .bubble-text {
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1191,7 +1189,7 @@ button {
 
 .bubble-time {
   margin-top: 4px;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--muted);
   text-align: right;
 }
@@ -1222,12 +1220,12 @@ button {
 .sms-compose input {
   flex: 1;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg);
   color: var(--text);
   padding: 10px 12px;
   font: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
   outline: none;
 }
 
@@ -1275,13 +1273,13 @@ button {
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: 12px;
   background: var(--bg-elev);
   text-align: left;
 }
 
 .album-card:hover {
-  border-color: #b3b3b3;
+  border-color: var(--muted);
   transform: translateY(-1px);
 }
 
@@ -1315,7 +1313,7 @@ button {
 
 .album-info span {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .photo-grid {
@@ -1331,7 +1329,7 @@ button {
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg-soft);
 }
 
@@ -1344,7 +1342,7 @@ button {
 }
 
 .photo-tile img {
-  transition: transform 0.15s ease;
+  transition: transform 150ms var(--ease);
 }
 
 .photo-placeholder {
@@ -1362,22 +1360,24 @@ button {
   right: 5px;
   bottom: 5px;
   padding: 2px 5px;
-  border-radius: 5px;
+  border-radius: 6px;
   background: rgba(0, 0, 0, 0.72);
   color: #ffffff;
-  font-size: 9.5px;
+  font-size: 11px;
 }
 
 .gallery-loading,
 .gallery-error {
   padding: 20px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13px;
   text-align: center;
 }
 
 .gallery-error {
-  color: var(--danger);
+  color: var(--text);
+  font-weight: 500;
+  text-align: left;
 }
 
 .gallery-more {
@@ -1404,7 +1404,7 @@ button {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid #3a3a3a;
-  border-radius: 15px;
+  border-radius: 16px;
   background: var(--bg-elev);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
 }
@@ -1447,7 +1447,7 @@ button {
 
 .photo-lightbox-actions {
   border-top: 1px solid var(--line);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 /* ---------------- settings / updates ---------------- */
@@ -1463,7 +1463,7 @@ button {
 .settings-note {
   padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: 12px;
   background: var(--bg-elev);
 }
 
@@ -1477,7 +1477,7 @@ button {
 
 .settings-card h2 {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .settings-card p,
@@ -1489,7 +1489,7 @@ button {
 
 .version-pill {
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--bg-soft);
   color: var(--muted);
   font-family: 'Cascadia Mono', Consolas, monospace;
@@ -1505,7 +1505,7 @@ button {
 }
 
 .settings-note strong {
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 /* ---------------- calls ---------------- */
@@ -1561,7 +1561,7 @@ button {
 
 .calls-side-switch button {
   border: 0;
-  border-radius: 9px;
+  border-radius: 8px;
   padding: 8px 10px;
   background: transparent;
   color: var(--muted);
@@ -1604,10 +1604,10 @@ button {
 .call-error {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 11px 13px;
+  gap: 4px;
+  padding: 12px 16px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--bg-elev);
   font-size: 12px;
 }
@@ -1616,18 +1616,20 @@ button {
   color: var(--muted);
 }
 
-.call-warning {
-  border-color: rgba(255, 255, 255, 0.24);
-  color: var(--warn);
+.call-warning,
+.call-error {
+  border-left: 2px solid var(--line-strong);
+  color: var(--text);
+  font-weight: 500;
 }
 
 .call-placed {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 9px 12px;
+  gap: 8px;
+  padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 8px;
   background: var(--bg-elev);
   font-size: 12px;
 }
@@ -1653,8 +1655,6 @@ button {
 }
 
 .call-error {
-  border-color: rgba(255, 255, 255, 0.24);
-  color: var(--danger);
   flex-direction: row;
   align-items: flex-start;
   gap: 10px;
@@ -1669,12 +1669,23 @@ button {
   display: none;
 }
 
-.dialer-card,
-.active-call {
+.dialer-card {
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--bg-elev);
+}
+
+.active-call {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-elev);
+  text-align: left;
 }
 
 .dialer-card label {
@@ -1694,13 +1705,13 @@ button {
 .dial-input-row input {
   flex: 1;
   min-width: 0;
-  padding: 11px 13px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   outline: none;
   background: var(--bg);
   color: var(--text);
-  font: 18px 'Cascadia Mono', Consolas, monospace;
+  font: 20px 'Cascadia Mono', Consolas, monospace;
   letter-spacing: 0.04em;
 }
 
@@ -1709,7 +1720,7 @@ button {
 }
 
 .dial-backspace {
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .dial-pad {
@@ -1725,12 +1736,12 @@ button {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--bg-soft);
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .dial-pad button:hover {
-  background: #1c1c1c;
-  border-color: #b3b3b3;
+  background: var(--bg-soft);
+  border-color: var(--muted);
 }
 
 .call-primary,
@@ -1738,10 +1749,10 @@ button {
 .call-decline,
 .call-speaker {
   min-width: 112px;
-  padding: 10px 16px;
+  padding: 8px 16px;
   border: 0;
-  border-radius: 999px;
-  font-weight: 650;
+  border-radius: 8px;
+  font-weight: 600;
 }
 
 .call-primary {
@@ -1763,47 +1774,75 @@ button {
 .call-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.active-call {
-  text-align: center;
+  gap: 8px;
 }
 
 .incoming-call {
   border-color: rgba(255, 255, 255, 0.24);
 }
 
+.call-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .caller-avatar {
-  width: 64px;
-  height: 64px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   display: grid;
   place-items: center;
-  margin: 4px auto 12px;
   border-radius: 50%;
   background: var(--bg-soft);
   color: var(--text);
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.caller-text {
+  min-width: 0;
 }
 
 .caller-name {
-  font-size: 20px;
-  font-weight: 650;
+  font-size: 16px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .caller-detail {
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13px;
+}
+
+.call-meta {
+  justify-self: end;
+}
+
+.call-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-family: 'Cascadia Mono', Consolas, monospace;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.link-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text);
 }
 
 .call-actions {
+  grid-column: 1 / -1;
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 20px;
+  justify-content: flex-end;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -1820,20 +1859,20 @@ button {
 }
 
 .call-decline {
-  border: 1px solid #4a4a4a;
-  background: #1c1c1c;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-soft);
   color: #ffffff;
 }
 
 .call-speaker {
-  border: 1px solid #4a4a4a;
-  background: #1c1c1c;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-soft);
   color: var(--text);
 }
 
 .call-speaker-on {
-  border-color: #ffffff;
-  background: #1c1c1c;
+  border-color: var(--text);
+  background: var(--bg-soft);
   color: var(--text);
 }
 
@@ -1849,9 +1888,9 @@ button {
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-  padding: 9px 12px;
+  padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 8px;
   background: var(--bg-elev);
   color: var(--muted);
 }
@@ -1877,10 +1916,10 @@ button {
 }
 
 .contacts-notice {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   padding: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 11px;
+  border-radius: 8px;
   background: var(--bg-elev);
   font-size: 12px;
 }
@@ -1897,7 +1936,7 @@ button {
 .contact-row {
   display: flex;
   gap: 12px;
-  padding: 11px 12px;
+  padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--bg-elev);
@@ -1914,7 +1953,7 @@ button {
 }
 
 .contact-name {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -1931,7 +1970,7 @@ button {
   align-items: baseline;
   gap: 8px;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .contact-label {
@@ -1962,7 +2001,7 @@ button {
 
 .recent-empty {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .recent-list {
@@ -1978,9 +2017,9 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 8px;
   background: var(--bg-elev);
 }
 
@@ -2025,12 +2064,12 @@ button {
 
 .recent-meta {
   margin-top: 2px;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--muted);
 }
 
 .notif {
-  transition: border-color 0.15s ease;
+  transition: border-color 150ms var(--ease);
 }
 
 .notif:hover {
@@ -2061,11 +2100,11 @@ button {
   white-space: nowrap;
   padding: 4px 10px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .notif-action:hover {
@@ -2090,9 +2129,9 @@ button {
 .sim-select {
   min-width: 0;
   max-width: 230px;
-  padding: 7px 9px;
+  padding: 8px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   outline: none;
   background: var(--bg);
   color: var(--text);
@@ -2156,13 +2195,11 @@ button {
 
 .notif-live {
   flex: 0 0 auto;
-  padding: 2px 7px;
+  padding: 2px 6px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--muted);
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 11px;
 }
 
 .notif-ongoing {
@@ -2171,6 +2208,9 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .call-tab-ring {
+    animation: none;
+  }
   .notif-progress-indeterminate .notif-progress-fill {
     animation: none;
     width: 100%;
@@ -2188,9 +2228,9 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: 12px;
   background: var(--bg-elev);
 }
 
@@ -2205,7 +2245,7 @@ button {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 9px;
+  border-radius: 8px;
 }
 
 .media-seek,
@@ -2238,7 +2278,7 @@ button {
   flex: 0 0 38px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
 }
@@ -2284,9 +2324,9 @@ button {
   gap: 8px;
   flex: 1;
   min-width: 180px;
-  padding: 8px 11px;
+  padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--bg);
   color: var(--muted);
 }
@@ -2303,7 +2343,7 @@ button {
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .notif-view {
@@ -2311,7 +2351,7 @@ button {
   flex: 0 0 auto;
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 8px;
 }
 
 .notif-history-actions {
@@ -2326,12 +2366,12 @@ button {
 }
 
 .notif-view button {
-  padding: 7px 12px;
+  padding: 8px 12px;
   border: 0;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 11.5px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -2353,9 +2393,7 @@ button {
 
 .notif-muted-label {
   color: var(--muted);
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 11px;
 }
 
 .notif-chip {
@@ -2364,7 +2402,7 @@ button {
   gap: 4px;
   padding: 3px 8px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -2441,7 +2479,7 @@ button {
   gap: 8px;
   padding: 32px 46px;
   border: 2px dashed #5a5a5a;
-  border-radius: 18px;
+  border-radius: 16px;
   background: rgba(18, 18, 18, 0.96);
   color: var(--text);
   text-align: center;
@@ -2465,9 +2503,9 @@ button {
   bottom: 24px;
   z-index: 210;
   transform: translateX(-50%);
-  padding: 9px 14px;
+  padding: 8px 16px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--bg-elev);
   color: var(--text);
   font-size: 12px;
@@ -2494,9 +2532,12 @@ button.dropzone {
 }
 
 .sms-send-error {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line-strong);
   color: var(--text);
   font-size: 12px;
+  font-weight: 500;
 }
 
 :is(button, [role='button'], input, textarea, select, .tab):focus-visible {
@@ -2521,7 +2562,7 @@ button.dropzone {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   padding: 8px 12px;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
@@ -2555,7 +2596,7 @@ button.dropzone {
   width: 100%;
   max-height: 70vh;
   background: #000000;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .storage-head {
@@ -2582,7 +2623,7 @@ button.dropzone {
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .storage-icon {
@@ -2603,6 +2644,6 @@ button.dropzone {
 }
 
 .storage-meta {
-  font-size: 11.5px;
+  font-size: 12px;
   margin-top: 2px;
 }

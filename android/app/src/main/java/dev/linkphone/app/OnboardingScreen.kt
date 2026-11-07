@@ -2,6 +2,7 @@ package dev.linkphone.app
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
@@ -429,29 +430,40 @@ private fun PermissionRow(
     action: String,
     onAction: () -> Unit
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Row(
-            Modifier.padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Symbol(glyph, 20.sp, MaterialTheme.colorScheme.onBackground)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (granted) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Symbol(Symbols.check_circle, 16.sp, LocalContentColor.current)
-                    Text("Allowed", style = MaterialTheme.typography.bodySmall)
-                }
-            } else {
-                OutlinedButton(onClick = onAction) { Text(action) }
+    val context = LocalContext.current
+    if (granted) {
+        LinkCard {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s)
+            ) {
+                Symbol(Symbols.check_circle, 18.sp, LocalContentColor.current)
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "Allowed",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
+    } else {
+        PermissionCard(
+            glyph = glyph,
+            title = title,
+            body = detail,
+            actionLabel = action,
+            onAction = onAction,
+            secondaryLabel = "Open settings",
+            onSecondary = {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", context.packageName, null)
+                    )
+                )
+            }
+        )
     }
 }
 

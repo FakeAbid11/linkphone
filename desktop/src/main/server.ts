@@ -645,6 +645,12 @@ export class LinkServer extends EventEmitter {
               }))
               .slice(0, 4)
           : []
+        const iconRaw =
+          typeof raw.icon === 'string' &&
+          raw.icon.startsWith('data:image/') &&
+          raw.icon.length < 100_000
+            ? raw.icon
+            : undefined
         const item: NotificationItem = {
           key: str(raw.key).slice(0, 256) || `n-${Date.now()}`,
           app: str(raw.app, 'Phone').slice(0, 64),
@@ -658,7 +664,8 @@ export class LinkServer extends EventEmitter {
           progress: optionalInt(raw.progress),
           progressMax: optionalInt(raw.progressMax),
           indeterminate: bool(raw.indeterminate),
-          ongoing: bool(raw.ongoing)
+          ongoing: bool(raw.ongoing),
+          icon: iconRaw
         }
         if (this.store.isNotificationMuted(item.pkg, item.app)) {
           console.warn('[notif] muted', item.pkg)

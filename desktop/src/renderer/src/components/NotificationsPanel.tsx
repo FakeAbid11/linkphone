@@ -646,7 +646,7 @@ export function NotificationsPanel({
             <section className="notif-group" key={group.key}>
               <div className="notif-group-head">
                 <div className="notif-group-title">
-                  <div className="notif-avatar">{group.app.slice(0, 2).toUpperCase()}</div>
+                  <NotifAvatar app={group.app} icon={group.items[0]?.icon} />
                   <span className="notif-group-name">{group.app || group.pkg}</span>
                   <span className="badge">{group.items.length}</span>
                 </div>
@@ -678,10 +678,24 @@ export function NotificationsPanel({
   )
 }
 
+function NotifAvatar({ app, icon }: { app: string; icon?: string }): JSX.Element {
+  if (icon) {
+    return (
+      <img
+        className="notif-avatar notif-avatar-img"
+        src={icon}
+        alt=""
+        aria-hidden="true"
+      />
+    )
+  }
+  return <div className="notif-avatar">{app.slice(0, 2).toUpperCase()}</div>
+}
+
 function HistoryRow({ item }: { item: NotificationItem }): JSX.Element {
   return (
     <li className="notif notif-history-row">
-      <div className="notif-avatar">{item.app.slice(0, 2).toUpperCase()}</div>
+      <NotifAvatar app={item.app} icon={item.icon} />
       <div className="notif-body">
         <div className="notif-top">
           <span className="notif-app">{item.app}</span>
@@ -736,7 +750,7 @@ function NotificationCard({
 
   return (
     <li className="notif">
-      <div className="notif-avatar">{item.app.slice(0, 2).toUpperCase()}</div>
+      <NotifAvatar app={item.app} icon={item.icon} />
       <div
         className={`notif-body ${canOpen ? 'notif-body-clickable' : ''}`}
         role={canOpen ? 'button' : undefined}

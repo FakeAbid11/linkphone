@@ -32,7 +32,7 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.12.20** adds interactive Windows Action Center notification actions with inline reply and call answer/decline buttons, plus Linux AppImage and .deb distribution.
+> **v0.13.0** displays real application logos in mirrored desktop notifications and native system toasts, backed by Android PackageManager icon rendering and in-memory LRU caching.
 
 ## Features
 
@@ -75,7 +75,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.12.20.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.13.0.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

@@ -602,6 +602,12 @@ button {
   font-weight: 600;
 }
 
+.notif-avatar-img {
+  object-fit: contain;
+  background: transparent;
+  padding: 1px;
+}
+
 .notif-body {
   flex: 1;
   min-width: 0;

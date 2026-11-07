@@ -42,6 +42,7 @@ export interface NotificationItem {
   progressMax?: number
   indeterminate?: boolean
   ongoing?: boolean
+  icon?: string
 }
 
 export interface MutedApp {

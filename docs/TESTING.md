@@ -640,6 +640,21 @@ Notification access is enough; `ANSWER_PHONE_CALLS` may stay denied. Audio alway
   VoIP card does not touch the SIM leg.
 * ✅ SIM calling, call waiting, mute, route and the talk timer behave exactly as in §22.
 
+## 24. Fallback call identity (v0.12.11+)
+
+* ✅ Start a call → exactly **one** card, even though the dialer may post/update several call
+  notifications. The timer keeps running across those updates.
+* ✅ Turn Wi-Fi off and on mid-call (or restart LinkPhone) → after reconnecting there is still one
+  card, with the same number/name and an unaffected duration.
+* ✅ A dialer that re-posts its in-call notification under a new key (HyperOS/MIUI) updates the card
+  in place instead of adding another.
+* ✅ Two calls with different numbers (SIM + WhatsApp, or call waiting) → two cards; the same call
+  reported by two notifications → one card.
+* ✅ Grant LinkPhone the default-phone role mid-call → the fallback card is replaced by the real
+  InCallService card and no frozen duplicate remains.
+* ✅ Hang up → the card disappears immediately, and the next heartbeat cannot resurrect it.
+* ✅ Wrong/blank custom notifications produce at most one “Calling…” card per app.
+
 ## Debugging
 
 ```powershell

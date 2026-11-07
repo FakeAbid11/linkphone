@@ -302,6 +302,12 @@ are best effort, so:
 * fallback entries carry `slot: "ringing" | "active"`; a waiting call is published alongside the
   live one instead of replacing it. Answer/Decline target the ringing slot, and Hang up is refused
   while one exists because `TelecomManager.endCall()` rejects the ringing leg first;
+* fallback cards are keyed by **call identity** (app + number, or app + name), not by the
+  notification that reports them, so a dialer that re-posts its in-call notification under a new key
+  updates the same card. The wire `id` (`system:<identity>`) is therefore stable across re-posts, and
+  blank custom notifications produce at most one anonymous card per app and phase;
+* cards are rebuilt from the live notification shade on listener and client reconnect, and stale
+  notification-backed cards are pruned on the 20 s heartbeat;
 * the PC keeps the dialed number from `call.place` and fills it in when the phone's report has none;
 * the **PC** stamps the live timer when it first sees `active`, so `startedAt` (phone clock) is only
   informational and clock drift between the two devices cannot corrupt the duration.

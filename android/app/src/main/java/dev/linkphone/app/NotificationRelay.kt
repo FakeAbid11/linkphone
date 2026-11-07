@@ -15,6 +15,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.util.concurrent.ConcurrentHashMap
 
+/** A call notification reduced to what CallHub needs; `id` is replaced by the call identity there. */
+data class SystemCallSeed(val key: String, val packageName: String, val info: PhoneCallInfo)
+
 /** A call control we can dispatch through the owning app's own notification action. */
 enum class CallActionKind { ANSWER, DECLINE, HANGUP }
 
@@ -37,11 +40,7 @@ class NotificationRelay : NotificationListenerService() {
         isConnected = true
         Log.d(TAG, "notification listener connected")
         MediaWatcher.start(this)
-        runCatching {
-            activeNotifications
-                ?.firstOrNull { isSystemCall(it, it.notification) }
-                ?.let { handleSystemCall(it, it.notification) }
-        }
+        reconcileCalls()
         if (LinkCore.clientOrNull()?.isReady == true) backfill()
     }
 
@@ -221,6 +220,30 @@ class NotificationRelay : NotificationListenerService() {
      * Re-publishes the phone's live notifications after the socket connects. Listener callbacks and
      * activeNotifications are read on the main thread.
      */
+    /**
+     * Rebuilds the notification-derived call cards from the live shade. A null list means the
+     * listener cannot answer, so the existing cards are kept; an empty list is authoritative.
+     */
+    private fun reconcileCallNotifications() {
+        main.post {
+            if (!isConnected) return@post
+            val active = runCatching { activeNotifications }.getOrNull() ?: return@post
+            val seeds = active.mapNotNull { sbn ->
+                val notification = sbn.notification ?: return@mapNotNull null
+                if (!isSystemCall(sbn, notification)) return@mapNotNull null
+                buildSystemCall(sbn, notification)
+            }
+            Log.d(TAG, "call reconcile: ${seeds.size} live")
+            CallHub.replaceNotificationCalls(seeds)
+        }
+    }
+
+    private fun liveCallKeys(): Set<String>? =
+        runCatching { activeNotifications }.getOrNull()
+            ?.filter { isSystemCall(it, it.notification) }
+            ?.map { it.key }
+            ?.toSet()
+
     private fun backfill() {
         main.post {
             val client = LinkCore.clientOrNull() ?: return@post
@@ -318,6 +341,16 @@ class NotificationRelay : NotificationListenerService() {
     }
 
     private fun handleSystemCall(sbn: StatusBarNotification, notification: Notification) {
+        buildSystemCall(sbn, notification)?.let { seed ->
+            CallHub.updateSystemCall(seed.key, seed.packageName, seed.info)
+        }
+    }
+
+    /** Builds the card data; shared by live posts and by reconciliation after a reconnect. */
+    private fun buildSystemCall(
+        sbn: StatusBarNotification,
+        notification: Notification
+    ): SystemCallSeed? {
         val actions = notification.actions.orEmpty().mapNotNull { it.title?.toString() }
         val ringing = notification.actions.orEmpty().any {
             val kind = actionKind(it)
@@ -355,9 +388,10 @@ class NotificationRelay : NotificationListenerService() {
             else -> PhoneCallPhase.ACTIVE
         }
 
-        CallHub.updateSystemCall(
-            sbn.key,
-            PhoneCallInfo(
+        return SystemCallSeed(
+            key = sbn.key,
+            packageName = sbn.packageName,
+            info = PhoneCallInfo(
                 id = "system:${sbn.key}",
                 number = number,
                 displayName = displayName,
@@ -545,8 +579,19 @@ class NotificationRelay : NotificationListenerService() {
         }
 
         fun onClientReady() {
-            instance?.backfill()
+            instance?.let {
+                it.reconcileCallNotifications()
+                it.backfill()
+            }
         }
+
+        /** Rebuild the call cards from the live shade; called after a reconnect or a role change. */
+        fun reconcileCalls() {
+            instance?.reconcileCallNotifications()
+        }
+
+        /** Null when the listener cannot answer; otherwise the keys of live call notifications. */
+        fun activeCallKeys(): Set<String>? = instance?.liveCallKeys()
 
         /** Null means the action ran; otherwise a short reason for the PC. */
         fun deliver(key: String, actionId: String, replyText: String, label: String = ""): String? =

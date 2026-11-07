@@ -56,6 +56,12 @@ function sanitizeRingDuration(value: unknown): number {
   return typeof value === 'number' && RING_DURATIONS.includes(value) ? value : 15_000
 }
 
+/** Digits only (last 10), so two formats of one number collapse to the same call identity. */
+function callDigits(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  return digits.length > 10 ? digits.slice(-10) : digits
+}
+
 function muteKey(pkg: string, app: string): string {
   const trimmed = pkg.trim()
   return trimmed || `app:${app.trim().toLowerCase()}`
@@ -1216,12 +1222,23 @@ export class AppStore extends EventEmitter {
     const previousCalls = this.phoneCalls
     const previousById = new Map(previousCalls.map((call) => [call.id, call]))
     const stamps = new Map<string, number>()
+    // Defence in depth: an older APK could still report the same call twice under different ids.
+    const unique: PhoneCallInfo[] = []
+    const identities = new Set<string>()
+    for (const call of input.calls) {
+      const identity = `${call.slot ?? ''}|${callDigits(call.number)}|${call.displayName}|${
+        call.incoming ? 'in' : 'out'
+      }|${call.phase}`
+      if (identities.has(identity)) continue
+      identities.add(identity)
+      unique.push(call)
+    }
     // An incoming call means the last dialed number is irrelevant from now on.
-    if (input.calls.some((call) => call.incoming)) this.lastDialed = null
+    if (unique.some((call) => call.incoming)) this.lastDialed = null
 
-    const calls = input.calls.map((call) => {
+    const calls = unique.map((call) => {
       const key = AppStore.callKey(call)
-      const activeSince = this.liveCallStamp(call, key, previousCalls, input.calls.length, stamps, now)
+      const activeSince = this.liveCallStamp(call, key, previousCalls, unique.length, stamps, now)
       if (activeSince !== undefined) stamps.set(key, activeSince)
 
       const earlier = previousById.get(call.id)
@@ -1287,7 +1304,6 @@ export class AppStore extends EventEmitter {
     if (call.slot) return `${call.slot}:${call.id || call.number}`
     return call.id || `${call.number}:${call.incoming ? 'in' : 'out'}`
   }
-
   setCallError(error: string): void {
     this.callError = error
     this.changed()

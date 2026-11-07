@@ -72,12 +72,14 @@ object CallHub {
 
     /**
      * Fallback call state while the InCallService is not bound (no dialer role). Entries are keyed
-     * by notification key; "telephony" is the synthetic entry used when the dialer hides its
-     * notification. Both legs of a waiting call can therefore be shown independently.
+     * by the call's identity (package + number/name), never by the notification key: a dialer that
+     * re-posts its notification under a new key must update the same card. "telephony" is the
+     * synthetic entry used when the dialer hides its notification.
      */
     private data class FallbackCall(
         val info: PhoneCallInfo,
-        val telephony: Boolean
+        val telephony: Boolean,
+        val notificationKey: String? = null
     )
 
     private val fallbackCalls = LinkedHashMap<String, FallbackCall>()
@@ -86,16 +88,19 @@ object CallHub {
     private var lastPlacedAt = 0L
     private val placedNumberTtlMs = 120_000L
     private val callHeartbeatMs = 20_000L
+    private val maxFallbackCalls = 8
     private var heartbeatActive = false
     /** Bumped by every real call-state update; the action watchdog compares against it. */
     @Volatile
     private var stateRevision = 0L
     private val heartbeat = Runnable {
         heartbeatActive = false
+        pruneStaleNotifications()
         if (fallbackCalls.isNotEmpty()) publishSystemState()
     }
 
     private const val TELEPHONY_KEY = "telephony"
+    private val anonymousNames = setOf("calling…", "calling...", "incoming call", "phone call", "unknown")
 
     /**
      * The PC dialed through us, but the notification and telephony fallbacks often report the
@@ -139,13 +144,52 @@ object CallHub {
             PackageManager.PERMISSION_GRANTED
 
     @Synchronized
-    fun updateSystemCall(key: String, call: PhoneCallInfo) {
+    fun updateSystemCall(key: String, packageName: String, call: PhoneCallInfo) {
         if (PhoneCallService.instance != null) return
         stateRevision++
+        upsertNotificationCall(key, packageName, call)
+        publishSystemState()
+    }
+
+    /** Replaces every notification-derived card with the live set, e.g. after a reconnect. */
+    @Synchronized
+    fun replaceNotificationCalls(seeds: List<SystemCallSeed>) {
+        if (PhoneCallService.instance != null) return
+        stateRevision++
+        fallbackCalls.entries.removeAll { it.value.notificationKey != null }
+        for (seed in seeds) upsertNotificationCall(seed.key, seed.packageName, seed.info)
+        if (fallbackCalls.isEmpty()) {
+            if (telephonyPhase != PhoneCallPhase.ACTIVE) telephonyPhase = null
+            restoreMute()
+        }
+        publishSystemState()
+    }
+
+    /**
+     * A call is identified by its app and number (or name), not by the notification that reports it.
+     * The notification key is kept only so actions reach the right notification.
+     */
+    private fun callIdentity(
+        key: String,
+        packageName: String,
+        call: PhoneCallInfo,
+        phase: PhoneCallPhase
+    ): String {
+        fallbackCalls.entries.firstOrNull { it.value.notificationKey == key }?.let { return it.key }
+        val digits = call.number.filter { it.isDigit() }.takeLast(10)
+        if (digits.length >= 3) return "$packageName|$digits"
+        val name = call.displayName.trim().lowercase()
+        if (name.isNotEmpty() && name !in anonymousNames) return "$packageName|$name"
+        // One anonymous card per app and phase: blank custom notifications must not multiply.
+        return "$packageName|anon|${if (phase == PhoneCallPhase.RINGING) "ringing" else "active"}"
+    }
+
+    private fun upsertNotificationCall(key: String, packageName: String, call: PhoneCallInfo) {
         val ringing = call.phase == PhoneCallPhase.RINGING
         val number = call.number.ifBlank { recentPlacedNumber() }
-        val existing = fallbackCalls[key]
         val candidate = resolvePhase(call.phase)
+        val identity = callIdentity(key, packageName, call.copy(number = number), candidate)
+        val existing = fallbackCalls[identity]
         // The dialer notification and telephony report in either order; never walk a live call back.
         val phase = if (!ringing && existing != null &&
             (existing.info.phase == PhoneCallPhase.ACTIVE || existing.info.phase == PhoneCallPhase.HELD) &&
@@ -165,17 +209,65 @@ object CallHub {
         if (synthetic != null && (synthetic.info.phase == PhoneCallPhase.RINGING || !ringing)) {
             fallbackCalls.remove(TELEPHONY_KEY)
         }
-        fallbackCalls[key] = FallbackCall(
+        fallbackCalls[identity] = FallbackCall(
             call.copy(
+                id = "system:$identity",
                 number = number,
                 displayName = displayName,
                 phase = phase,
                 incoming = phase == PhoneCallPhase.RINGING,
-                startedAt = if (ringing) call.startedAt else existing?.info?.startedAt ?: call.startedAt
+                startedAt = existing?.info?.startedAt ?: call.startedAt
             ),
-            telephony = false
+            telephony = false,
+            notificationKey = key
         )
-        publishSystemState()
+        if (fallbackCalls.values.count { it.notificationKey != null } > maxFallbackCalls) {
+            val victim = fallbackCalls.entries
+                .filter {
+                    it.value.notificationKey != null &&
+                        it.value.info.phase != PhoneCallPhase.RINGING &&
+                        it.key != identity
+                }
+                .minByOrNull { it.value.info.startedAt }
+            if (victim != null) fallbackCalls.remove(victim.key)
+        }
+    }
+
+    /** Drops cards whose notification is gone (a missed removal or a re-keyed in-call update). */
+    @Synchronized
+    private fun pruneStaleNotifications() {
+        if (PhoneCallService.instance != null) return
+        val live = NotificationRelay.activeCallKeys() ?: return
+        val removed = fallbackCalls.entries.removeAll {
+            it.value.notificationKey != null && it.value.notificationKey !in live
+        }
+        if (!removed) return
+        stateRevision++
+        if (fallbackCalls.isEmpty()) {
+            if (telephonyPhase != PhoneCallPhase.ACTIVE) telephonyPhase = null
+            restoreMute()
+        }
+    }
+
+    /** Called when the InCallService binds: its real call objects take over from the fallback map. */
+    @Synchronized
+    fun onInCallServiceBound() {
+        fallbackCalls.clear()
+        telephonyPhase = null
+        lastPlacedNumber = ""
+        lastPlacedAt = 0L
+        main.removeCallbacks(heartbeat)
+        heartbeatActive = false
+        restoreMute()
+        val context = appContext
+        publish(
+            PhoneCallSnapshot(
+                calls = emptyList(),
+                dialerReady = context?.let { isCallReady(it) } ?: false,
+                outgoingReady = context?.let { isOutgoingReady(it) } ?: false,
+                controlReady = true
+            )
+        )
     }
 
     /** Without the dialer role, OFFHOOK only means dialing until the dialer shows a running timer. */
@@ -286,7 +378,8 @@ object CallHub {
     @Synchronized
     fun clearNotificationCall(key: String) {
         if (PhoneCallService.instance != null) return
-        val removed = fallbackCalls.remove(key) ?: return
+        val entry = fallbackCalls.entries.firstOrNull { it.value.notificationKey == key } ?: return
+        val removed = fallbackCalls.remove(entry.key) ?: return
         stateRevision++
         // The dialer can hide its notification while telephony still reports a live call.
         if (removed.info.phase != PhoneCallPhase.RINGING &&
@@ -308,7 +401,7 @@ object CallHub {
     @Synchronized
     fun clearNotificationCalls() {
         if (PhoneCallService.instance != null) return
-        val removed = fallbackCalls.entries.removeAll { !it.value.telephony }
+        val removed = fallbackCalls.entries.removeAll { it.value.notificationKey != null }
         if (!removed) return
         stateRevision++
         if (fallbackCalls.isEmpty() && telephonyPhase != PhoneCallPhase.ACTIVE) telephonyPhase = null
@@ -318,6 +411,12 @@ object CallHub {
 
     @Synchronized
     private fun publishSystemState() {
+        // With the InCallService bound, its real Call objects are the only source of truth.
+        if (PhoneCallService.instance != null) {
+            main.removeCallbacks(heartbeat)
+            heartbeatActive = false
+            return
+        }
         val context = appContext
         val route = context?.let { routeOf(it) } ?: "unknown"
         val controlReady = context?.let { isRemoteControlReady(it) } ?: false
@@ -444,8 +543,9 @@ object CallHub {
         }
         val ringingKey = ringingKeyFor(callId) ?: error("That call is no longer ringing")
         // VoIP apps own their call; the only control surface is their own notification action.
-        if (fallbackCalls[ringingKey]?.telephony == false) {
-            deliverNotificationAction(ringingKey, CallActionKind.ANSWER).getOrThrow()
+        val notificationKey = fallbackCalls[ringingKey]?.notificationKey
+        if (notificationKey != null) {
+            deliverNotificationAction(notificationKey, CallActionKind.ANSWER).getOrThrow()
             promoteRinging(ringingKey, markTelephony = false)
             return@runCatching
         }
@@ -495,8 +595,9 @@ object CallHub {
             return@runCatching
         }
         val ringingKey = ringingKeyFor(callId) ?: error("That call is no longer ringing")
-        if (fallbackCalls[ringingKey]?.telephony == false) {
-            deliverNotificationAction(ringingKey, CallActionKind.DECLINE).getOrThrow()
+        val notificationKey = fallbackCalls[ringingKey]?.notificationKey
+        if (notificationKey != null) {
+            deliverNotificationAction(notificationKey, CallActionKind.DECLINE).getOrThrow()
             fallbackCalls.remove(ringingKey)
             if (fallbackCalls.isEmpty()) restoreMute()
             publishSystemState()
@@ -524,8 +625,9 @@ object CallHub {
             return@runCatching
         }
         val target = activeEntryFor(callId) ?: error("There is no call to end")
-        if (!target.value.telephony) {
-            deliverNotificationAction(target.key, CallActionKind.HANGUP).getOrThrow()
+        val notificationKey = target.value.notificationKey
+        if (notificationKey != null) {
+            deliverNotificationAction(notificationKey, CallActionKind.HANGUP).getOrThrow()
             fallbackCalls.remove(target.key)
             if (fallbackCalls.isEmpty()) {
                 telephonyPhase = null
@@ -687,6 +789,8 @@ class PhoneCallService : InCallService() {
         LinkCore.init(this)
         instance = this
         notifier = CallNotifier(this)
+        // The real Call objects supersede any notification-derived fallback cards.
+        CallHub.onInCallServiceBound()
         CallHub.refreshDialerRole(this)
     }
 

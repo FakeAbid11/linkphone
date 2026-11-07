@@ -1671,7 +1671,7 @@ function parsePhoneCall(raw: RawMsg): PhoneCallInfo {
     'unknown'
   ]
   return {
-    id: str(raw.id).slice(0, 64),
+    id: str(raw.id).slice(0, 128),
     number: str(raw.number).slice(0, 128),
     displayName: str(raw.displayName).slice(0, 200),
     slot: raw.slot === 'ringing' || raw.slot === 'active' ? raw.slot : undefined,

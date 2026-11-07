@@ -63,8 +63,30 @@ jobs:
             desktop/release/*.blockmap
             desktop/release/latest.yml
 
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+      - name: Build Linux packages
+        working-directory: desktop
+        run: npm run dist:linux
+      - uses: actions/upload-artifact@v5
+        with:
+          name: linux-packages
+          path: |
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+
   publish:
-    needs: [android, windows]
+    needs: [android, windows, linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v5
@@ -85,7 +107,7 @@ jobs:
                apps" when asked).
                **If v0.1 is installed, uninstall it first and pair again.** v0.1 used a temporary
                CI signing key; v0.2 started the permanent signing key. v0.2+ update in place.
-            2. **PC** — download and run `LinkPhone.Setup.0.12.19.exe`. SmartScreen will warn because
+            2. **PC** — download and run `LinkPhone.Setup.0.12.20.exe`. SmartScreen will warn because
                the installer is unsigned: *More info → Run anyway*. Allow it on **private**
                networks when Windows Firewall asks.
             3. Make sure both devices are on the same Wi-Fi (not a guest network).
@@ -199,3 +221,5 @@ jobs:
             artifacts/windows-installer/*.exe
             artifacts/windows-installer/*.blockmap
             artifacts/windows-installer/latest.yml
+            artifacts/linux-packages/*.AppImage
+            artifacts/linux-packages/*.deb

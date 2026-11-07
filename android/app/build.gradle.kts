@@ -27,8 +27,8 @@ android {
         applicationId = "dev.linkphone.app"
         minSdk = 29
         targetSdk = 35
-        versionCode = 68
-        versionName = "0.12.18"
+        versionCode = 69
+        versionName = "0.12.19"
     }
 
     buildFeatures {
@@ -47,7 +47,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             if (releaseSigning != null) signingConfig = releaseSigning
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

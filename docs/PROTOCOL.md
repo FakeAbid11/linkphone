@@ -356,7 +356,8 @@ so the protocol version is unchanged.
 
 1. Sender sends `file.offer` and waits for `file.accept` (15 s timeout).
 2. Sender streams `0x20` chunks of 64 KiB. The receiver requires `offset == bytesReceived`.
-3. The receiver acknowledges every 512 KiB; the sender keeps at most 8 chunks (512 KiB) in flight.
+3. The receiver acknowledges every 512 KiB and once at completion (`received == size`); the sender
+   waits for that final ack before `file.done` and keeps at most 8 chunks (512 KiB) in flight.
 4. Sender finishes with `file.done`; the receiver closes the file and marks the transfer `done`.
 
 Incoming files land in `~/Downloads/LinkPhone` on Windows and `Download/LinkPhone` (MediaStore) on

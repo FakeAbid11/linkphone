@@ -32,9 +32,8 @@ service or a relay server.
 
 **No account. No cloud. No relay.**
 
-> **v0.12.11** fixes duplicate call cards: a call is tracked by its number/app instead of the
-> notification that reports it, so re-posts update one card, and cards are rebuilt after a reconnect
-> or a missed notification removal.
+> **v0.12.12** stops ongoing system notifications ("Continuity", "Networking", VPN, music) from
+> appearing as calls; only call-shaped, call-category or dialer notifications create a call card.
 
 ## Features
 
@@ -77,7 +76,7 @@ discovery. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the handshake, frames an
 2. **Phone:** install `linkphone-android.apk` (allow “install unknown apps”). A fresh install opens
    a three-step intro: what LinkPhone is, why each permission is needed, and pairing. You can skip
    it and set everything up later on the main screen.
-3. **PC:** run `LinkPhone.Setup.0.12.11.exe`. The installer is unsigned, so SmartScreen requires
+3. **PC:** run `LinkPhone.Setup.0.12.12.exe`. The installer is unsigned, so SmartScreen requires
    **More info → Run anyway**. It also adds **Send to → LinkPhone** to Explorer; Windows 11 may keep
    it under **Show more options**.
 4. **Pair:** on the PC, expand **Scan QR code instead** in the sidebar. On the phone, tap **Scan QR**

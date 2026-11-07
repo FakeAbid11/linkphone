@@ -154,6 +154,7 @@ jobs:
             * One card per call: re-posted call notifications update the same card and reconnect rebuilds the call list
             * Ongoing system notifications (Continuity, Networking, VPN, music) no longer appear as calls
             * UI pass: one type scale, 4px spacing rhythm, compact call rows with a mono timer, monochrome error emphasis
+            * Android UI foundation: one theme and type scale, duplicate palettes removed, Share scrolls, QR scrim
             * Existing SMS conversations, live incoming texts and replies from the PC
             * Phone photo albums with thumbnails, large preview and original download
             * Live phone battery percentage and charging state

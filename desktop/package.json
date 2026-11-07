@@ -4,7 +4,8 @@
   "version": "0.12.20",
   "private": true,
   "description": "LinkPhone - your Android phone, on your PC. LAN only.",
-  "author": "LinkPhone",
+  "author": "LinkPhone <dev@linkphone.dev>",
+  "homepage": "https://github.com/FakeAbid11/linkphone",
   "license": "MIT",
   "main": "./out/main/index.js",
   "scripts": {
@@ -66,6 +67,7 @@
       "icon": "build/icon.ico"
     },
     "linux": {
+      "maintainer": "LinkPhone <dev@linkphone.dev>",
       "artifactName": "${productName}-${version}.${ext}",
       "target": [
         "AppImage",

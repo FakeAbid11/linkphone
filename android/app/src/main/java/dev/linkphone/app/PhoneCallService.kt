@@ -1036,7 +1036,7 @@ private class CallNotifier(private val context: Context) {
         } else {
             builder.addAction(
                 0,
-                if (snapshot.speaker) "Speaker off" else "Speaker on",
+                if (snapshot.speaker) "Speaker on" else "Speaker off",
                 action(
                     CallActionReceiver.ACTION_SPEAKER,
                     call.id,

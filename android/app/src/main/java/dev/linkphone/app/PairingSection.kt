@@ -1,5 +1,7 @@
 package dev.linkphone.app
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -177,21 +180,33 @@ fun PairingSection(
             }
             if (devices.isNotEmpty()) {
                 devices.forEach { target ->
-                    OutlinedButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            if (store.hasPairing()) connect(target, null)
-                            else pendingDevice = target
-                        }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(MaterialTheme.shapes.small)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable {
+                                if (store.hasPairing()) connect(target, null)
+                                else pendingDevice = target
+                            }
+                            .padding(Spacing.m),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.m)
                     ) {
-                        Column(Modifier.fillMaxWidth()) {
-                            Text(target.name, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+                        Symbol(Symbols.smartphone, 18.sp)
+                        Column(
+                            Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                        ) {
+                            Text(target.name, style = MaterialTheme.typography.titleMedium)
                             Text(
                                 "${target.host}:${target.port}",
-                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        Symbol(Symbols.chevron_right, 18.sp)
                     }
                 }
             }

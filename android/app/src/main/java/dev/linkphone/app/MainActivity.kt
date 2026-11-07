@@ -1,5 +1,11 @@
 package dev.linkphone.app
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -545,7 +551,11 @@ private fun Screen(modifier: Modifier = Modifier) {
             }
         }
 
-        if (setupOpen) {
+        AnimatedVisibility(
+            visible = setupOpen,
+            enter = fadeIn(tween(220)) + expandVertically(),
+            exit = fadeOut(tween(150)) + shrinkVertically()
+        ) {
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -594,214 +604,148 @@ private fun Screen(modifier: Modifier = Modifier) {
         )
 
         if (!notifAccess) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.notifications, "Notification access")
-                    Text(
-                        "Required to mirror notifications. Android asks you to allow it in system settings.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    OutlinedButton(onClick = {
-                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                    }) { ButtonLabel(Symbols.settings, "Open settings") }
+            PermissionCard(
+                glyph = Symbols.notifications,
+                title = "Notification access",
+                body = "Required to mirror notifications. Android asks you to allow it in system settings.",
+                actionLabel = "Open settings",
+                onAction = {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 }
-            }
+            )
         } else if (!listenerConnected) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.notifications, "Notification listener")
-                    Text(
-                        "Notification access is on, but the listener is disconnected. " +
-                            "Reconnect it to mirror notifications from your phone.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = {
-                            NotificationRelay.ensureBound(context, true)
-                        }) { ButtonLabel(Symbols.refresh, "Reconnect") }
-                        OutlinedButton(onClick = {
-                            context.startActivity(
-                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                            )
-                        }) { ButtonLabel(Symbols.settings, "Open settings") }
-                    }
+            PermissionCard(
+                glyph = Symbols.notifications,
+                title = "Notification listener",
+                body = "Notification access is on, but the listener is disconnected. Reconnect it to mirror notifications from your phone.",
+                actionLabel = "Reconnect",
+                onAction = { NotificationRelay.ensureBound(context, true) },
+                secondaryLabel = "Open settings",
+                onSecondary = {
+                    context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 }
-            }
+            )
         }
 
         if (!batteryExempt) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.settings, "Background connection")
-                    Text(
-                        "Keep the connection alive while the screen is off. Android battery " +
-                            "optimization can pause background networking; LinkPhone can ask to be " +
-                            "exempt. You can undo this in system settings.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
+            PermissionCard(
+                glyph = Symbols.settings,
+                title = "Background connection",
+                body = "Keep the connection alive while the screen is off. Android battery optimization can pause background networking; LinkPhone can ask to be exempt.",
+                actionLabel = "Allow background",
+                onAction = {
+                    val request = Intent(
+                        Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        "package:${context.packageName}".toUri()
                     )
-                    OutlinedButton(onClick = {
-                        val request = Intent(
-                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                            "package:${context.packageName}".toUri()
-                        )
-                        runCatching { batteryExemption.launch(request) }.onFailure {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                )
-                            }
-                            notice = "Choose LinkPhone in the battery-optimization list and set it " +
-                                "to Don't optimize. On Xiaomi/HyperOS also enable Autostart."
+                    runCatching { batteryExemption.launch(request) }.onFailure {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            )
                         }
-                    }) { ButtonLabel(Symbols.settings, "Allow background") }
+                        notice = "Choose LinkPhone in the battery-optimization list and set it " +
+                            "to Don't optimize. On Xiaomi/HyperOS also enable Autostart."
+                    }
                 }
-            }
+            )
         }
 
         if (!smsAccess) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.sms, "Messages")
-                    Text(
-                        "Allow LinkPhone to read and send SMS so your texts show up on the PC. " +
-                            "It stays a normal app — it never becomes your default SMS app.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    OutlinedButton(onClick = {
-                        smsPermission.launch(
-                            arrayOf(
-                                Manifest.permission.READ_SMS,
-                                Manifest.permission.SEND_SMS,
-                                Manifest.permission.RECEIVE_SMS
-                            )
+            PermissionCard(
+                glyph = Symbols.sms,
+                title = "Messages",
+                body = "Allow LinkPhone to read and send SMS so your texts show up on the PC. It stays a normal app — it never becomes your default SMS app.",
+                actionLabel = "Allow messages",
+                onAction = {
+                    smsPermission.launch(
+                        arrayOf(
+                            Manifest.permission.READ_SMS,
+                            Manifest.permission.SEND_SMS,
+                            Manifest.permission.RECEIVE_SMS
                         )
-                    }) { ButtonLabel(Symbols.sms, "Allow SMS access") }
+                    )
                 }
-            }
+            )
         }
 
         if (!photoAccess) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.photo_library, "Photos and videos")
-                    Text(
-                        "Allow LinkPhone to show photo and video albums on your PC. You can grant " +
-                            "all media or a selected set on newer Android versions.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    OutlinedButton(onClick = {
-                        photoPermission.launch(photoPermissions())
-                    }) { ButtonLabel(Symbols.photo_library, "Allow media access") }
-                }
-            }
+            PermissionCard(
+                glyph = Symbols.photo_library,
+                title = "Photos and videos",
+                body = "Allow LinkPhone to show photo and video albums on your PC. You can grant all media or a selected set on newer Android versions.",
+                actionLabel = "Allow media",
+                onAction = { photoPermission.launch(photoPermissions()) }
+            )
         }
 
         if (!contactsAccess) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.contacts, "Contact names")
-                    Text(
-                        "Allow contact access to show names instead of numbers and to browse your " +
-                            "contact list from the PC.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    OutlinedButton(onClick = {
-                        contactsPermission.launch(Manifest.permission.READ_CONTACTS)
-                    }) { ButtonLabel(Symbols.contacts, "Allow contact access") }
-                }
-            }
+            PermissionCard(
+                glyph = Symbols.contacts,
+                title = "Contact names",
+                body = "Allow contact access to show names instead of numbers and to browse your contact list from the PC.",
+                actionLabel = "Allow contacts",
+                onAction = { contactsPermission.launch(Manifest.permission.READ_CONTACTS) }
+            )
         }
 
         if (!callLogAccess) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.call, "Call history")
-                    Text(
-                        "Allow call-log access to see recent calls and call back from the PC.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    OutlinedButton(onClick = {
-                        callLogPermission.launch(Manifest.permission.READ_CALL_LOG)
-                    }) { ButtonLabel(Symbols.call, "Allow call-history access") }
-                }
-            }
+            PermissionCard(
+                glyph = Symbols.call,
+                title = "Call history",
+                body = "Allow call-log access to see recent calls and call back from the PC.",
+                actionLabel = "Allow call history",
+                onAction = { callLogPermission.launch(Manifest.permission.READ_CALL_LOG) }
+            )
         }
 
         if (smsAccess && !simAccess) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.smartphone, "Choose a SIM")
-                    Text(
-                        "Allow phone access to label texts and calls by SIM and pick a SIM from the PC.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    OutlinedButton(onClick = {
-                        simPermission.launch(Manifest.permission.READ_PHONE_STATE)
-                    }) { ButtonLabel(Symbols.smartphone, "Allow SIM access") }
-                }
-            }
+            PermissionCard(
+                glyph = Symbols.smartphone,
+                title = "Choose a SIM",
+                body = "Allow phone access to label texts and calls by SIM and pick a SIM from the PC.",
+                actionLabel = "Allow phone access",
+                onAction = { simPermission.launch(Manifest.permission.READ_PHONE_STATE) }
+            )
         }
 
         if (!outgoingReady || !callPermissionsGranted) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.call, "Calls from your PC")
-                    Text(
-                        "Dial, answer, decline, hang up and switch the phone speaker from Windows. " +
-                            "Audio always stays on this phone. No default-phone role is required.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+            PermissionCard(
+                glyph = Symbols.call,
+                title = "Calls from your PC",
+                body = "Dial, answer, decline, hang up and switch the phone speaker from Windows. Audio always stays on this phone. No default-phone role is required.",
+                actionLabel = if (!outgoingReady) "Allow call access" else "Allow call control",
+                onAction = {
                     if (!outgoingReady) {
-                        OutlinedButton(onClick = {
-                            callPermission.launch(
-                                arrayOf(
-                                    Manifest.permission.CALL_PHONE,
-                                    Manifest.permission.READ_PHONE_STATE,
-                                    Manifest.permission.ANSWER_PHONE_CALLS
-                                )
+                        callPermission.launch(
+                            arrayOf(
+                                Manifest.permission.CALL_PHONE,
+                                Manifest.permission.READ_PHONE_STATE,
+                                Manifest.permission.ANSWER_PHONE_CALLS
                             )
-                        }) { ButtonLabel(Symbols.call, "Allow call access") }
+                        )
                     } else {
-                        OutlinedButton(onClick = {
-                            callPermission.launch(
-                                arrayOf(
-                                    Manifest.permission.READ_PHONE_STATE,
-                                    Manifest.permission.ANSWER_PHONE_CALLS
-                                )
+                        callPermission.launch(
+                            arrayOf(
+                                Manifest.permission.READ_PHONE_STATE,
+                                Manifest.permission.ANSWER_PHONE_CALLS
                             )
-                        }) { ButtonLabel(Symbols.call, "Allow call control") }
+                        )
                     }
                 }
-            }
+            )
         }
 
         }
 
         if (paired && store.clipboardEnabled && store.pcClipboardEnabled && !backgroundClipboard) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CardTitle(Symbols.settings, "Sync copies from other apps")
-                    Text(
-                        "Optional. Android only lets LinkPhone read the clipboard while it is on " +
-                            "screen. Enable accessibility to sync text copied in other apps. " +
-                            "LinkPhone reads clipboard text only, never screen content.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    OutlinedButton(onClick = {
-                        ClipboardAccessibilityService.openSettings(context)
-                    }) { ButtonLabel(Symbols.settings, "Enable background sync") }
-                }
-            }
+            PermissionCard(
+                glyph = Symbols.settings,
+                title = "Sync copies from other apps",
+                body = "Optional. Android only lets LinkPhone read the clipboard while it is on screen. Enable accessibility to sync text copied in other apps. LinkPhone reads clipboard text only, never screen content.",
+                actionLabel = "Enable sync",
+                onAction = { ClipboardAccessibilityService.openSettings(context) }
+            )
         }
 
         Text(

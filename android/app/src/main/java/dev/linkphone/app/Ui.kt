@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -77,6 +78,7 @@ internal object Symbols {
     const val info = "\ue88e"
     const val arrow_downward = "\ue5db"
     const val arrow_upward = "\ue5d8"
+    const val chevron_right = "\ue5cc"
 }
 
 internal fun linkScheme(): ColorScheme = darkColorScheme(
@@ -258,7 +260,9 @@ internal fun PermissionCard(
     body: String,
     actionLabel: String,
     onAction: () -> Unit,
-    primary: Boolean = false
+    primary: Boolean = false,
+    secondaryLabel: String? = null,
+    onSecondary: (() -> Unit)? = null
 ) {
     LinkCard {
         CardTitle(glyph, title)
@@ -267,10 +271,15 @@ internal fun PermissionCard(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        if (primary) {
-            Button(onClick = onAction) { ButtonLabel(glyph, actionLabel) }
-        } else {
-            OutlinedButton(onClick = onAction) { ButtonLabel(glyph, actionLabel) }
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            if (primary) {
+                Button(onClick = onAction) { ButtonLabel(glyph, actionLabel) }
+            } else {
+                OutlinedButton(onClick = onAction) { ButtonLabel(glyph, actionLabel) }
+            }
+            if (secondaryLabel != null && onSecondary != null) {
+                TextButton(onClick = onSecondary) { Text(secondaryLabel) }
+            }
         }
     }
 }

@@ -15,7 +15,7 @@ import {
   shell,
   Tray
 } from 'electron'
-import type { AppState, GalleryPreview, PhoneCallInfo } from '../shared/protocol'
+import type { AppState, GalleryPreview, NotificationAction, NotificationItem, PhoneCallInfo } from '../shared/protocol'
 import { mimeForPath } from '../shared/mime'
 import { ClipboardWatcher } from './clipboard'
 import { newPairCode } from './crypto'
@@ -733,17 +733,19 @@ async function bootstrap(): Promise<void> {
     }
   )
 
-  server.on('notification', (item) => {
+  server.on('notification', (item: NotificationItem) => {
     if (store.isNotificationsPaused()) return
     if (!Notification.isSupported()) return
     try {
-      const nonReplyActions = (item.actions || []).filter((a) => !a.reply && a.id !== 'content' && a.label)
-      const actions = nonReplyActions.slice(0, 2).map((a) => ({
+      const nonReplyActions = (item.actions || []).filter(
+        (a: NotificationAction) => !a.reply && a.id !== 'content' && a.label
+      )
+      const actions = nonReplyActions.slice(0, 2).map((a: NotificationAction) => ({
         type: 'button' as const,
         text: a.label
       }))
 
-      const replyAction = (item.actions || []).find((a) => a.reply)
+      const replyAction = (item.actions || []).find((a: NotificationAction) => a.reply)
       const canInlineReply = Boolean(item.canReply && replyAction)
 
       const n = new Notification({

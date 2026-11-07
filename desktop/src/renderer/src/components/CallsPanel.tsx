@@ -186,9 +186,9 @@ export function CallsPanel({
         <div className="calls-left">
           {calls.length > 0 ? (
             <div className="call-stack">
-              {calls.map((call) => (
+              {calls.map((call, index) => (
                 <CallCard
-                  key={call.id}
+                  key={`${call.id}:${index}`}
                   call={call}
                   now={now}
                   speaker={speaker}
